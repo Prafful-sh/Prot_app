@@ -530,6 +530,7 @@ def simulate_chromatogram_peaks(
     total_signal_280 = np.zeros_like(volumes)
     total_signal_260 = np.zeros_like(volumes)
 
+    v_perm = float(column_config.get("liquid_perm_volume_ml", vt * 0.90))
     vinj_dispersion = _get_extra_column_dispersion_ml(column_config)
     individual_peaks = []
 
@@ -612,6 +613,11 @@ def simulate_chromatogram_peaks(
         total_signal_280 += curve_280
         total_signal_260 += curve_260
 
+        if is_aggregate or kav <= 0.0:
+            pore_access_pct = 0.0
+        else:
+            pore_access_pct = round(100.0 * min(1.0, max(0.0, (ve - vo) / max(1e-6, v_perm - vo))), 1)
+
         individual_peaks.append({
             "label": label,
             "mw_kda": round(mw, 2),
@@ -619,6 +625,7 @@ def simulate_chromatogram_peaks(
             "rh_angstrom": round(rh_a, 1),
             "ve_ml": ve,
             "kav": kav,
+            "pore_access_pct": pore_access_pct,
             "sigma_ml": round(sigma, dec),
             "fwhm_ml": round(2.3548 * sigma, dec),
             "peak_width_base_ml": round(w_base, dec),
@@ -690,4 +697,349 @@ def simulate_standard_mixture_chromatogram(
         "volume_axis_ml": volumes.tolist(),
         "signal_mau": total_mix_signal.tolist(),
         "marker_peaks": marker_peaks
+    }
+
+
+def _short_species_name(label: str) -> str:
+    """Produces a compact badge-friendly species name (e.g., 'Monomer (14.3 kDa)' -> 'Monomer 14.3k')."""
+    s = label.strip()
+    m = None
+    import re as _re
+    m = _re.match(r"^([^\(]+)\(\s*([0-9.]+)\s*kDa\s*\)$", s)
+    if m:
+        base = m.group(1).strip()
+        val = float(m.group(2))
+        mw_txt = f"{val/1000.0:.2f}M" if val >= 1000.0 else f"{val:g}k"
+        return f"{base} ({mw_txt})"
+    return s[:22]
+
+
+def compute_column_snapshot(
+    sim_data: Dict[str, Any],
+    column_config: Dict[str, Any],
+    pumped_ml: float,
+    include_reference_companions: bool = True
+) -> Dict[str, Any]:
+    """
+    Computes an exact chromatographic snapshot of the packed SEC column, bead pore accessibility,
+    live UV 280 nm detector flow-cell reading, and 8-tube fraction collector rack after pumping
+    `pumped_ml` of running buffer into the top of the column.
+
+    Physical Migration Model:
+      - In linear size-exclusion chromatography, a band with retention volume Ve moves down a
+        packed bed of normalized depth z in [0, 1] at constant fractional rate dz/dV = 1 / Ve,
+        so z_center(V_pumped) = V_pumped / Ve.
+      - Pore accessibility (% of liquid intraparticle pore volume entered, Ackers Kd * 100%):
+        pore_access_pct = 100 * clip((Ve - Vo) / (V_perm - Vo), 0, 1).
+    """
+    vt = float(column_config["bed_volume_vt_ml"])
+    vo = float(column_config["void_volume_vo_ml"])
+    v_perm = float(column_config.get("liquid_perm_volume_ml", vt * 0.90))
+    rh50 = float(column_config.get("rh50_angstrom", 32.657))
+    excl_kda = float(column_config.get("exclusion_limit_kda", 1300.0))
+    plate_n = float(column_config.get("plate_count_n", 2800.0))
+    dec = 2 if vt < 5.0 else 1
+
+    pumped = max(0.0, min(vt * 1.12, float(pumped_ml)))
+    vol_axis = np.asarray(sim_data["volume_axis_ml"], dtype=float)
+    sig_280 = np.asarray(sim_data["total_signal_mau"], dtype=float)
+    sig_260 = np.asarray(sim_data.get("total_signal_a260_mau", sig_280 * 0.57), dtype=float)
+
+    live_uv_280 = float(np.interp(pumped, vol_axis, sig_280)) if len(vol_axis) > 1 else 0.0
+    live_uv_260 = float(np.interp(pumped, vol_axis, sig_260)) if len(vol_axis) > 1 else 0.0
+
+    # 8 Fraction Collector Tubes spanning [0.85 * Vo, 1.02 * Vt] (pre-0.85*Vo goes to Waste)
+    v_frac_start = round(vo * 0.85, 3)
+    v_frac_end = round(vt * 1.02, 3)
+    tube_span = (v_frac_end - v_frac_start) / 8.0
+
+    def _assign_tube_id(ve_val: float) -> str:
+        idx = int((ve_val - v_frac_start) / max(1e-6, tube_span))
+        idx = max(0, min(7, idx))
+        return f"F{idx + 1}"
+
+    # Build active species list + optional non-colliding reference size companions for classroom contrast
+    raw_items: List[Dict[str, Any]] = []
+    real_peaks = list(sim_data.get("peaks", []))
+    for pk in real_peaks:
+        p_col = "#0F766E" if pk.get("color") == "#2563EB" else pk.get("color", "#0F766E")
+        ve_v = float(pk["ve_ml"])
+        kav_v = float(pk["kav"])
+        is_agg = bool(pk.get("is_aggregate", False))
+        p_pct = float(
+            pk.get(
+                "pore_access_pct",
+                0.0 if (is_agg or kav_v <= 0.0) else round(100.0 * min(1.0, max(0.0, (ve_v - vo) / max(1e-6, v_perm - vo))), 1),
+            )
+        )
+        raw_items.append({
+            "label": pk["label"],
+            "short_label": _short_species_name(pk["label"]),
+            "mw_kda": float(pk["mw_kda"]),
+            "rh_angstrom": float(pk["rh_angstrom"]),
+            "ve_ml": ve_v,
+            "kav": kav_v,
+            "pore_access_pct": p_pct,
+            "sigma_ml": float(pk.get("sigma_ml", max(0.02 * vt, ve_v / math.sqrt(plate_n)))),
+            "peak_height_mau": float(pk.get("peak_height_mau", 700.0)),
+            "color": p_col,
+            "is_aggregate": is_agg,
+            "is_reference_ghost": False,
+        })
+
+    if include_reference_companions and len(real_peaks) < 2:
+        existing_ves = [it["ve_ml"] for it in raw_items]
+        min_sep = 0.075 * vt
+
+        # 1. Giant Excluded Reference (Void Vo, 0% pores)
+        if all(abs(vo - ev) > min_sep for ev in existing_ves):
+            excl_lbl = f"{excl_kda/1000.0:g} MDa" if excl_kda >= 1000.0 else f"{excl_kda:g} kDa"
+            rh_excl_ref = max(110.0, predict_stokes_radius_rh(excl_kda * 1.3, "globular"))
+            sig_vo = math.sqrt((vo / math.sqrt(plate_n)) ** 2 + _get_extra_column_dispersion_ml(column_config) ** 2)
+            raw_items.append({
+                "label": f"Ref: Big Excluded (>{excl_lbl})",
+                "short_label": "Ref: Giant (Vo)",
+                "mw_kda": excl_kda * 1.3,
+                "rh_angstrom": round(rh_excl_ref, 1),
+                "ve_ml": round(vo, 3 if vt < 5.0 else 2),
+                "kav": 0.0,
+                "pore_access_pct": 0.0,
+                "sigma_ml": sig_vo,
+                "peak_height_mau": 0.0,
+                "color": "#DC2626",
+                "is_aggregate": True,
+                "is_reference_ghost": True,
+            })
+            existing_ves.append(vo)
+
+        # 2. If the user's single species is itself at Vo (e.g. Aggregate alone or giant Titin), add a Mid-Size Reference
+        ve_mid, kav_mid, _ = calculate_retention_volume(44.0, column_config, rh_override_a=30.5)
+        if len(existing_ves) < 2 and all(abs(ve_mid - ev) > min_sep * 1.2 for ev in existing_ves):
+            sig_mid = math.sqrt((ve_mid / math.sqrt(plate_n)) ** 2 + _get_extra_column_dispersion_ml(column_config) ** 2)
+            p_pct_mid = round(100.0 * min(1.0, max(0.0, (ve_mid - vo) / max(1e-6, v_perm - vo))), 1)
+            raw_items.append({
+                "label": "Ref: Medium Protein (44 kDa)",
+                "short_label": "Ref: Medium (44k)",
+                "mw_kda": 44.0,
+                "rh_angstrom": 30.5,
+                "ve_ml": ve_mid,
+                "kav": kav_mid,
+                "pore_access_pct": p_pct_mid,
+                "sigma_ml": sig_mid,
+                "peak_height_mau": 0.0,
+                "color": "#D97706",
+                "is_aggregate": False,
+                "is_reference_ghost": True,
+            })
+            existing_ves.append(ve_mid)
+
+        # 3. Tiny Permeating Marker (Vitamin B12, 1.36 kDa, Rh = 8.5 Å -> near V_perm)
+        ve_tiny, kav_tiny, _ = calculate_retention_volume(1.355, column_config, rh_override_a=8.5)
+        if all(abs(ve_tiny - ev) > min_sep for ev in existing_ves):
+            sig_tiny = math.sqrt((ve_tiny / math.sqrt(plate_n)) ** 2 + _get_extra_column_dispersion_ml(column_config) ** 2)
+            p_pct_tiny = round(100.0 * min(1.0, max(0.0, (ve_tiny - vo) / max(1e-6, v_perm - vo))), 1)
+            raw_items.append({
+                "label": "Ref: Tiny Marker (1.4 kDa)",
+                "short_label": "Ref: Tiny (1.4k)",
+                "mw_kda": 1.36,
+                "rh_angstrom": 8.5,
+                "ve_ml": ve_tiny,
+                "kav": kav_tiny,
+                "pore_access_pct": p_pct_tiny,
+                "sigma_ml": sig_tiny,
+                "peak_height_mau": 0.0,
+                "color": "#64748B",
+                "is_aggregate": False,
+                "is_reference_ghost": True,
+            })
+
+    # Sort travellers from fastest-eluting (largest Rh / smallest Ve) to slowest-eluting (smallest Rh / largest Ve)
+    raw_items.sort(key=lambda x: (x["ve_ml"], 0 if not x["is_reference_ghost"] else 1))
+
+    vinj = _get_extra_column_dispersion_ml(column_config)
+    travellers: List[Dict[str, Any]] = []
+    detector_active_peak: Optional[Dict[str, Any]] = None
+    best_det_signal = 0.0
+
+    for it in raw_items:
+        ve_v = max(1e-6, it["ve_ml"])
+        sig_v = max(1e-6, it["sigma_ml"])
+        progress = pumped / ve_v
+        z_col = min(1.0, max(0.0, progress))
+
+        # Plate-theory fractional band dispersion inside the column
+        sig_z0 = vinj / ve_v
+        sig_z = math.sqrt(sig_z0 ** 2 + max(0.04, z_col) / max(400.0, plate_n))
+        dz_band = min(0.095, max(0.024, 1.8 * sig_z))
+
+        # Monotonic visual sphere radius (px) from hydrodynamic Stokes radius Rh (Å)
+        rh_eff = max(8.0, it["rh_angstrom"])
+        sphere_r_px = round(min(10.8, max(3.6, 3.4 + 2.55 * math.log(rh_eff / 7.5))), 2)
+        if it["is_aggregate"] and not it["is_reference_ghost"]:
+            sphere_r_px = max(sphere_r_px, 9.8)
+
+        if pumped <= 0.002 * vt:
+            status = "at_inlet"
+        elif abs(pumped - ve_v) <= 1.15 * sig_v:
+            status = "at_detector"
+        elif pumped < ve_v:
+            status = "in_column"
+        else:
+            status = "eluted"
+
+        tube_id = _assign_tube_id(ve_v)
+        entry = {
+            **it,
+            "progress": round(progress, 4),
+            "z_col": round(z_col, 4),
+            "pct_down": int(round(z_col * 100.0)),
+            "dz_band": round(dz_band, 4),
+            "sphere_r_px": sphere_r_px,
+            "status": status,
+            "assigned_tube": tube_id,
+        }
+        travellers.append(entry)
+
+        if not it["is_reference_ghost"] and status == "at_detector":
+            inst_sig = it["peak_height_mau"] * math.exp(-0.5 * ((pumped - ve_v) / sig_v) ** 2)
+            if inst_sig > best_det_signal:
+                best_det_signal = inst_sig
+                detector_active_peak = entry
+
+    # Compute 8 Fraction Collector Tubes F1..F8
+    fractions: List[Dict[str, Any]] = []
+    for k in range(8):
+        v0_t = v_frac_start + k * tube_span
+        v1_t = v0_t + tube_span
+        v_mid = 0.5 * (v0_t + v1_t)
+        if pumped <= v0_t:
+            fill_frac = 0.0
+        elif pumped >= v1_t:
+            fill_frac = 1.0
+        else:
+            fill_frac = (pumped - v0_t) / max(1e-6, tube_span)
+
+        is_filling_now = (v0_t <= pumped < v1_t) and (pumped > 0.002 * vt)
+
+        # Determine dominant real species captured in this tube
+        best_pk_color = "#CBD5E1"
+        best_pk_weight = 0.0
+        captured_labels: List[str] = []
+        for tr in travellers:
+            if tr["is_reference_ghost"]:
+                continue
+            # Overlap weight of Gaussian peak inside [v0_t, v1_t]
+            dist = 0.0 if (v0_t <= tr["ve_ml"] <= v1_t) else min(abs(tr["ve_ml"] - v0_t), abs(tr["ve_ml"] - v1_t))
+            w = math.exp(-0.5 * (dist / max(1e-6, tr["sigma_ml"])) ** 2)
+            if v0_t <= tr["ve_ml"] < v1_t or (k == 7 and abs(tr["ve_ml"] - v1_t) <= 0.02 * vt):
+                captured_labels.append(tr["short_label"])
+            if w > 0.25 and w > best_pk_weight:
+                best_pk_weight = w
+                best_pk_color = tr["color"]
+
+        tint_opacity = round(0.18 + 0.67 * min(1.0, best_pk_weight), 2) if best_pk_weight > 0.25 else 0.22
+        fractions.append({
+            "tube_id": f"F{k + 1}",
+            "v_start_ml": round(v0_t, dec),
+            "v_end_ml": round(v1_t, dec),
+            "v_mid_ml": round(v_mid, dec),
+            "fill_frac": round(fill_frac, 3),
+            "is_filling_now": is_filling_now,
+            "has_protein": best_pk_weight > 0.25,
+            "tint_color": best_pk_color if best_pk_weight > 0.25 else "#BAE6FD",
+            "tint_opacity": tint_opacity,
+            "captured_labels": captured_labels,
+        })
+
+    # Build Plain-English Classroom Stage Narrative
+    active_tube_obj = next((f for f in fractions if f["is_filling_now"]), None)
+    active_tube_txt = active_tube_obj["tube_id"] if active_tube_obj else ("Waste" if pumped < v_frac_start else "Done")
+
+    if pumped <= 0.005 * vt:
+        stage_badge = "Stage 1 • Sample Injected at Top"
+        stage_text = (
+            "All molecules start mixed together in a thin sample band at the very top of the column (0% down). "
+            "Move the pump slider right to push buffer downward and watch big molecules pull ahead of small ones!"
+        )
+    elif detector_active_peak is not None:
+        pk_nm = detector_active_peak["label"]
+        p_pct = detector_active_peak["pore_access_pct"]
+        stage_badge = f"🔦 Peak Exiting Now into Tube {active_tube_txt}!"
+        if detector_active_peak["is_aggregate"] or p_pct <= 1.0:
+            stage_text = (
+                f"At {pumped:.{dec}f} mL (= Void Volume Vo), {pk_nm} is exiting the bottom UV detector "
+                f"({live_uv_280:.0f} mAU) into Tube {active_tube_txt}! Because it entered 0% of the bead tunnels, "
+                f"it took the express outside highway around every bead."
+            )
+        else:
+            stage_text = (
+                f"At {pumped:.{dec}f} mL, {pk_nm} is crossing the UV 280 nm lamp ({live_uv_280:.0f} mAU) and dripping "
+                f"into Tube {active_tube_txt}! It explored {p_pct:.0f}% of the microscopic bead tunnels along the way."
+            )
+    elif pumped < vo * 0.96:
+        stage_badge = "Stage 2 • Pushing Pre-Void Buffer"
+        stage_text = (
+            f"At {pumped:.{dec}f} mL (< Vo = {vo:.{dec}f} mL), NO proteins have reached the bottom yet — only pure buffer "
+            f"is exiting to Waste. Inside the column, big molecules are already pulling ahead because they skip the bead pores!"
+        )
+    elif abs(pumped - vo) <= 0.035 * vt:
+        in_col_real = [t for t in travellers if not t["is_reference_ghost"] and t["status"] == "in_column"]
+        stage_badge = f"🚀 Void Volume (Vo = {vo:.{dec}f} mL) • Giant Excluded Molecules Exit First!"
+        if in_col_real:
+            t0 = in_col_real[0]
+            stage_text = (
+                f"At {pumped:.{dec}f} mL (= Void Volume Vo), molecules too big for the bead pores (0% tunnels entered) "
+                f"reach the bottom first (Tube {active_tube_txt}), while your {t0['label']} is only {t0['pct_down']}% down "
+                f"the column because it weaves into {t0['pore_access_pct']:.0f}% of the bead tunnels!"
+            )
+        else:
+            stage_text = (
+                f"At {pumped:.{dec}f} mL (= Void Volume Vo), molecules larger than the bead pores bypass 100% of the "
+                f"internal tunnels and exit first into Tube {active_tube_txt}."
+            )
+    elif pumped < vt * 0.98:
+        in_col_real = [t["short_label"] for t in travellers if not t["is_reference_ghost"] and t["status"] == "in_column"]
+        eluted_real = [t["short_label"] for t in travellers if not t["is_reference_ghost"] and t["status"] == "eluted"]
+        stage_badge = f"Stage 3 • Separating Inside Bead Tunnels (Tube {active_tube_txt})"
+        if eluted_real and in_col_real:
+            stage_text = (
+                f"At {pumped:.{dec}f} mL, {', '.join(eluted_real[:2])} already exited into early tubes, while smaller "
+                f"{', '.join(in_col_real[:2])} is still weaving through internal bead tunnels before reaching the UV lamp!"
+            )
+        elif in_col_real:
+            stage_text = (
+                f"At {pumped:.{dec}f} mL (past Vo = {vo:.{dec}f} mL), {', '.join(in_col_real[:2])} is travelling through "
+                f"the bead tunnel network and will reach the bottom UV detector at its elution volume (Ve)."
+            )
+        else:
+            stage_text = (
+                f"At {pumped:.{dec}f} mL, your target protein has already been collected cleanly in its fraction tube, "
+                f"while tiny molecules and buffer salts finish their long maze path toward Vt ({vt:g} mL)."
+            )
+    else:
+        stage_badge = "Stage 4 • Column Run Complete (Vt Reached)"
+        stage_text = (
+            f"At {pumped:.{dec}f} mL (≥ Total Bed Volume Vt = {vt:g} mL), even tiny salts have explored 100% of the bead "
+            f"tunnels and exited. Every protein size has been cleanly sorted into its own numbered Fraction Tube!"
+        )
+
+    return {
+        "column_id": column_config["id"],
+        "column_name": column_config["name"],
+        "pumped_ml": round(pumped, 3 if vt < 5.0 else 2),
+        "vt_ml": vt,
+        "vo_ml": vo,
+        "v_perm_ml": v_perm,
+        "v_frac_start_ml": v_frac_start,
+        "v_frac_end_ml": v_frac_end,
+        "rh50_angstrom": rh50,
+        "exclusion_limit_kda": excl_kda,
+        "live_uv_mau": round(live_uv_280, 1),
+        "live_uv_a260_mau": round(live_uv_260, 1),
+        "detector_active_peak": detector_active_peak,
+        "active_tube_id": active_tube_txt,
+        "travellers": travellers,
+        "fractions": fractions,
+        "stage_badge": stage_badge,
+        "stage_text": stage_text,
     }

@@ -14,7 +14,9 @@ Designed for high-school & college classrooms as well as structural biology & bi
 - Simplified Real-World Literature & 1,254-Protein Accuracy Showcase
 """
 
+import html
 import json
+import math
 import os
 import streamlit as st
 import plotly.graph_objects as go
@@ -40,7 +42,8 @@ from modules.sec_simulator import (
     recommend_optimal_columns,
     get_column_marker_elutions,
     simulate_chromatogram_peaks,
-    simulate_standard_mixture_chromatogram
+    simulate_standard_mixture_chromatogram,
+    compute_column_snapshot,
 )
 from modules.buffer_advisor import (
     COMMON_LAB_REAGENTS,
@@ -694,6 +697,101 @@ st.markdown("""
         font-size: var(--fs-micro);
         font-weight: 600;
         font-variant-numeric: tabular-nums;
+    }
+
+    /* Interactive Inside-the-SEC-Column & Bead Pore Studio */
+    .sec-studio-card {
+        background: var(--bg-surface);
+        border: 1.5px solid var(--border-soft);
+        border-top: 4px solid var(--teal-primary);
+        border-radius: 16px;
+        padding: 14px 18px 16px 18px;
+        margin: 8px 0 18px 0;
+        box-shadow: 0 4px 16px rgba(11, 34, 28, 0.05);
+    }
+    .sec-studio-svg {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 12px;
+        background: #F9FCFB;
+        border: 1px solid var(--border-soft);
+    }
+    .sec-svg-h {
+        font-family: var(--font-sans);
+        font-size: 13.5px;
+        font-weight: 800;
+        fill: #0B221C;
+    }
+    .sec-svg-sub {
+        font-family: var(--font-sans);
+        font-size: 11px;
+        font-weight: 500;
+        fill: #47625B;
+    }
+    .sec-svg-lbl {
+        font-family: var(--font-sans);
+        font-size: 11px;
+        font-weight: 600;
+        fill: #1E352F;
+    }
+    .sec-svg-bold {
+        font-family: var(--font-sans);
+        font-size: 11px;
+        font-weight: 800;
+        fill: #0B221C;
+    }
+    .sec-svg-micro {
+        font-family: var(--font-sans);
+        font-size: 10px;
+        font-weight: 700;
+        fill: #47625B;
+    }
+    .sec-svg-mono {
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+    .sec-narrator-bar {
+        margin-top: 11px;
+        background: var(--teal-tint);
+        border: 1px solid var(--teal-border);
+        border-left: 4px solid var(--teal-primary);
+        border-radius: 11px;
+        padding: 10px 15px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+    }
+    .sec-narrator-bar-peak {
+        background: var(--amber-tint);
+        border-color: var(--amber-border);
+        border-left-color: var(--amber-accent);
+    }
+    .sec-narrator-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-size: var(--fs-micro);
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        background: var(--teal-strong);
+        color: #FFFFFF;
+    }
+    .sec-narrator-bar-peak .sec-narrator-badge {
+        background: var(--amber-strong);
+        color: #FFFFFF;
+    }
+    .sec-narrator-text {
+        font-size: var(--fs-body);
+        font-weight: 500;
+        color: var(--ink-strong);
+        line-height: 1.5;
+        flex: 1 1 420px;
     }
 
     /* Tab 2: Working pH Stat Chips Bar, Roadmap Cards & Method Cards */
@@ -1520,14 +1618,25 @@ def _format_exclusion_limit(excl_kda: float) -> str:
     return f"{excl_kda:g} kDa"
 
 
+def _hex_to_rgba(hex_color: str, alpha: float) -> str:
+    """Converts a #RRGGBB hex color string into an rgba(r, g, b, alpha) CSS/Plotly color."""
+    hc = hex_color.lstrip("#")
+    if len(hc) == 6:
+        r, g, b = int(hc[0:2], 16), int(hc[2:4], 16), int(hc[4:6], 16)
+        return f"rgba({r}, {g}, {b}, {alpha:.3f})"
+    return f"rgba(15, 118, 110, {alpha:.3f})"
+
+
 def _format_sec_table_row(p: dict, col_config: dict) -> dict:
     """Formats a simulated SEC peak row for classroom summary tables, handling HMW Void Aggregates cleanly."""
     is_agg = bool(p.get("is_aggregate", False))
     excl_kda = float(p.get("exclusion_limit_kda", col_config.get("exclusion_limit_kda", 1300.0)))
+    pore_pct = float(p.get("pore_access_pct", 0.0 if is_agg else 50.0))
     return {
         "Peak": p["label"],
         "Size": f"> {_format_exclusion_limit(excl_kda)} (HMW)" if is_agg else f"{p['mw_kda']:.1f} kDa",
         "3D Radius (Rh)": "Excluded (Vo)" if is_agg else f"{p['rh_angstrom']:.1f} Å",
+        "Bead Pores Entered": "0% (Bypassed)" if (is_agg or pore_pct < 0.5) else f"{pore_pct:.0f}% (Kav {p['kav']:.2f})",
         "Elutes At (Ve)": f"{p['ve_ml']:.2f} mL",
         "A260/A280": f"{p['a260_a280_ratio']:.2f}"
     }
@@ -1546,9 +1655,10 @@ def create_modern_sec_plot(
     title,
     show_ref_markers=False,
     show_dual_uv=False,
-    paper_exp_markers=None
+    paper_exp_markers=None,
+    pumped_cursor_ml=None
 ):
-    """Creates a clean, classroom-friendly Plotly SEC chromatogram with collision-free peak labels."""
+    """Creates a clean, classroom-friendly Plotly SEC chromatogram with physical column zones & collision-free peak labels."""
     fig = go.Figure()
     vo_val = float(col_config["void_volume_vo_ml"])
     vt_val = float(col_config["bed_volume_vt_ml"])
@@ -1559,8 +1669,56 @@ def create_modern_sec_plot(
         max(sim_data.get("total_signal_a260_mau", [0.0])) if show_dual_uv else 0.0,
         920.0
     )
-    y_upper = max(1220.0 if len(sim_data.get("peaks", [])) >= 5 else 1180.0, max_sig * 1.28)
+    y_upper = max(1290.0 if len(sim_data.get("peaks", [])) >= 5 else 1240.0, max_sig * 1.35)
     x_upper = vt_val * 1.13
+
+    # 0. Intuitive Physical Column Zones Shaded Directly Behind the Chromatogram
+    fig.add_vrect(
+        x0=0.0, x1=vo_val,
+        fillcolor="rgba(148, 163, 184, 0.085)",
+        layer="below", line_width=0
+    )
+    fig.add_vrect(
+        x0=vo_val, x1=vt_val,
+        fillcolor="rgba(13, 148, 136, 0.045)",
+        layer="below", line_width=0
+    )
+    fig.add_vrect(
+        x0=vt_val, x1=x_upper,
+        fillcolor="rgba(217, 119, 6, 0.055)",
+        layer="below", line_width=0
+    )
+
+    # Top Zone Strip Badges (showarrow=False so peak annotation count stays exact)
+    fig.add_annotation(
+        x=vo_val * 0.50, y=0.985, xref="x", yref="paper",
+        text="<b>① Buffer Only</b>",
+        showarrow=False,
+        font=dict(size=9.5, color="#475569", family=PLOTLY_FONT_FAMILY),
+        bgcolor="rgba(241, 245, 249, 0.92)",
+        bordercolor="#CBD5E1", borderwidth=1, borderpad=2
+    )
+    fig.add_annotation(
+        x=0.50 * (vo_val + vt_val), y=0.985, xref="x", yref="paper",
+        text="<b>② Bead-Tunnel Separation:  ⬅️ BIGGER (Fast) • SMALLER (Slow) ➡️</b>",
+        showarrow=False,
+        font=dict(size=9.5, color="#065F46", family=PLOTLY_FONT_FAMILY),
+        bgcolor="rgba(236, 253, 245, 0.94)",
+        bordercolor="#A7F3D0", borderwidth=1, borderpad=2
+    )
+    fig.add_annotation(
+        x=0.50 * (vt_val + x_upper), y=0.985, xref="x", yref="paper",
+        text="<b>③ Salts</b>",
+        showarrow=False,
+        font=dict(size=9.5, color="#92400E", family=PLOTLY_FONT_FAMILY),
+        bgcolor="rgba(255, 251, 235, 0.94)",
+        bordercolor="#FDE68A", borderwidth=1, borderpad=2
+    )
+
+    sorted_peaks = sorted(
+        sim_data["peaks"],
+        key=lambda p: (p["ve_ml"], 0 if p.get("is_aggregate") else 1)
+    )
 
     # 1. Optional Standard Protein Calibration Mixture
     if show_ref_markers:
@@ -1591,6 +1749,23 @@ def create_modern_sec_plot(
                 showlegend=False
             ))
 
+    # 1b. Individual Color-Coded Species Bell Curves (when comparing 2+ species simultaneously)
+    if len(sorted_peaks) > 1:
+        for pk_b in sorted_peaks:
+            b_color = "#0F766E" if pk_b["color"] == "#2563EB" else pk_b["color"]
+            if "curve_y" in pk_b:
+                fig.add_trace(go.Scatter(
+                    x=sim_data["volume_axis_ml"],
+                    y=pk_b["curve_y"],
+                    mode="lines",
+                    name=f"Band — {pk_b['label']}",
+                    line=dict(color=b_color, width=1.9),
+                    fill="tozeroy",
+                    fillcolor=_hex_to_rgba(b_color, 0.14),
+                    hoverinfo="skip",
+                    showlegend=False
+                ))
+
     # 2. Optional Dual-Wavelength UV 260 nm Trace (DNA/RNA Channel)
     if show_dual_uv and "total_signal_a260_mau" in sim_data:
         fig.add_trace(go.Scatter(
@@ -1608,9 +1783,9 @@ def create_modern_sec_plot(
         x=sim_data["volume_axis_ml"],
         y=sim_data["total_signal_mau"],
         mode="lines",
-        name="UV 280 nm (Protein Signal)",
-        line=dict(color="#0F766E", width=3.1),
-        fill="tozeroy",
+        name="UV 280 nm (Protein Signal)" if len(sorted_peaks) == 1 else "Total UV 280 nm Detector Sum",
+        line=dict(color="#0F766E", width=3.0),
+        fill="tozeroy" if len(sorted_peaks) == 1 else "none",
         fillcolor="rgba(13, 148, 136, 0.14)"
     ))
 
@@ -1641,29 +1816,47 @@ def create_modern_sec_plot(
                 showlegend=(idx_m == 0)
             ))
 
-    # 5. Peak Diamond Markers & 5-Tier Anti-Collision Callouts
-    sorted_peaks = sorted(
-        sim_data["peaks"],
-        key=lambda p: (p["ve_ml"], 0 if p.get("is_aggregate") else 1)
-    )
+    # 5. Proportional Molecule-Size Halo Circles, Peak Diamonds & 5-Tier Anti-Collision Callouts
     min_x_gap = 0.13 * vt_val
     ay_tiers = [-44, -84, -122, -62, -150]
     w_px_est, h_px_est = 460.0, 300.0
-    box_w_est, box_h_est = 132.0, 35.0
+    box_w_est, box_h_est = 142.0, 36.0
     placed_boxes = []
 
     for i, peak in enumerate(sorted_peaks):
         disp_y = max(peak["peak_height_mau"], peak.get("peak_height_a260_mau", 0.0)) if show_dual_uv else peak["peak_height_mau"]
         is_agg_peak = bool(peak.get("is_aggregate", False))
         excl_kda_peak = float(peak.get("exclusion_limit_kda", col_config.get("exclusion_limit_kda", 1300.0)))
+        pore_pct = float(peak.get("pore_access_pct", 0.0 if is_agg_peak else 50.0))
+        pore_short = "0% pores" if (is_agg_peak or pore_pct < 0.5) else f"{pore_pct:.0f}% pores"
         ratio_txt = f" • A260/A280={peak.get('a260_a280_ratio', 0.57):.2f}" if show_dual_uv else ""
         p_color = "#0F766E" if peak["color"] == "#2563EB" else peak["color"]
 
+        # Visual proportional size halo (bigger hydrodynamic radius Rh -> larger translucent sphere on graph!)
+        rh_val = max(8.0, float(peak.get("rh_angstrom", 20.0)))
+        halo_px = 29.0 if is_agg_peak else min(27.0, max(14.0, 11.5 + 4.4 * math.log(rh_val / 8.0)))
+        fig.add_trace(go.Scatter(
+            x=[peak["ve_ml"]],
+            y=[disp_y],
+            mode="markers",
+            name=f"Halo — {peak['label']}",
+            marker=dict(
+                size=halo_px,
+                color=_hex_to_rgba(p_color, 0.20),
+                symbol="circle",
+                line=dict(width=1.3, color=_hex_to_rgba(p_color, 0.55))
+            ),
+            hoverinfo="skip",
+            showlegend=False
+        ))
+
         if is_agg_peak:
             size_hover = f"Size: > {_format_exclusion_limit(excl_kda_peak)} (Excluded at Vo)"
+            pore_hover = "Bead Tunnels Entered: 0% (Too big for pores — express outside path!)"
             uv_hover = f"A260/A280 Ratio: {peak.get('a260_a280_ratio', 0.92):.2f} (UV Light Scattering)"
         else:
             size_hover = f"Size: {peak['mw_kda']:.1f} kDa (Radius Rh = {peak.get('rh_angstrom', 0):.1f} Å)"
+            pore_hover = f"Bead Tunnels Entered: {pore_pct:.0f}% (Kav = {peak['kav']:.2f})"
             uv_hover = f"A260/A280 Ratio: {peak.get('a260_a280_ratio', 0.57):.2f}"
 
         fig.add_trace(go.Scatter(
@@ -1676,6 +1869,7 @@ def create_modern_sec_plot(
             hovertext=(
                 f"<b>{peak['label']}</b><br>"
                 f"{size_hover}<br>"
+                f"{pore_hover}<br>"
                 f"Elution Volume (Ve): {peak['ve_ml']:.{dec+1}f} mL<br>"
                 f"{uv_hover}"
             ),
@@ -1690,18 +1884,18 @@ def create_modern_sec_plot(
 
         ay_offset = ay_tiers[i % len(ay_tiers)]
 
-        # Ensure callout stays within plot canvas and avoids overlapping earlier callout boxes
+        # Ensure callout stays below top zone strip and avoids overlapping earlier callout boxes
         px_x = (peak["ve_ml"] / max(1e-6, x_upper)) * w_px_est
         px_y = (disp_y / max(1e-6, y_upper)) * h_px_est
 
         def _box_collides_or_clips(ax_c: float, ay_c: float) -> bool:
             cx, cy = px_x + ax_c, px_y - ay_c
-            if cy < 38.0 or cy > (h_px_est - 16.0) or cx < 46.0 or cx > (w_px_est - 46.0):
+            if cy < 38.0 or cy > (h_px_est - 28.0) or cx < 46.0 or cx > (w_px_est - 46.0):
                 return True
             return any(abs(cx - ox) < box_w_est and abs(cy - oy) < box_h_est for ox, oy in placed_boxes)
 
         if _box_collides_or_clips(ax_shift, ay_offset):
-            cand_ays = [ay_offset, -44, -84, -122, -62, -150, -104, -176, -202]
+            cand_ays = [ay_offset, -44, -84, -118, -62, -146, -98, -168]
             cand_axs = [ax_shift, -42, 42, 0, -84, 84]
             found_slot = False
             for ay_c in cand_ays:
@@ -1713,7 +1907,7 @@ def create_modern_sec_plot(
                 if found_slot:
                     break
             if not found_slot:
-                max_up_px = max(40, int(h_px_est - 18.0 - px_y))
+                max_up_px = max(38, int(h_px_est - 30.0 - px_y))
                 ay_offset = max(ay_offset, -max_up_px)
 
         placed_boxes.append((px_x + ax_shift, px_y - ay_offset))
@@ -1724,8 +1918,8 @@ def create_modern_sec_plot(
             y=disp_y,
             text=(
                 f"<b>{peak['label']}</b><br>"
-                f"<span style='color:{elute_lbl_color}; font-weight:700;'>Elutes at {peak['ve_ml']:.{dec}f} mL</span>"
-                f"<span style='color:#4A635C;'>{ratio_txt}</span>"
+                f"<span style='color:{elute_lbl_color}; font-weight:700;'>{peak['ve_ml']:.{dec}f} mL</span>"
+                f"<span style='color:#4A635C;'> • {pore_short}{ratio_txt}</span>"
             ),
             showarrow=True,
             arrowhead=2,
@@ -1741,9 +1935,22 @@ def create_modern_sec_plot(
             font=dict(size=11, family=PLOTLY_FONT_FAMILY, color="#0B221C")
         )
 
-    # 6. Column Start (Void Volume Vo) and End (Total Bed Volume Vt)
-    fig.add_vline(x=vo_val, line_dash="dash", line_color="#DC2626", line_width=1.4)
-    fig.add_vline(x=vt_val, line_dash="dash", line_color="#64748B", line_width=1.4)
+    # 6. Column Start (Void Volume Vo), End (Total Bed Volume Vt) & Optional Synchronized Pump Cursor
+    fig.add_vline(x=vo_val, line_dash="dash", line_color="#DC2626", line_width=1.5)
+    fig.add_vline(x=vt_val, line_dash="dash", line_color="#64748B", line_width=1.5)
+
+    if pumped_cursor_ml is not None:
+        fig.add_vline(x=float(pumped_cursor_ml), line_dash="dot", line_color="#4F46E5", line_width=2.1)
+        fig.add_annotation(
+            x=float(pumped_cursor_ml), y=0.895, xref="x", yref="paper",
+            text=f"<b>💧 Pumped: {float(pumped_cursor_ml):.{dec}f} mL</b>",
+            showarrow=False,
+            font=dict(size=10, color="#3730A3", family=PLOTLY_FONT_FAMILY),
+            bgcolor="rgba(238, 242, 255, 0.96)",
+            bordercolor="#A5B4FC",
+            borderwidth=1,
+            borderpad=3
+        )
 
     fig.add_annotation(
         x=vo_val, y=28,
@@ -1808,10 +2015,339 @@ def create_modern_sec_plot(
             x=0.5,
             font=dict(family=PLOTLY_FONT_FAMILY, size=11, color="#1E352F")
         ),
-        margin=dict(l=38, r=35, t=74, b=80),
-        height=450
+        margin=dict(l=38, r=35, t=76, b=80),
+        height=465
     )
     return fig
+
+
+def render_sec_column_visualizer_html(snapshot: dict, sim_data: dict, col_config: dict) -> str:
+    """
+    Renders a crystal-clear, 3-panel synchronized SVG cutaway of:
+      1. The physical packed SEC glass column, live UV 280 nm detector flow cell, and 8-tube fraction rack
+      2. A 1,000,000x magnified porous sponge bead showing why BIG = fast outside bypass & SMALL = slow tunnel maze
+      3. The live UV chromatogram being drawn as running buffer is pumped through the column
+    Uses CSS classes from the main stylesheet (zero inline font-size declarations).
+    """
+    vt = float(snapshot["vt_ml"])
+    vo = float(snapshot["vo_ml"])
+    pumped = float(snapshot["pumped_ml"])
+    rh50 = float(snapshot["rh50_angstrom"])
+    live_uv = float(snapshot["live_uv_mau"])
+    dec = 2 if vt < 5.0 else 1
+    col_short = html.escape(col_config["name"])
+
+    svg: list[str] = [
+        '<svg class="sec-studio-svg" viewBox="0 0 1080 432" xmlns="http://www.w3.org/2000/svg" role="img" '
+        'aria-label="Interactive Inside-the-SEC-Column, Porous Bead Tunnels, and Live UV Detector Diagram">',
+        '<defs>',
+        '<linearGradient id="secColGlass" x1="0" y1="0" x2="1" y2="0">',
+        '<stop offset="0%" stop-color="#E6F4F1"/>',
+        '<stop offset="48%" stop-color="#F7FCFA"/>',
+        '<stop offset="100%" stop-color="#E2F1EC"/>',
+        '</linearGradient>',
+        '<clipPath id="secColBedClip"><rect x="65" y="88" width="96" height="206" rx="4"/></clipPath>',
+        '<clipPath id="secBeadClip"><circle cx="516" cy="166" r="78"/></clipPath>',
+        '</defs>',
+    ]
+
+    # =========================================================================
+    # PANEL 1: PACKED GLASS SEC COLUMN, UV 280 DETECTOR & 8 FRACTION TUBES
+    # =========================================================================
+    svg.append('<rect x="10" y="10" width="344" height="412" rx="14" fill="#FFFFFF" stroke="#D5E5DF" stroke-width="1.5"/>')
+    svg.append('<text x="24" y="33" class="sec-svg-h">1. Inside the SEC Column &amp; Fraction Tubes</text>')
+    svg.append(f'<text x="24" y="49" class="sec-svg-sub">{col_short} • Total Bed Vt = {vt:g} mL</text>')
+
+    # Top Pump Inlet & Pumped mL Pill
+    svg.append('<rect x="168" y="56" width="172" height="22" rx="11" fill="#EEF2FF" stroke="#C7D2FE"/>')
+    svg.append(f'<text x="254" y="71" text-anchor="middle" class="sec-svg-mono" fill="#3730A3">💧 Pumped: {pumped:.{dec}f} / {vt:g} mL</text>')
+    svg.append('<line x1="113" y1="56" x2="113" y2="79" stroke="#0D9488" stroke-width="3" stroke-linecap="round"/>')
+    svg.append('<polygon points="107,76 119,76 113,84" fill="#0D9488"/>')
+
+    # Column Depth Ruler (Left of Glass Cylinder: y = 88 -> 294)
+    col_x, col_w, col_y0, col_h = 65.0, 96.0, 88.0, 206.0
+    for pct_lbl, y_rk in [("0%", col_y0 + 4), ("50%", col_y0 + col_h * 0.5), ("100%", col_y0 + col_h - 2)]:
+        svg.append(f'<text x="56" y="{y_rk + 3:.1f}" text-anchor="end" class="sec-svg-micro">{pct_lbl}</text>')
+        svg.append(f'<line x1="59" y1="{y_rk:.1f}" x2="64" y2="{y_rk:.1f}" stroke="#94A3B8" stroke-width="1.2"/>')
+
+    # Glass Column Body + Top/Bottom Frits
+    svg.append(f'<rect x="{col_x}" y="{col_y0 - 5}" width="{col_w}" height="6" rx="2" fill="#CBD5E1" stroke="#64748B" stroke-width="1"/>')
+    svg.append(f'<rect x="{col_x}" y="{col_y0}" width="{col_w}" height="{col_h}" fill="url(#secColGlass)" stroke="#64748B" stroke-width="2"/>')
+    svg.append(f'<rect x="{col_x}" y="{col_y0 + col_h}" width="{col_w}" height="6" rx="2" fill="#CBD5E1" stroke="#64748B" stroke-width="1"/>')
+
+    # Clipped Packed Porous Sponge Beads + Travelling Protein Bands Inside Column
+    svg.append('<g clip-path="url(#secColBedClip)">')
+    for row_idx in range(10):
+        by = col_y0 + 11.0 + row_idx * 20.2
+        x_off = 9.5 if (row_idx % 2 == 1) else 0.0
+        for col_idx in range(5):
+            bx = col_x + 11.0 + col_idx * 19.0 + x_off
+            if bx - 8.0 > col_x + col_w:
+                continue
+            svg.append(f'<circle cx="{bx:.1f}" cy="{by:.1f}" r="8.4" fill="#DCECE7" stroke="#B6D2C8" stroke-width="1"/>')
+            # Tiny internal sponge tunnel curves inside each resin bead
+            svg.append(
+                f'<path d="M {bx - 4.5:.1f} {by - 2.5:.1f} Q {bx:.1f} {by + 3.5:.1f} {bx + 4.5:.1f} {by - 1.5:.1f}" '
+                f'fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round"/>'
+            )
+            svg.append(
+                f'<path d="M {bx - 2.5:.1f} {by + 4.5:.1f} Q {bx + 1.5:.1f} {by:.1f} {bx + 3.5:.1f} {by + 4.0:.1f}" '
+                f'fill="none" stroke="#FFFFFF" stroke-width="1.3" stroke-linecap="round"/>'
+            )
+
+    # Render bands & proportional protein spheres for travellers currently inside column
+    in_col_items = [t for t in snapshot["travellers"] if t["status"] != "eluted"]
+    for idx_t, tr in enumerate(in_col_items):
+        yc = col_y0 + 6.0 + tr["z_col"] * (col_h - 12.0)
+        bh = max(11.0, tr["dz_band"] * col_h * 1.65)
+        col_hex = tr["color"]
+        is_ghost = tr["is_reference_ghost"]
+        band_op = "0.14" if is_ghost else "0.26"
+        dash_attr = ' stroke-dasharray="3,2"' if is_ghost else ""
+        svg.append(
+            f'<rect x="{col_x + 2}" y="{yc - bh / 2:.1f}" width="{col_w - 4}" height="{bh:.1f}" rx="4" '
+            f'fill="{col_hex}" fill-opacity="{band_op}" stroke="{col_hex}" stroke-opacity="0.45" stroke-width="1"{dash_attr}/>'
+        )
+        r_px = float(tr["sphere_r_px"]) * (0.82 if is_ghost else 0.92)
+        # Place spheres across column width (big excluded spheres in inter-bead gaps, small ones inside beads)
+        x_fracs = [0.20, 0.43, 0.67, 0.84] if tr["pore_access_pct"] < 12.0 else [0.16, 0.37, 0.58, 0.78, 0.90]
+        for k_s, xf in enumerate(x_fracs):
+            sx = col_x + xf * col_w
+            sy = yc + ((-2.4 if k_s % 2 == 0 else 2.4) if idx_t % 2 == 0 else (2.0 if k_s % 2 == 0 else -2.0))
+            op_s = "0.62" if is_ghost else "0.95"
+            svg.append(
+                f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="{r_px:.1f}" fill="{col_hex}" fill-opacity="{op_s}" '
+                f'stroke="#FFFFFF" stroke-width="1.1"/>'
+            )
+            if not is_ghost and r_px >= 4.2:
+                svg.append(f'<circle cx="{sx - r_px * 0.28:.1f}" cy="{sy - r_px * 0.28:.1f}" r="{max(1.1, r_px * 0.22):.1f}" fill="#FFFFFF" fill-opacity="0.7"/>')
+    svg.append('</g>')
+
+    # Anti-collision callout badges on the right side of the glass column (x = 172 .. 344)
+    in_col_sorted = sorted(in_col_items, key=lambda t: t["z_col"])
+    placed_y: list[float] = []
+    for tr in in_col_sorted[:5]:
+        y_true = col_y0 + 6.0 + tr["z_col"] * (col_h - 12.0)
+        y_lbl = max(col_y0 + 6.0, min(col_y0 + col_h - 6.0, y_true))
+        for prev_y in placed_y:
+            if y_lbl - prev_y < 24.0:
+                y_lbl = min(col_y0 + col_h - 4.0, prev_y + 24.0)
+        placed_y.append(y_lbl)
+        col_hex = tr["color"]
+        is_ghost = tr["is_reference_ghost"]
+        st_txt = "EXITING!" if tr["status"] == "at_detector" else f"{tr['pct_down']}%"
+        bg_pill = "#F8FAFC" if is_ghost else "#FFFFFF"
+        dash_pill = ' stroke-dasharray="3,2"' if is_ghost else ""
+        lbl_safe = html.escape(tr["short_label"][:17])
+        svg.append(f'<line x1="{col_x + col_w + 1}" y1="{y_true:.1f}" x2="173" y2="{y_lbl:.1f}" stroke="{col_hex}" stroke-width="1.3"/>')
+        svg.append(f'<rect x="173" y="{y_lbl - 10:.1f}" width="171" height="20" rx="6" fill="{bg_pill}" stroke="{col_hex}" stroke-width="1.3"{dash_pill}/>')
+        svg.append(f'<circle cx="183" cy="{y_lbl:.1f}" r="{min(5.5, max(3.0, tr["sphere_r_px"] * 0.55)):.1f}" fill="{col_hex}"/>')
+        svg.append(f'<text x="192" y="{y_lbl + 3.8:.1f}" class="sec-svg-micro" fill="#0B221C">{lbl_safe}</text>')
+        svg.append(f'<text x="338" y="{y_lbl + 3.8:.1f}" text-anchor="end" class="sec-svg-mono" fill="{col_hex}">{st_txt}</text>')
+
+    # If all species have already eluted into fraction tubes, display a clean checkmark note right of column
+    if not in_col_sorted:
+        svg.append('<rect x="174" y="176" width="168" height="44" rx="8" fill="#ECFDF5" stroke="#99F6E4"/>')
+        svg.append('<text x="258" y="195" text-anchor="middle" class="sec-svg-bold" fill="#065F46">All Proteins Eluted!</text>')
+        svg.append('<text x="258" y="211" text-anchor="middle" class="sec-svg-micro" fill="#047857">Sorted into Tubes F1–F8 below</text>')
+
+    # Bottom Capillary + Live UV 280 nm Flow-Cell Detector (y = 300 .. 338)
+    uv_glow = live_uv > 25.0
+    det_pk = snapshot["detector_active_peak"]
+    beam_col = det_pk["color"] if det_pk else ("#0D9488" if uv_glow else "#CBD5E1")
+    uv_box_fill = "#FEF9C3" if uv_glow else "#F1F5F9"
+    uv_box_stroke = "#D97706" if uv_glow else "#94A3B8"
+    svg.append(f'<line x1="113" y1="300" x2="113" y2="342" stroke="{beam_col}" stroke-width="3.2"/>')
+    svg.append(f'<rect x="78" y="311" width="70" height="22" rx="6" fill="{uv_box_fill}" stroke="{uv_box_stroke}" stroke-width="1.6"/>')
+    svg.append('<text x="113" y="325.5" text-anchor="middle" class="sec-svg-micro" fill="#0B221C">🔦 UV 280</text>')
+    svg.append(f'<rect x="156" y="311" width="122" height="22" rx="6" fill="#FFFFFF" stroke="{uv_box_stroke}" stroke-width="1.2"/>')
+    svg.append(f'<text x="217" y="325.5" text-anchor="middle" class="sec-svg-mono" fill="#0B221C">UV: {live_uv:.0f} mAU</text>')
+
+    # 8 Numbered Fraction Collector Test Tubes (F1 .. F8, x = 22 .. 340, y = 352 .. 416)
+    fractions = snapshot["fractions"]
+    for k, fr in enumerate(fractions):
+        tx = 22.0 + k * 40.0
+        ty, tw, th = 354.0, 31.0, 40.0
+        fill_h = fr["fill_frac"] * (th - 6.0)
+        is_now = fr["is_filling_now"]
+        rim_col = "#D97706" if is_now else ("#0D9488" if (fr["has_protein"] and fr["fill_frac"] > 0.1) else "#94A3B8")
+        rim_w = "2.1" if is_now else "1.3"
+        if fill_h > 0.5:
+            fy = ty + th - 2.0 - fill_h
+            svg.append(
+                f'<rect x="{tx + 2:.1f}" y="{fy:.1f}" width="{tw - 4:.1f}" height="{fill_h:.1f}" rx="5" '
+                f'fill="{fr["tint_color"]}" fill-opacity="{fr["tint_opacity"]}"/>'
+            )
+        svg.append(f'<path d="M {tx:.1f} {ty:.1f} L {tx:.1f} {ty + th - 8:.1f} Q {tx:.1f} {ty + th:.1f} {tx + 8:.1f} {ty + th:.1f} L {tx + tw - 8:.1f} {ty + th:.1f} Q {tx + tw:.1f} {ty + th:.1f} {tx + tw:.1f} {ty + th - 8:.1f} L {tx + tw:.1f} {ty:.1f}" fill="none" stroke="{rim_col}" stroke-width="{rim_w}"/>')
+        if is_now:
+            svg.append(f'<circle cx="{tx + tw / 2:.1f}" cy="{ty - 5:.1f}" r="3.4" fill="{fr["tint_color"]}" stroke="#0F766E" stroke-width="1"/>')
+        lbl_col = "#B45309" if is_now else "#1E352F"
+        svg.append(f'<text x="{tx + tw / 2:.1f}" y="408" text-anchor="middle" class="sec-svg-micro" fill="{lbl_col}">{fr["tube_id"]}</text>')
+        svg.append(f'<text x="{tx + tw / 2:.1f}" y="418" text-anchor="middle" class="sec-svg-micro" fill="#64748B">{fr["v_mid_ml"]:.{0 if vt >= 20 else 1}f}</text>')
+
+    # =========================================================================
+    # PANEL 2: 1,000,000x MICROSCOPIC ZOOM INSIDE ONE POROUS RESIN BEAD
+    # =========================================================================
+    svg.append('<rect x="366" y="10" width="342" height="412" rx="14" fill="#FFFFFF" stroke="#D5E5DF" stroke-width="1.5"/>')
+    svg.append('<text x="380" y="33" class="sec-svg-h">2. Zoom Inside One Porous Resin Bead</text>')
+    svg.append(f'<text x="380" y="49" class="sec-svg-sub">Median Tunnel Size ~ {rh50:.0f} Å • Why Big = Fast &amp; Small = Slow</text>')
+
+    # Magnified Porous Sponge Bead (cx=516, cy=166, R=78)
+    svg.append('<circle cx="516" cy="166" r="78" fill="#E3F2EE" stroke="#5EEAD4" stroke-width="2.5"/>')
+    svg.append('<g clip-path="url(#secBeadClip)">')
+    # Branching white internal tunnel network (wide outer mouths + narrow inner maze)
+    svg.append('<path d="M 488 84 Q 500 124 468 148 Q 498 172 482 212 Q 506 228 498 250" fill="none" stroke="#FFFFFF" stroke-width="9.5" stroke-linecap="round" stroke-linejoin="round"/>')
+    svg.append('<path d="M 542 86 Q 524 128 556 154 Q 520 184 548 214 Q 528 232 534 250" fill="none" stroke="#FFFFFF" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/>')
+    svg.append('<path d="M 468 148 Q 516 158 556 154" fill="none" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round"/>')
+    svg.append('<path d="M 588 122 Q 558 132 564 162 Q 584 176 598 168" fill="none" stroke="#FFFFFF" stroke-width="15" stroke-linecap="round"/>')
+    svg.append('</g>')
+
+    # Path A: BIG Molecule (> Pore) — Crimson Express Highway Around Outside Left of Bead
+    svg.append('<path d="M 454 78 C 414 118, 414 214, 454 252" fill="none" stroke="#DC2626" stroke-width="2.8" stroke-dasharray="5,3"/>')
+    svg.append('<polygon points="450,255 460,256 456,246" fill="#DC2626"/>')
+    svg.append('<circle cx="426" cy="158" r="10.5" fill="#DC2626" stroke="#FFFFFF" stroke-width="1.5"/>')
+    svg.append('<circle cx="423" cy="155" r="2.5" fill="#FFFFFF" fill-opacity="0.7"/>')
+    svg.append('<text x="378" y="128" class="sec-svg-bold" fill="#B91C1C">BIG</text>')
+    svg.append('<text x="378" y="141" class="sec-svg-micro" fill="#991B1B">0% pores</text>')
+    svg.append('<text x="378" y="192" class="sec-svg-micro" fill="#991B1B">Fastest!</text>')
+    svg.append('<text x="378" y="204" class="sec-svg-micro" fill="#991B1B">(Exits Vo)</text>')
+
+    # Path B: MEDIUM Molecule — Amber Partial Outer Cave Detour (Right Side)
+    svg.append('<path d="M 578 82 Q 604 106 584 124 Q 560 136 566 160 Q 586 174 600 198 Q 604 226 580 250" fill="none" stroke="#D97706" stroke-width="2.3" stroke-dasharray="4,2.5"/>')
+    svg.append('<polygon points="577,245 586,252 576,254" fill="#D97706"/>')
+    svg.append('<circle cx="566" cy="148" r="6.8" fill="#D97706" stroke="#FFFFFF" stroke-width="1.3"/>')
+    svg.append('<text x="612" y="144" class="sec-svg-bold" fill="#B45309">MEDIUM</text>')
+    svg.append('<text x="612" y="157" class="sec-svg-micro" fill="#92400E">Wide caves</text>')
+    svg.append('<text x="612" y="170" class="sec-svg-micro" fill="#92400E">Middle Ve</text>')
+
+    # Path C: SMALL Molecule (< Pore) — Teal Deep Winding Maze Right Through Bead Center!
+    svg.append('<path d="M 488 78 Q 500 124 470 148 Q 516 158 552 154 Q 522 184 546 214 Q 528 232 534 256" fill="none" stroke="#0F766E" stroke-width="2.4"/>')
+    svg.append('<polygon points="529,253 539,253 534,262" fill="#0F766E"/>')
+    svg.append('<circle cx="514" cy="155" r="4.6" fill="#0F766E" stroke="#FFFFFF" stroke-width="1.2"/>')
+    svg.append('<circle cx="536" cy="198" r="4.6" fill="#0F766E" stroke="#FFFFFF" stroke-width="1.2"/>')
+    svg.append('<text x="516" y="275" text-anchor="middle" class="sec-svg-bold" fill="#065F46">SMALL: Explores Deep Maze ➜ Exits LAST</text>')
+
+    # Live Species Pore-Tunnel Entry Scoreboard (y = 286 .. 414)
+    svg.append('<line x1="380" y1="286" x2="694" y2="286" stroke="#E2E8F0" stroke-width="1"/>')
+    svg.append('<text x="380" y="303" class="sec-svg-bold" fill="#0B221C">How Much of the Bead Maze Does Each Enter?</text>')
+
+    # Prioritize real simulated species, supplemented by reference ghosts up to 4 rows
+    real_tr = [t for t in snapshot["travellers"] if not t["is_reference_ghost"]]
+    ghost_tr = [t for t in snapshot["travellers"] if t["is_reference_ghost"]]
+    score_rows = sorted((real_tr + ghost_tr)[:4], key=lambda t: t["ve_ml"])
+
+    for idx_r, sr in enumerate(score_rows):
+        ry = 322.0 + idx_r * 24.5
+        p_pct = float(sr["pore_access_pct"])
+        bar_w = max(2.0, 1.05 * p_pct)  # 0..105 px track
+        c_hex = sr["color"]
+        nm_s = html.escape(sr["short_label"][:18])
+        r_dot = min(6.2, max(3.0, sr["sphere_r_px"] * 0.56))
+        svg.append(f'<circle cx="388" cy="{ry - 3.5:.1f}" r="{r_dot:.1f}" fill="{c_hex}"/>')
+        svg.append(f'<text x="399" y="{ry:.1f}" class="sec-svg-micro" fill="#0B221C">{nm_s}</text>')
+        svg.append(f'<rect x="520" y="{ry - 9.5:.1f}" width="105" height="10" rx="5" fill="#EEF2F6" stroke="#CBD5E1" stroke-width="0.8"/>')
+        if p_pct >= 0.8:
+            svg.append(f'<rect x="520" y="{ry - 9.5:.1f}" width="{bar_w:.1f}" height="10" rx="5" fill="{c_hex}" fill-opacity="0.85"/>')
+        svg.append(f'<text x="694" y="{ry:.1f}" text-anchor="end" class="sec-svg-mono" fill="{c_hex}">{p_pct:.0f}% ➜ {sr["ve_ml"]:.{dec}f} mL</text>')
+
+    # =========================================================================
+    # PANEL 3: LIVE SYNCHRONIZED UV GRAPH & STUDENT HOW-TO-READ KEY
+    # =========================================================================
+    svg.append('<rect x="720" y="10" width="350" height="412" rx="14" fill="#FFFFFF" stroke="#D5E5DF" stroke-width="1.5"/>')
+    svg.append('<text x="734" y="33" class="sec-svg-h">3. Live UV Graph Drawn As Buffer Pumps</text>')
+    svg.append('<text x="734" y="49" class="sec-svg-sub">Watch Each Peak Appear When It Hits the UV Lamp!</text>')
+
+    px0, py0, pw, ph = 762.0, 68.0, 290.0, 184.0
+    x_max_p = vt * 1.12
+    vol_arr = sim_data["volume_axis_ml"]
+    sig_arr = sim_data["total_signal_mau"]
+    y_max_p = max(950.0, (max(sig_arr) if sig_arr else 800.0) * 1.18)
+
+    def _vx(v_val: float) -> float:
+        return px0 + min(1.0, max(0.0, v_val / max(1e-6, x_max_p))) * pw
+
+    def _vy(s_val: float) -> float:
+        return py0 + ph - min(1.0, max(0.0, s_val / max(1e-6, y_max_p))) * ph
+
+    x_vo = _vx(vo)
+    x_vt = _vx(vt)
+    x_cur = _vx(pumped)
+    y_cur = _vy(live_uv)
+
+    # Shaded Dead Volume (0-Vo) & Separation Window (Vo-Vt) inside mini chart
+    svg.append(f'<rect x="{px0:.1f}" y="{py0:.1f}" width="{pw:.1f}" height="{ph:.1f}" fill="#FFFFFF" stroke="#CBDAD4" stroke-width="1.2"/>')
+    svg.append(f'<rect x="{px0:.1f}" y="{py0:.1f}" width="{max(0.0, x_vo - px0):.1f}" height="{ph:.1f}" fill="#F1F5F9"/>')
+    svg.append(f'<rect x="{x_vo:.1f}" y="{py0:.1f}" width="{max(0.0, x_vt - x_vo):.1f}" height="{ph:.1f}" fill="#ECFDF5" fill-opacity="0.55"/>')
+    svg.append(f'<line x1="{x_vo:.1f}" y1="{py0:.1f}" x2="{x_vo:.1f}" y2="{py0 + ph:.1f}" stroke="#DC2626" stroke-width="1.2" stroke-dasharray="3,3"/>')
+    svg.append(f'<line x1="{x_vt:.1f}" y1="{py0:.1f}" x2="{x_vt:.1f}" y2="{py0 + ph:.1f}" stroke="#64748B" stroke-width="1.2" stroke-dasharray="3,3"/>')
+    svg.append(f'<text x="{0.5 * (px0 + x_vo):.1f}" y="{py0 + 13:.1f}" text-anchor="middle" class="sec-svg-micro" fill="#64748B">0–Vo</text>')
+    svg.append(f'<text x="{0.5 * (x_vo + x_vt):.1f}" y="{py0 + 13:.1f}" text-anchor="middle" class="sec-svg-micro" fill="#065F46">⬅️ Big • Small ➡️</text>')
+
+    # Subsample curve (~140 points) into Drawn-So-Far (solid) and Future Preview (faint dashed)
+    step_idx = max(1, len(vol_arr) // 140)
+    pts_full: list[str] = []
+    pts_drawn: list[str] = []
+    for idx_v in range(0, len(vol_arr), step_idx):
+        vv = float(vol_arr[idx_v])
+        ss = float(sig_arr[idx_v])
+        xx, yy = _vx(vv), _vy(ss)
+        pts_full.append(f"{xx:.1f},{yy:.1f}")
+        if vv <= pumped + 1e-6:
+            pts_drawn.append(f"{xx:.1f},{yy:.1f}")
+    pts_drawn.append(f"{x_cur:.1f},{y_cur:.1f}")
+
+    if len(pts_full) >= 2:
+        svg.append(f'<polyline points="{" ".join(pts_full)}" fill="none" stroke="#94A3B8" stroke-width="1.4" stroke-dasharray="4,3" stroke-opacity="0.65"/>')
+    if len(pts_drawn) >= 2 and pumped > 0.001 * vt:
+        poly_fill = f"{px0:.1f},{py0 + ph:.1f} " + " ".join(pts_drawn) + f" {x_cur:.1f},{py0 + ph:.1f}"
+        svg.append(f'<polygon points="{poly_fill}" fill="#0D9488" fill-opacity="0.16"/>')
+        svg.append(f'<polyline points="{" ".join(pts_drawn)}" fill="none" stroke="#0F766E" stroke-width="2.6" stroke-linecap="round"/>')
+
+    # Peak markers along mini chromatogram (highlighted once pumped >= peak Ve!)
+    for pk_m in sim_data["peaks"]:
+        p_x = _vx(float(pk_m["ve_ml"]))
+        p_y = _vy(float(pk_m["peak_height_mau"]))
+        p_c = "#0F766E" if pk_m["color"] == "#2563EB" else pk_m["color"]
+        reached = pumped >= float(pk_m["ve_ml"]) - 0.5 * float(pk_m.get("sigma_ml", 0.2))
+        op_m = "1.0" if reached else "0.32"
+        svg.append(f'<circle cx="{p_x:.1f}" cy="{p_y:.1f}" r="4.5" fill="{p_c}" fill-opacity="{op_m}" stroke="#FFFFFF" stroke-width="1"/>')
+
+    # Live Pump Cursor & Glowing UV Pen Dot
+    svg.append(f'<line x1="{x_cur:.1f}" y1="{py0:.1f}" x2="{x_cur:.1f}" y2="{py0 + ph:.1f}" stroke="#4F46E5" stroke-width="1.6" stroke-dasharray="3,2"/>')
+    svg.append(f'<circle cx="{x_cur:.1f}" cy="{y_cur:.1f}" r="5.5" fill="#4F46E5" stroke="#FFFFFF" stroke-width="1.6"/>')
+
+    # Axes Labels for Mini Plot
+    svg.append(f'<text x="{px0:.1f}" y="{py0 + ph + 14:.1f}" text-anchor="middle" class="sec-svg-micro">0</text>')
+    svg.append(f'<text x="{x_vo:.1f}" y="{py0 + ph + 14:.1f}" text-anchor="middle" class="sec-svg-micro" fill="#991B1B">Vo ({vo:.{dec}f})</text>')
+    svg.append(f'<text x="{x_vt:.1f}" y="{py0 + ph + 14:.1f}" text-anchor="middle" class="sec-svg-micro" fill="#334155">Vt ({vt:g} mL)</text>')
+    svg.append(f'<text x="{px0 - 8:.1f}" y="{py0 + ph / 2:.1f}" text-anchor="middle" transform="rotate(-90 {px0 - 18:.1f} {py0 + ph / 2:.1f})" class="sec-svg-micro">UV 280 Signal</text>')
+    svg.append(f'<text x="{px0 + pw / 2:.1f}" y="{py0 + ph + 28:.1f}" text-anchor="middle" class="sec-svg-micro" fill="#0B221C">Buffer Volume Pumped (mL)</text>')
+
+    # Student How-to-Read Cheat Sheet Card (y = 292 .. 412)
+    svg.append('<rect x="734" y="292" width="322" height="118" rx="10" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1"/>')
+    svg.append('<text x="746" y="311" class="sec-svg-bold" fill="#0B221C">🎓 How to Read Any SEC Graph in 3 Steps:</text>')
+    svg.append('<text x="746" y="331" class="sec-svg-lbl">• <tspan class="sec-svg-bold" fill="#B91C1C">Left (Small mL):</tspan> Skipped pores ➜ <tspan class="sec-svg-bold">BIGGER</tspan> size</text>')
+    svg.append('<text x="746" y="351" class="sec-svg-lbl">• <tspan class="sec-svg-bold" fill="#0F766E">Right (Large mL):</tspan> Explored maze ➜ <tspan class="sec-svg-bold">SMALLER</tspan> size</text>')
+    svg.append('<text x="746" y="371" class="sec-svg-lbl">• <tspan class="sec-svg-bold" fill="#4F46E5">Peak Height (mAU):</tspan> How much protein is in that tube</text>')
+    svg.append('<text x="746" y="393" class="sec-svg-micro" fill="#47625B">💡 Tip: Check "2× Dimer", "4× Tetra", or "Aggregate" above to race them!</text>')
+
+    svg.append('</svg>')
+
+    is_peak_now = snapshot["detector_active_peak"] is not None
+    nar_cls = "sec-narrator-bar sec-narrator-bar-peak" if is_peak_now else "sec-narrator-bar"
+    badge_safe = html.escape(snapshot["stage_badge"])
+    text_safe = html.escape(snapshot["stage_text"])
+
+    block = [
+        '<div class="sec-studio-card">',
+        *svg,
+        f'<div class="{nar_cls}">',
+        f'<span class="sec-narrator-badge">{badge_safe}</span>',
+        f'<span class="sec-narrator-text">{text_safe}</span>',
+        '</div>',
+        '</div>',
+    ]
+    return "\n".join(line.strip() for line in block if line.strip())
 
 
 # --- SIMPLIFIED 5-TAB EDUCATIONAL WORKSPACE (BENCHMARK MOVED TO FINAL TAB!) ---
@@ -2039,6 +2575,76 @@ with tab_sec:
             "from UV light scattering! (Note: On reducing SDS-PAGE below, non-covalent aggregates still unfold back into single monomer chains.)"
         )
 
+    # --- INTERACTIVE INSIDE-THE-SEC-COLUMN, POROUS BEAD & FRACTION TUBE STUDIO ---
+    st.markdown("#### 🔬 See Inside the SEC Column: Watch How Size Controls Elution Volume")
+    vis_c1, vis_c2 = st.columns([1.25, 2.75])
+    with vis_c1:
+        vis_col_mode = st.radio(
+            "Column Shown Inside Cutaway:",
+            ["Benchtop Analytical", "Large Prep"],
+            index=0,
+            horizontal=True
+        )
+
+    vis_is_anal = ("Analytical" in vis_col_mode)
+    vis_config = anal_config if vis_is_anal else prep_config
+    vis_sim = anal_sim if vis_is_anal else prep_sim
+    vt_vis = float(vis_config["bed_volume_vt_ml"])
+    vo_vis = float(vis_config["void_volume_vo_ml"])
+    pump_step = 0.02 if vt_vis < 5.0 else (0.5 if vt_vis >= 100.0 else 0.1)
+    pump_max = round(math.floor((vt_vis * 1.08) / pump_step) * pump_step, 3)
+
+    def _snap_pump(val_ml: float) -> float:
+        snapped = round(round(float(val_ml) / pump_step) * pump_step, 3)
+        return float(max(0.0, min(pump_max, snapped)))
+
+    sorted_vis_ves = sorted(float(p["ve_ml"]) for p in vis_sim["peaks"])
+    non_agg_peaks = [p for p in vis_sim["peaks"] if not p.get("is_aggregate")]
+    primary_ve_vis = float(non_agg_peaks[0]["ve_ml"]) if non_agg_peaks else float(vis_sim["peaks"][0]["ve_ml"])
+
+    if len(sorted_vis_ves) >= 2:
+        default_pump_val = _snap_pump(sorted_vis_ves[1] if sorted_vis_ves[1] > sorted_vis_ves[0] + pump_step else 0.5 * (vo_vis + sorted_vis_ves[-1]))
+    else:
+        default_pump_val = _snap_pump(vo_vis if primary_ve_vis > vo_vis * 1.06 else 0.65 * vt_vis)
+
+    pump_ctx = (vis_config["id"], len(vis_sim["peaks"]), int(round(monomer_mw)))
+    pump_key = "sec_pump_slider"
+    if st.session_state.get("_sec_pump_ctx") != pump_ctx or pump_key not in st.session_state:
+        st.session_state["_sec_pump_ctx"] = pump_ctx
+        st.session_state[pump_key] = default_pump_val
+    else:
+        st.session_state[pump_key] = _snap_pump(st.session_state[pump_key])
+
+    with vis_c2:
+        st.markdown('<div class="ui-control-label">Jump to Key Moments in the Run (or Drag Slider Below):</div>', unsafe_allow_html=True)
+        jb1, jb2, jb3, jb4 = st.columns(4)
+        dec_btn = 2 if vt_vis < 5.0 else 1
+        if jb1.button("💉 1. Inject (0 mL)", key="btn_sec_stage_inj", width="stretch"):
+            st.session_state[pump_key] = _snap_pump(0.0)
+        if jb2.button(f"🚀 2. Void ({vo_vis:.{dec_btn}f} mL)", key="btn_sec_stage_vo", width="stretch"):
+            st.session_state[pump_key] = _snap_pump(vo_vis)
+        if jb3.button(f"🎯 3. Target ({primary_ve_vis:.{dec_btn}f} mL)", key="btn_sec_stage_ve", width="stretch"):
+            st.session_state[pump_key] = _snap_pump(primary_ve_vis)
+        if jb4.button(f"🏁 4. End ({vt_vis:g} mL)", key="btn_sec_stage_vt", width="stretch"):
+            st.session_state[pump_key] = _snap_pump(vt_vis)
+
+    active_pumped_ml = st.slider(
+        f"💧 Pump Running Buffer Into Top of {vis_config['name']} (mL):",
+        min_value=0.0,
+        max_value=float(pump_max),
+        step=float(pump_step),
+        key=pump_key,
+        help="Slide from 0 mL to Vt to pump buffer down the column and watch how giant molecules zoom around the outside of the beads (exiting early at Vo) while small proteins weave through internal bead tunnels (exiting later)!"
+    )
+
+    col_snapshot = compute_column_snapshot(
+        vis_sim,
+        vis_config,
+        pumped_ml=active_pumped_ml,
+        include_reference_companions=True
+    )
+    st.markdown(render_sec_column_visualizer_html(col_snapshot, vis_sim, vis_config), unsafe_allow_html=True)
+
     def render_elution_strip(target_label, target_mw, target_ve, col_config):
         markers = get_column_marker_elutions(col_config)
         dec = 2 if col_config["bed_volume_vt_ml"] < 5.0 else 1
@@ -2066,13 +2672,27 @@ with tab_sec:
 
     c_prep_plot, c_anal_plot = st.columns(2)
     with c_prep_plot:
-        st.plotly_chart(create_modern_sec_plot(prep_sim, prep_config, f"Prep Column: {prep_config['name']}", show_markers, show_dual_uv), width="stretch")
+        prep_cursor = active_pumped_ml if not vis_is_anal else None
+        st.plotly_chart(
+            create_modern_sec_plot(
+                prep_sim, prep_config, f"Prep Column: {prep_config['name']}",
+                show_markers, show_dual_uv, pumped_cursor_ml=prep_cursor
+            ),
+            width="stretch"
+        )
         mp0 = prep_sim["peaks"][0]
         st.markdown(render_elution_strip(mp0["label"], mp0["mw_kda"], mp0["ve_ml"], prep_config), unsafe_allow_html=True)
         st.dataframe(pd.DataFrame([_format_sec_table_row(p, prep_config) for p in prep_sim["peaks"]]), hide_index=True, width="stretch")
 
     with c_anal_plot:
-        st.plotly_chart(create_modern_sec_plot(anal_sim, anal_config, f"Analytical Column: {anal_config['name']}", show_markers, show_dual_uv), width="stretch")
+        anal_cursor = active_pumped_ml if vis_is_anal else None
+        st.plotly_chart(
+            create_modern_sec_plot(
+                anal_sim, anal_config, f"Analytical Column: {anal_config['name']}",
+                show_markers, show_dual_uv, pumped_cursor_ml=anal_cursor
+            ),
+            width="stretch"
+        )
         ma0 = anal_sim["peaks"][0]
         st.markdown(render_elution_strip(ma0["label"], ma0["mw_kda"], ma0["ve_ml"], anal_config), unsafe_allow_html=True)
         st.dataframe(pd.DataFrame([_format_sec_table_row(p, anal_config) for p in anal_sim["peaks"]]), hide_index=True, width="stretch")
