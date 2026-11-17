@@ -1620,6 +1620,21 @@ def test_interactive_sec_column_visualizer_and_intuitive_plots(root_dir: str) ->
 
     studio_mds = [m.value for m in at.markdown if "<style>" not in m.value and "sec-studio-svg" in m.value]
     assert len(studio_mds) == 1, f"Expected 1 rendered SEC Column SVG Studio card, found {len(studio_mds)}"
+
+    # Verify visual placement: "See Inside the SEC Column..." immediately follows "Easy Rule of SEC" (sec-rule-card)
+    # and precedes Compare Oligomer Peaks (ui-control-label) and elution-strip
+    non_style_md_list = [m.value for m in at.markdown if "<style>" not in m.value]
+    idx_rule = next(i for i, v in enumerate(non_style_md_list) if "sec-rule-card" in v)
+    idx_inside_hdr = next(i for i, v in enumerate(non_style_md_list) if "See Inside the SEC Column: Watch How Size Controls Elution Volume" in v)
+    idx_inside_svg = next(i for i, v in enumerate(non_style_md_list) if "sec-studio-svg" in v)
+    idx_olig_lbl = next(i for i, v in enumerate(non_style_md_list) if "Compare Oligomer Peaks" in v)
+    idx_elution_strip = next(i for i, v in enumerate(non_style_md_list) if "elution-strip" in v)
+    assert idx_inside_hdr == idx_rule + 1, (
+        f"Expected 'See Inside the SEC Column' right after 'sec-rule-card' ({idx_rule}), got index {idx_inside_hdr}"
+    )
+    assert idx_rule < idx_inside_hdr < idx_inside_svg < idx_olig_lbl < idx_elution_strip, (
+        f"Unexpected Tab 1 section ordering: rule={idx_rule}, hdr={idx_inside_hdr}, svg={idx_inside_svg}, olig={idx_olig_lbl}, strip={idx_elution_strip}"
+    )
     svg_match = re.search(r"(<svg\b.*?</svg>)", studio_mds[0], flags=re.DOTALL)
     assert svg_match is not None, "SVG tag missing inside sec-studio-card!"
     # Parse SVG with XML ElementTree to guarantee 100% well-formed XML (no unescaped > or &!)

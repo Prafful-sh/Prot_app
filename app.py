@@ -15,9 +15,17 @@ Designed for high-school & college classrooms as well as structural biology & bi
 """
 
 import html
+import importlib
 import json
 import math
 import os
+import sys
+
+# Ensure root directory is top of search path across container environments
+_APP_ROOT = os.path.dirname(os.path.abspath(__file__))
+if _APP_ROOT not in sys.path:
+    sys.path.insert(0, _APP_ROOT)
+
 import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
@@ -36,15 +44,32 @@ from modules.purification_metrics import (
     analyze_all_parameters,
     calculate_net_charge_at_ph
 )
-from modules.sec_simulator import (
-    SEC_COLUMNS,
-    CONFORMATION_PROFILES,
-    recommend_optimal_columns,
-    get_column_marker_elutions,
-    simulate_chromatogram_peaks,
-    simulate_standard_mixture_chromatogram,
-    compute_column_snapshot,
-)
+try:
+    from modules.sec_simulator import (
+        SEC_COLUMNS,
+        CONFORMATION_PROFILES,
+        recommend_optimal_columns,
+        get_column_marker_elutions,
+        simulate_chromatogram_peaks,
+        simulate_standard_mixture_chromatogram,
+        compute_column_snapshot,
+    )
+except ImportError:
+    # Handle hot-reloading when container has stale in-memory cached module
+    if "modules.sec_simulator" in sys.modules:
+        importlib.reload(sys.modules["modules.sec_simulator"])
+    else:
+        import modules.sec_simulator
+    from modules.sec_simulator import (
+        SEC_COLUMNS,
+        CONFORMATION_PROFILES,
+        recommend_optimal_columns,
+        get_column_marker_elutions,
+        simulate_chromatogram_peaks,
+        simulate_standard_mixture_chromatogram,
+        compute_column_snapshot,
+    )
+
 from modules.buffer_advisor import (
     COMMON_LAB_REAGENTS,
     REAGENT_LOOKUP,
@@ -2382,6 +2407,9 @@ with tab_sec:
     </div>
     """, unsafe_allow_html=True)
 
+    # Reserved visual slot directly beneath the Easy Rule of SEC banner (populated once simulation runs below)
+    inside_sec_column_slot = st.container()
+
     # Smart default column suggestion based on active MW
     rec_prep_default, rec_anal_default = recommend_optimal_columns(metrics["mw_kda"])
     prep_options = ["hiload_16_600_s75", "hiload_16_600_s200", "hiload_16_600_superose_6", "hiload_26_600_s200"]
@@ -2568,82 +2596,83 @@ with tab_sec:
     prep_sim = simulate_chromatogram_peaks(target_states, prep_config)
     anal_sim = simulate_chromatogram_peaks(target_states, anal_config)
 
+    # --- INTERACTIVE INSIDE-THE-SEC-COLUMN, POROUS BEAD & FRACTION TUBE STUDIO (rendered right under Easy Rule of SEC) ---
+    with inside_sec_column_slot:
+        st.markdown("#### 🔬 See Inside the SEC Column: Watch How Size Controls Elution Volume")
+        vis_c1, vis_c2 = st.columns([1.25, 2.75])
+        with vis_c1:
+            vis_col_mode = st.radio(
+                "Column Shown Inside Cutaway:",
+                ["Benchtop Analytical", "Large Prep"],
+                index=0,
+                horizontal=True
+            )
+
+        vis_is_anal = ("Analytical" in vis_col_mode)
+        vis_config = anal_config if vis_is_anal else prep_config
+        vis_sim = anal_sim if vis_is_anal else prep_sim
+        vt_vis = float(vis_config["bed_volume_vt_ml"])
+        vo_vis = float(vis_config["void_volume_vo_ml"])
+        pump_step = 0.02 if vt_vis < 5.0 else (0.5 if vt_vis >= 100.0 else 0.1)
+        pump_max = round(math.floor((vt_vis * 1.08) / pump_step) * pump_step, 3)
+
+        def _snap_pump(val_ml: float) -> float:
+            snapped = round(round(float(val_ml) / pump_step) * pump_step, 3)
+            return float(max(0.0, min(pump_max, snapped)))
+
+        sorted_vis_ves = sorted(float(p["ve_ml"]) for p in vis_sim["peaks"])
+        non_agg_peaks = [p for p in vis_sim["peaks"] if not p.get("is_aggregate")]
+        primary_ve_vis = float(non_agg_peaks[0]["ve_ml"]) if non_agg_peaks else float(vis_sim["peaks"][0]["ve_ml"])
+
+        if len(sorted_vis_ves) >= 2:
+            default_pump_val = _snap_pump(sorted_vis_ves[1] if sorted_vis_ves[1] > sorted_vis_ves[0] + pump_step else 0.5 * (vo_vis + sorted_vis_ves[-1]))
+        else:
+            default_pump_val = _snap_pump(vo_vis if primary_ve_vis > vo_vis * 1.06 else 0.65 * vt_vis)
+
+        pump_ctx = (vis_config["id"], len(vis_sim["peaks"]), int(round(monomer_mw)))
+        pump_key = "sec_pump_slider"
+        if st.session_state.get("_sec_pump_ctx") != pump_ctx or pump_key not in st.session_state:
+            st.session_state["_sec_pump_ctx"] = pump_ctx
+            st.session_state[pump_key] = default_pump_val
+        else:
+            st.session_state[pump_key] = _snap_pump(st.session_state[pump_key])
+
+        with vis_c2:
+            st.markdown('<div class="ui-control-label">Jump to Key Moments in the Run (or Drag Slider Below):</div>', unsafe_allow_html=True)
+            jb1, jb2, jb3, jb4 = st.columns(4)
+            dec_btn = 2 if vt_vis < 5.0 else 1
+            if jb1.button("💉 1. Inject (0 mL)", key="btn_sec_stage_inj", width="stretch"):
+                st.session_state[pump_key] = _snap_pump(0.0)
+            if jb2.button(f"🚀 2. Void ({vo_vis:.{dec_btn}f} mL)", key="btn_sec_stage_vo", width="stretch"):
+                st.session_state[pump_key] = _snap_pump(vo_vis)
+            if jb3.button(f"🎯 3. Target ({primary_ve_vis:.{dec_btn}f} mL)", key="btn_sec_stage_ve", width="stretch"):
+                st.session_state[pump_key] = _snap_pump(primary_ve_vis)
+            if jb4.button(f"🏁 4. End ({vt_vis:g} mL)", key="btn_sec_stage_vt", width="stretch"):
+                st.session_state[pump_key] = _snap_pump(vt_vis)
+
+        active_pumped_ml = st.slider(
+            f"💧 Pump Running Buffer Into Top of {vis_config['name']} (mL):",
+            min_value=0.0,
+            max_value=float(pump_max),
+            step=float(pump_step),
+            key=pump_key,
+            help="Slide from 0 mL to Vt to pump buffer down the column and watch how giant molecules zoom around the outside of the beads (exiting early at Vo) while small proteins weave through internal bead tunnels (exiting later)!"
+        )
+
+        col_snapshot = compute_column_snapshot(
+            vis_sim,
+            vis_config,
+            pumped_ml=active_pumped_ml,
+            include_reference_companions=True
+        )
+        st.markdown(render_sec_column_visualizer_html(col_snapshot, vis_sim, vis_config), unsafe_allow_html=True)
+
     if include_aggregate:
         st.info(
             "💡 **Void Aggregate Peak (`Vo`):** Clumped/misfolded protein aggregates are too large to enter any bead pores, "
             "so they wash straight out at the **Void Volume (`Vo`, `Kav = 0`)**—and often show an elevated `A260/A280` (~0.9) "
             "from UV light scattering! (Note: On reducing SDS-PAGE below, non-covalent aggregates still unfold back into single monomer chains.)"
         )
-
-    # --- INTERACTIVE INSIDE-THE-SEC-COLUMN, POROUS BEAD & FRACTION TUBE STUDIO ---
-    st.markdown("#### 🔬 See Inside the SEC Column: Watch How Size Controls Elution Volume")
-    vis_c1, vis_c2 = st.columns([1.25, 2.75])
-    with vis_c1:
-        vis_col_mode = st.radio(
-            "Column Shown Inside Cutaway:",
-            ["Benchtop Analytical", "Large Prep"],
-            index=0,
-            horizontal=True
-        )
-
-    vis_is_anal = ("Analytical" in vis_col_mode)
-    vis_config = anal_config if vis_is_anal else prep_config
-    vis_sim = anal_sim if vis_is_anal else prep_sim
-    vt_vis = float(vis_config["bed_volume_vt_ml"])
-    vo_vis = float(vis_config["void_volume_vo_ml"])
-    pump_step = 0.02 if vt_vis < 5.0 else (0.5 if vt_vis >= 100.0 else 0.1)
-    pump_max = round(math.floor((vt_vis * 1.08) / pump_step) * pump_step, 3)
-
-    def _snap_pump(val_ml: float) -> float:
-        snapped = round(round(float(val_ml) / pump_step) * pump_step, 3)
-        return float(max(0.0, min(pump_max, snapped)))
-
-    sorted_vis_ves = sorted(float(p["ve_ml"]) for p in vis_sim["peaks"])
-    non_agg_peaks = [p for p in vis_sim["peaks"] if not p.get("is_aggregate")]
-    primary_ve_vis = float(non_agg_peaks[0]["ve_ml"]) if non_agg_peaks else float(vis_sim["peaks"][0]["ve_ml"])
-
-    if len(sorted_vis_ves) >= 2:
-        default_pump_val = _snap_pump(sorted_vis_ves[1] if sorted_vis_ves[1] > sorted_vis_ves[0] + pump_step else 0.5 * (vo_vis + sorted_vis_ves[-1]))
-    else:
-        default_pump_val = _snap_pump(vo_vis if primary_ve_vis > vo_vis * 1.06 else 0.65 * vt_vis)
-
-    pump_ctx = (vis_config["id"], len(vis_sim["peaks"]), int(round(monomer_mw)))
-    pump_key = "sec_pump_slider"
-    if st.session_state.get("_sec_pump_ctx") != pump_ctx or pump_key not in st.session_state:
-        st.session_state["_sec_pump_ctx"] = pump_ctx
-        st.session_state[pump_key] = default_pump_val
-    else:
-        st.session_state[pump_key] = _snap_pump(st.session_state[pump_key])
-
-    with vis_c2:
-        st.markdown('<div class="ui-control-label">Jump to Key Moments in the Run (or Drag Slider Below):</div>', unsafe_allow_html=True)
-        jb1, jb2, jb3, jb4 = st.columns(4)
-        dec_btn = 2 if vt_vis < 5.0 else 1
-        if jb1.button("💉 1. Inject (0 mL)", key="btn_sec_stage_inj", width="stretch"):
-            st.session_state[pump_key] = _snap_pump(0.0)
-        if jb2.button(f"🚀 2. Void ({vo_vis:.{dec_btn}f} mL)", key="btn_sec_stage_vo", width="stretch"):
-            st.session_state[pump_key] = _snap_pump(vo_vis)
-        if jb3.button(f"🎯 3. Target ({primary_ve_vis:.{dec_btn}f} mL)", key="btn_sec_stage_ve", width="stretch"):
-            st.session_state[pump_key] = _snap_pump(primary_ve_vis)
-        if jb4.button(f"🏁 4. End ({vt_vis:g} mL)", key="btn_sec_stage_vt", width="stretch"):
-            st.session_state[pump_key] = _snap_pump(vt_vis)
-
-    active_pumped_ml = st.slider(
-        f"💧 Pump Running Buffer Into Top of {vis_config['name']} (mL):",
-        min_value=0.0,
-        max_value=float(pump_max),
-        step=float(pump_step),
-        key=pump_key,
-        help="Slide from 0 mL to Vt to pump buffer down the column and watch how giant molecules zoom around the outside of the beads (exiting early at Vo) while small proteins weave through internal bead tunnels (exiting later)!"
-    )
-
-    col_snapshot = compute_column_snapshot(
-        vis_sim,
-        vis_config,
-        pumped_ml=active_pumped_ml,
-        include_reference_companions=True
-    )
-    st.markdown(render_sec_column_visualizer_html(col_snapshot, vis_sim, vis_config), unsafe_allow_html=True)
 
     def render_elution_strip(target_label, target_mw, target_ve, col_config):
         markers = get_column_marker_elutions(col_config)
