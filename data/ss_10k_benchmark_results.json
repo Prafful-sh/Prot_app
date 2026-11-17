@@ -1,0 +1,3088 @@
+{
+  "benchmark_name": "ProPurify Studio >=10,500-Protein All-Domains-of-Life Secondary Structure Benchmark",
+  "generated_at_utc": "2026-11-16T22:37:08Z",
+  "corpus_file": "data/ss_10k_corpus.npz",
+  "weights_file": "data/ss_model_weights.npz",
+  "weights_size_mb": 4.041,
+  "train_count": 3751,
+  "train_residues": 1449487,
+  "test_count": 11118,
+  "total_test_residues": 4066153,
+  "Q3": 69.31,
+  "overall_q3_pct": 69.31,
+  "mean_protein_q3_pct": 69.5,
+  "SOV_99": 59.78,
+  "mean_protein_sov99_pct": 59.78,
+  "residue_weighted_sov99_pct": 56.48,
+  "MCC_H": 0.5807,
+  "MCC_E": 0.4589,
+  "MCC_C": 0.4691,
+  "mean_mcc": 0.5029,
+  "per_state_metrics": {
+    "H": {
+      "precision_pct": 71.33,
+      "recall_pct": 72.48,
+      "f1_pct": 71.9,
+      "mcc": 0.5807,
+      "support_residues": 1331340
+    },
+    "E": {
+      "precision_pct": 60.72,
+      "recall_pct": 51.08,
+      "f1_pct": 55.48,
+      "mcc": 0.4589,
+      "support_residues": 806092
+    },
+    "C": {
+      "precision_pct": 70.83,
+      "recall_pct": 74.75,
+      "f1_pct": 72.74,
+      "mcc": 0.4691,
+      "support_residues": 1928721
+    }
+  },
+  "composition_mae": {
+    "helix_pct_mae": 7.84,
+    "strand_pct_mae": 6.58,
+    "coil_pct_mae": 8.5,
+    "overall_mean_mae": 7.64
+  },
+  "fold_class_accuracy_pct": 81.48,
+  "mean_inference_ms": 18.546,
+  "median_inference_ms": 16.201,
+  "accuracy_gains_vs_baselines": {
+    "q3_gain_over_chou_fasman_pct": 20.16,
+    "q3_gain_over_gor4_pct": 7.74,
+    "sov99_gain_over_chou_fasman_pct": 20.14,
+    "sov99_gain_over_gor4_pct": 10.61
+  },
+  "by_domain": {
+    "Bacteria": {
+      "overall_q3_pct": 68.38,
+      "MCC_H": 0.5953,
+      "MCC_E": 0.4683,
+      "MCC_C": 0.4506,
+      "mean_mcc": 0.5047,
+      "per_state": {
+        "H": {
+          "precision_pct": 73.61,
+          "recall_pct": 75.24,
+          "f1_pct": 74.42,
+          "mcc": 0.5953,
+          "support_residues": 505772
+        },
+        "E": {
+          "precision_pct": 62.1,
+          "recall_pct": 53.72,
+          "f1_pct": 57.61,
+          "mcc": 0.4683,
+          "support_residues": 308004
+        },
+        "C": {
+          "precision_pct": 66.67,
+          "recall_pct": 70.18,
+          "f1_pct": 68.38,
+          "mcc": 0.4506,
+          "support_residues": 575732
+        }
+      },
+      "confusion_matrix_HEC": [
+        [
+          380553,
+          29479,
+          95740
+        ],
+        [
+          36257,
+          165472,
+          106275
+        ],
+        [
+          100153,
+          71519,
+          404060
+        ]
+      ],
+      "n_proteins": 3838,
+      "n_residues": 1389508,
+      "mean_protein_q3_pct": 69.06,
+      "mean_protein_sov99_pct": 62.67
+    },
+    "Archaea": {
+      "overall_q3_pct": 67.9,
+      "MCC_H": 0.5951,
+      "MCC_E": 0.4843,
+      "MCC_C": 0.4379,
+      "mean_mcc": 0.5058,
+      "per_state": {
+        "H": {
+          "precision_pct": 73.34,
+          "recall_pct": 75.89,
+          "f1_pct": 74.59,
+          "mcc": 0.5951,
+          "support_residues": 119209
+        },
+        "E": {
+          "precision_pct": 63.48,
+          "recall_pct": 57.21,
+          "f1_pct": 60.18,
+          "mcc": 0.4843,
+          "support_residues": 78705
+        },
+        "C": {
+          "precision_pct": 65.18,
+          "recall_pct": 67.04,
+          "f1_pct": 66.09,
+          "mcc": 0.4379,
+          "support_residues": 127272
+        }
+      },
+      "confusion_matrix_HEC": [
+        [
+          90468,
+          7916,
+          20825
+        ],
+        [
+          8923,
+          45025,
+          24757
+        ],
+        [
+          23964,
+          17989,
+          85319
+        ]
+      ],
+      "n_proteins": 1315,
+      "n_residues": 325186,
+      "mean_protein_q3_pct": 68.37,
+      "mean_protein_sov99_pct": 63.98
+    },
+    "Eukaryota": {
+      "overall_q3_pct": 71.23,
+      "MCC_H": 0.5772,
+      "MCC_E": 0.4579,
+      "MCC_C": 0.4914,
+      "mean_mcc": 0.5088,
+      "per_state": {
+        "H": {
+          "precision_pct": 70.82,
+          "recall_pct": 70.97,
+          "f1_pct": 70.9,
+          "mcc": 0.5772,
+          "support_residues": 587667
+        },
+        "E": {
+          "precision_pct": 60.03,
+          "recall_pct": 48.38,
+          "f1_pct": 53.58,
+          "mcc": 0.4579,
+          "support_residues": 316057
+        },
+        "C": {
+          "precision_pct": 74.19,
+          "recall_pct": 78.72,
+          "f1_pct": 76.39,
+          "mcc": 0.4914,
+          "support_residues": 984056
+        }
+      },
+      "confusion_matrix_HEC": [
+        [
+          417089,
+          28957,
+          141621
+        ],
+        [
+          35337,
+          152910,
+          127810
+        ],
+        [
+          136543,
+          72875,
+          774638
+        ]
+      ],
+      "n_proteins": 4850,
+      "n_residues": 1887780,
+      "mean_protein_q3_pct": 70.9,
+      "mean_protein_sov99_pct": 58.24
+    },
+    "Viruses": {
+      "overall_q3_pct": 65.32,
+      "MCC_H": 0.5062,
+      "MCC_E": 0.3891,
+      "MCC_C": 0.3917,
+      "mean_mcc": 0.429,
+      "per_state": {
+        "H": {
+          "precision_pct": 62.26,
+          "recall_pct": 64.78,
+          "f1_pct": 63.5,
+          "mcc": 0.5062,
+          "support_residues": 118692
+        },
+        "E": {
+          "precision_pct": 56.23,
+          "recall_pct": 46.77,
+          "f1_pct": 51.07,
+          "mcc": 0.3891,
+          "support_residues": 103326
+        },
+        "C": {
+          "precision_pct": 69.88,
+          "recall_pct": 73.51,
+          "f1_pct": 71.65,
+          "mcc": 0.3917,
+          "support_residues": 241661
+        }
+      },
+      "confusion_matrix_HEC": [
+        [
+          76893,
+          9582,
+          32217
+        ],
+        [
+          10639,
+          48328,
+          44359
+        ],
+        [
+          35974,
+          28032,
+          177655
+        ]
+      ],
+      "n_proteins": 1115,
+      "n_residues": 463679,
+      "mean_protein_q3_pct": 66.24,
+      "mean_protein_sov99_pct": 51.61
+    }
+  },
+  "by_stratum": {
+    "Bacteria": {
+      "overall_q3_pct": 68.38,
+      "MCC_H": 0.5953,
+      "MCC_E": 0.4683,
+      "MCC_C": 0.4506,
+      "mean_mcc": 0.5047,
+      "per_state": {
+        "H": {
+          "precision_pct": 73.61,
+          "recall_pct": 75.24,
+          "f1_pct": 74.42,
+          "mcc": 0.5953,
+          "support_residues": 505772
+        },
+        "E": {
+          "precision_pct": 62.1,
+          "recall_pct": 53.72,
+          "f1_pct": 57.61,
+          "mcc": 0.4683,
+          "support_residues": 308004
+        },
+        "C": {
+          "precision_pct": 66.67,
+          "recall_pct": 70.18,
+          "f1_pct": 68.38,
+          "mcc": 0.4506,
+          "support_residues": 575732
+        }
+      },
+      "confusion_matrix_HEC": [
+        [
+          380553,
+          29479,
+          95740
+        ],
+        [
+          36257,
+          165472,
+          106275
+        ],
+        [
+          100153,
+          71519,
+          404060
+        ]
+      ],
+      "n_proteins": 3838,
+      "n_residues": 1389508,
+      "mean_protein_q3_pct": 69.06,
+      "mean_protein_sov99_pct": 62.67
+    },
+    "Archaea": {
+      "overall_q3_pct": 67.9,
+      "MCC_H": 0.5951,
+      "MCC_E": 0.4843,
+      "MCC_C": 0.4379,
+      "mean_mcc": 0.5058,
+      "per_state": {
+        "H": {
+          "precision_pct": 73.34,
+          "recall_pct": 75.89,
+          "f1_pct": 74.59,
+          "mcc": 0.5951,
+          "support_residues": 119209
+        },
+        "E": {
+          "precision_pct": 63.48,
+          "recall_pct": 57.21,
+          "f1_pct": 60.18,
+          "mcc": 0.4843,
+          "support_residues": 78705
+        },
+        "C": {
+          "precision_pct": 65.18,
+          "recall_pct": 67.04,
+          "f1_pct": 66.09,
+          "mcc": 0.4379,
+          "support_residues": 127272
+        }
+      },
+      "confusion_matrix_HEC": [
+        [
+          90468,
+          7916,
+          20825
+        ],
+        [
+          8923,
+          45025,
+          24757
+        ],
+        [
+          23964,
+          17989,
+          85319
+        ]
+      ],
+      "n_proteins": 1315,
+      "n_residues": 325186,
+      "mean_protein_q3_pct": 68.37,
+      "mean_protein_sov99_pct": 63.98
+    },
+    "Animals": {
+      "overall_q3_pct": 71.9,
+      "MCC_H": 0.5796,
+      "MCC_E": 0.4478,
+      "MCC_C": 0.4964,
+      "mean_mcc": 0.5079,
+      "per_state": {
+        "H": {
+          "precision_pct": 69.9,
+          "recall_pct": 70.37,
+          "f1_pct": 70.14,
+          "mcc": 0.5796,
+          "support_residues": 244581
+        },
+        "E": {
+          "precision_pct": 59.95,
+          "recall_pct": 46.45,
+          "f1_pct": 52.34,
+          "mcc": 0.4478,
+          "support_residues": 140441
+        },
+        "C": {
+          "precision_pct": 75.55,
+          "recall_pct": 80.45,
+          "f1_pct": 77.92,
+          "mcc": 0.4964,
+          "support_residues": 462226
+        }
+      },
+      "confusion_matrix_HEC": [
+        [
+          172116,
+          11583,
+          60882
+        ],
+        [
+          15729,
+          65235,
+          59477
+        ],
+        [
+          58381,
+          31994,
+          371851
+        ]
+      ],
+      "n_proteins": 2199,
+      "n_residues": 847248,
+      "mean_protein_q3_pct": 71.26,
+      "mean_protein_sov99_pct": 57.56
+    },
+    "Plants": {
+      "overall_q3_pct": 70.77,
+      "MCC_H": 0.5899,
+      "MCC_E": 0.4655,
+      "MCC_C": 0.4943,
+      "mean_mcc": 0.5166,
+      "per_state": {
+        "H": {
+          "precision_pct": 73.04,
+          "recall_pct": 72.68,
+          "f1_pct": 72.86,
+          "mcc": 0.5899,
+          "support_residues": 141207
+        },
+        "E": {
+          "precision_pct": 58.85,
+          "recall_pct": 52.03,
+          "f1_pct": 55.23,
+          "mcc": 0.4655,
+          "support_residues": 72996
+        },
+        "C": {
+          "precision_pct": 72.9,
+          "recall_pct": 76.2,
+          "f1_pct": 74.51,
+          "mcc": 0.4943,
+          "support_residues": 202368
+        }
+      },
+      "confusion_matrix_HEC": [
+        [
+          102628,
+          8225,
+          30354
+        ],
+        [
+          8050,
+          37982,
+          26964
+        ],
+        [
+          29829,
+          18334,
+          154205
+        ]
+      ],
+      "n_proteins": 1155,
+      "n_residues": 416571,
+      "mean_protein_q3_pct": 71.01,
+      "mean_protein_sov99_pct": 60.27
+    },
+    "Fungi": {
+      "overall_q3_pct": 70.61,
+      "MCC_H": 0.5533,
+      "MCC_E": 0.4692,
+      "MCC_C": 0.4763,
+      "mean_mcc": 0.4996,
+      "per_state": {
+        "H": {
+          "precision_pct": 69.3,
+          "recall_pct": 69.23,
+          "f1_pct": 69.27,
+          "mcc": 0.5533,
+          "support_residues": 157886
+        },
+        "E": {
+          "precision_pct": 61.65,
+          "recall_pct": 48.41,
+          "f1_pct": 54.24,
+          "mcc": 0.4692,
+          "support_residues": 83586
+        },
+        "C": {
+          "precision_pct": 73.42,
+          "recall_pct": 78.45,
+          "f1_pct": 75.85,
+          "mcc": 0.4763,
+          "support_residues": 264419
+        }
+      },
+      "confusion_matrix_HEC": [
+        [
+          109309,
+          7045,
+          41532
+        ],
+        [
+          9560,
+          40468,
+          33558
+        ],
+        [
+          38859,
+          18132,
+          207428
+        ]
+      ],
+      "n_proteins": 1140,
+      "n_residues": 505891,
+      "mean_protein_q3_pct": 70.28,
+      "mean_protein_sov99_pct": 56.98
+    },
+    "Protists": {
+      "overall_q3_pct": 70.65,
+      "MCC_H": 0.5947,
+      "MCC_E": 0.4531,
+      "MCC_C": 0.4823,
+      "mean_mcc": 0.51,
+      "per_state": {
+        "H": {
+          "precision_pct": 74.22,
+          "recall_pct": 75.09,
+          "f1_pct": 74.66,
+          "mcc": 0.5947,
+          "support_residues": 43993
+        },
+        "E": {
+          "precision_pct": 58.59,
+          "recall_pct": 48.47,
+          "f1_pct": 53.05,
+          "mcc": 0.4531,
+          "support_residues": 19034
+        },
+        "C": {
+          "precision_pct": 71.18,
+          "recall_pct": 74.77,
+          "f1_pct": 72.93,
+          "mcc": 0.4823,
+          "support_residues": 55043
+        }
+      },
+      "confusion_matrix_HEC": [
+        [
+          33036,
+          2104,
+          8853
+        ],
+        [
+          1998,
+          9225,
+          7811
+        ],
+        [
+          9474,
+          4415,
+          41154
+        ]
+      ],
+      "n_proteins": 356,
+      "n_residues": 118070,
+      "mean_protein_q3_pct": 70.28,
+      "mean_protein_sov99_pct": 59.95
+    },
+    "Viruses": {
+      "overall_q3_pct": 65.32,
+      "MCC_H": 0.5062,
+      "MCC_E": 0.3891,
+      "MCC_C": 0.3917,
+      "mean_mcc": 0.429,
+      "per_state": {
+        "H": {
+          "precision_pct": 62.26,
+          "recall_pct": 64.78,
+          "f1_pct": 63.5,
+          "mcc": 0.5062,
+          "support_residues": 118692
+        },
+        "E": {
+          "precision_pct": 56.23,
+          "recall_pct": 46.77,
+          "f1_pct": 51.07,
+          "mcc": 0.3891,
+          "support_residues": 103326
+        },
+        "C": {
+          "precision_pct": 69.88,
+          "recall_pct": 73.51,
+          "f1_pct": 71.65,
+          "mcc": 0.3917,
+          "support_residues": 241661
+        }
+      },
+      "confusion_matrix_HEC": [
+        [
+          76893,
+          9582,
+          32217
+        ],
+        [
+          10639,
+          48328,
+          44359
+        ],
+        [
+          35974,
+          28032,
+          177655
+        ]
+      ],
+      "n_proteins": 1115,
+      "n_residues": 463679,
+      "mean_protein_q3_pct": 66.24,
+      "mean_protein_sov99_pct": 51.61
+    }
+  },
+  "classroom_presets_uniprot_test": {
+    "P37957": {
+      "accession": "P37957",
+      "protein_name": "Lipase EstA",
+      "organism": "Bacillus subtilis (strain 168)",
+      "stratum": "Bacteria",
+      "length": 212,
+      "q3_pct": 65.09,
+      "sov99_pct": 67.41,
+      "obs_helix_pct": 34.91,
+      "obs_strand_pct": 18.4,
+      "obs_coil_pct": 46.7,
+      "obs_fold_class": "Mixed \u03b1/\u03b2",
+      "pred_helix_pct": 17.92,
+      "pred_strand_pct": 28.77,
+      "pred_coil_pct": 53.3,
+      "pred_fold_class": "Mixed \u03b1/\u03b2",
+      "pred_helix_count": 3,
+      "pred_strand_count": 8
+    },
+    "P42212": {
+      "accession": "P42212",
+      "protein_name": "Green fluorescent protein",
+      "organism": "Aequorea victoria",
+      "stratum": "Animals",
+      "length": 238,
+      "q3_pct": 59.66,
+      "sov99_pct": 61.92,
+      "obs_helix_pct": 18.07,
+      "obs_strand_pct": 58.82,
+      "obs_coil_pct": 23.11,
+      "obs_fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+      "pred_helix_pct": 1.68,
+      "pred_strand_pct": 52.94,
+      "pred_coil_pct": 45.38,
+      "pred_fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+      "pred_helix_count": 1,
+      "pred_strand_count": 15
+    },
+    "P00698": {
+      "accession": "P00698",
+      "protein_name": "Lysozyme C",
+      "organism": "Gallus gallus",
+      "stratum": "Animals",
+      "length": 147,
+      "q3_pct": 48.3,
+      "sov99_pct": 38.28,
+      "obs_helix_pct": 37.41,
+      "obs_strand_pct": 17.01,
+      "obs_coil_pct": 45.58,
+      "obs_fold_class": "Mixed \u03b1/\u03b2",
+      "pred_helix_pct": 12.93,
+      "pred_strand_pct": 19.05,
+      "pred_coil_pct": 68.03,
+      "pred_fold_class": "Mixed \u03b1/\u03b2",
+      "pred_helix_count": 2,
+      "pred_strand_count": 4
+    },
+    "P00918": {
+      "accession": "P00918",
+      "protein_name": "Carbonic anhydrase 2",
+      "organism": "Homo sapiens",
+      "stratum": "Animals",
+      "length": 260,
+      "q3_pct": 59.23,
+      "sov99_pct": 45.97,
+      "obs_helix_pct": 16.15,
+      "obs_strand_pct": 46.54,
+      "obs_coil_pct": 37.31,
+      "obs_fold_class": "Mixed \u03b1/\u03b2",
+      "pred_helix_pct": 9.62,
+      "pred_strand_pct": 29.23,
+      "pred_coil_pct": 61.15,
+      "pred_fold_class": "Mixed \u03b1/\u03b2",
+      "pred_helix_count": 4,
+      "pred_strand_count": 10
+    },
+    "P02185": {
+      "accession": "P02185",
+      "protein_name": "Myoglobin",
+      "organism": "Physeter macrocephalus",
+      "stratum": "Animals",
+      "length": 154,
+      "q3_pct": 80.52,
+      "sov99_pct": 66.11,
+      "obs_helix_pct": 76.62,
+      "obs_strand_pct": 0.0,
+      "obs_coil_pct": 23.38,
+      "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+      "pred_helix_pct": 76.62,
+      "pred_strand_pct": 0.0,
+      "pred_coil_pct": 23.38,
+      "pred_fold_class": "All-\u03b1 (Helix-Rich)",
+      "pred_helix_count": 7,
+      "pred_strand_count": 0
+    },
+    "P02769": {
+      "accession": "P02769",
+      "protein_name": "Albumin",
+      "organism": "Bos taurus",
+      "stratum": "Animals",
+      "length": 607,
+      "q3_pct": 74.79,
+      "sov99_pct": 67.3,
+      "obs_helix_pct": 73.97,
+      "obs_strand_pct": 3.95,
+      "obs_coil_pct": 22.08,
+      "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+      "pred_helix_pct": 65.9,
+      "pred_strand_pct": 0.0,
+      "pred_coil_pct": 34.1,
+      "pred_fold_class": "All-\u03b1 (Helix-Rich)",
+      "pred_helix_count": 21,
+      "pred_strand_count": 0
+    }
+  },
+  "classroom_presets_mature_ui": {
+    "lysozyme_native": {
+      "preset_key": "lysozyme_native",
+      "name": "Hen Egg-White Lysozyme C (Gallus gallus \u2022 Mature Chain)",
+      "uniprot_id": "P00698",
+      "length": 129,
+      "helix_pct": 19.38,
+      "strand_pct": 22.48,
+      "coil_pct": 58.14,
+      "helix_count": 3,
+      "strand_count": 4,
+      "fold_class": "Mixed \u03b1/\u03b2",
+      "mean_confidence": 0.6202
+    },
+    "lysozyme_his_tev": {
+      "preset_key": "lysozyme_his_tev",
+      "name": "6xHis-TEV-Lysozyme (Recombinant Construct)",
+      "uniprot_id": "P00698",
+      "length": 143,
+      "helix_pct": 29.37,
+      "strand_pct": 10.49,
+      "coil_pct": 60.14,
+      "helix_count": 5,
+      "strand_count": 2,
+      "fold_class": "Mixed \u03b1/\u03b2",
+      "mean_confidence": 0.6629
+    },
+    "gfp": {
+      "preset_key": "gfp",
+      "name": "Green Fluorescent Protein (Aequorea victoria)",
+      "uniprot_id": "P42212",
+      "length": 238,
+      "helix_pct": 1.68,
+      "strand_pct": 52.94,
+      "coil_pct": 45.38,
+      "helix_count": 1,
+      "strand_count": 15,
+      "fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+      "mean_confidence": 0.6982
+    },
+    "carbonic_anhydrase": {
+      "preset_key": "carbonic_anhydrase",
+      "name": "Carbonic Anhydrase 2 (Homo sapiens \u2022 Mature Chain, P00918)",
+      "uniprot_id": "P00918",
+      "length": 259,
+      "helix_pct": 9.65,
+      "strand_pct": 29.34,
+      "coil_pct": 61.0,
+      "helix_count": 4,
+      "strand_count": 10,
+      "fold_class": "Mixed \u03b1/\u03b2",
+      "mean_confidence": 0.6943
+    },
+    "myoglobin": {
+      "preset_key": "myoglobin",
+      "name": "Myoglobin (Physeter macrocephalus \u2022 Mature Chain)",
+      "uniprot_id": "P02185",
+      "length": 153,
+      "helix_pct": 77.12,
+      "strand_pct": 0.0,
+      "coil_pct": 22.88,
+      "helix_count": 7,
+      "strand_count": 0,
+      "fold_class": "All-\u03b1 (Helix-Rich)",
+      "mean_confidence": 0.8035
+    },
+    "lipase_a": {
+      "preset_key": "lipase_a",
+      "name": "Lipase A (Bacillus subtilis \u2022 Mature Extracellular Enzyme)",
+      "uniprot_id": "P37957",
+      "length": 181,
+      "helix_pct": 20.99,
+      "strand_pct": 29.28,
+      "coil_pct": 49.72,
+      "helix_count": 3,
+      "strand_count": 8,
+      "fold_class": "Mixed \u03b1/\u03b2",
+      "mean_confidence": 0.733
+    },
+    "bsa": {
+      "preset_key": "bsa",
+      "name": "Bovine Serum Albumin (Bos taurus \u2022 Mature Chain)",
+      "uniprot_id": "P02769",
+      "length": 583,
+      "helix_pct": 69.47,
+      "strand_pct": 0.0,
+      "coil_pct": 30.53,
+      "helix_count": 22,
+      "strand_count": 0,
+      "fold_class": "All-\u03b1 (Helix-Rich)",
+      "mean_confidence": 0.7373
+    }
+  },
+  "models": {
+    "propurify_ss": {
+      "overall_q3_pct": 69.31,
+      "MCC_H": 0.5807,
+      "MCC_E": 0.4589,
+      "MCC_C": 0.4691,
+      "mean_mcc": 0.5029,
+      "per_state": {
+        "H": {
+          "precision_pct": 71.33,
+          "recall_pct": 72.48,
+          "f1_pct": 71.9,
+          "mcc": 0.5807,
+          "support_residues": 1331340
+        },
+        "E": {
+          "precision_pct": 60.72,
+          "recall_pct": 51.08,
+          "f1_pct": 55.48,
+          "mcc": 0.4589,
+          "support_residues": 806092
+        },
+        "C": {
+          "precision_pct": 70.83,
+          "recall_pct": 74.75,
+          "f1_pct": 72.74,
+          "mcc": 0.4691,
+          "support_residues": 1928721
+        }
+      },
+      "confusion_matrix_HEC": [
+        [
+          965003,
+          75934,
+          290403
+        ],
+        [
+          91156,
+          411735,
+          303201
+        ],
+        [
+          296634,
+          190415,
+          1441672
+        ]
+      ],
+      "method": "ProPurify Cascaded SS (2-Stage Neural Ensemble + Viterbi)",
+      "n_test_proteins": 11118,
+      "n_test_residues": 4066153,
+      "mean_protein_q3_pct": 69.5,
+      "std_protein_q3_pct": 9.02,
+      "median_protein_q3_pct": 69.36,
+      "mean_protein_sov99_pct": 59.78,
+      "std_protein_sov99_pct": 17.05,
+      "residue_weighted_sov99_pct": 56.48,
+      "composition_mae": {
+        "helix_pct_mae": 7.84,
+        "strand_pct_mae": 6.58,
+        "coil_pct_mae": 8.5,
+        "overall_mean_mae": 7.64
+      },
+      "fold_class_accuracy_pct": 81.48,
+      "mean_inference_ms": 18.546,
+      "median_inference_ms": 16.201,
+      "total_eval_seconds": 212.75,
+      "by_domain": {
+        "Bacteria": {
+          "overall_q3_pct": 68.38,
+          "MCC_H": 0.5953,
+          "MCC_E": 0.4683,
+          "MCC_C": 0.4506,
+          "mean_mcc": 0.5047,
+          "per_state": {
+            "H": {
+              "precision_pct": 73.61,
+              "recall_pct": 75.24,
+              "f1_pct": 74.42,
+              "mcc": 0.5953,
+              "support_residues": 505772
+            },
+            "E": {
+              "precision_pct": 62.1,
+              "recall_pct": 53.72,
+              "f1_pct": 57.61,
+              "mcc": 0.4683,
+              "support_residues": 308004
+            },
+            "C": {
+              "precision_pct": 66.67,
+              "recall_pct": 70.18,
+              "f1_pct": 68.38,
+              "mcc": 0.4506,
+              "support_residues": 575732
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              380553,
+              29479,
+              95740
+            ],
+            [
+              36257,
+              165472,
+              106275
+            ],
+            [
+              100153,
+              71519,
+              404060
+            ]
+          ],
+          "n_proteins": 3838,
+          "n_residues": 1389508,
+          "mean_protein_q3_pct": 69.06,
+          "mean_protein_sov99_pct": 62.67
+        },
+        "Archaea": {
+          "overall_q3_pct": 67.9,
+          "MCC_H": 0.5951,
+          "MCC_E": 0.4843,
+          "MCC_C": 0.4379,
+          "mean_mcc": 0.5058,
+          "per_state": {
+            "H": {
+              "precision_pct": 73.34,
+              "recall_pct": 75.89,
+              "f1_pct": 74.59,
+              "mcc": 0.5951,
+              "support_residues": 119209
+            },
+            "E": {
+              "precision_pct": 63.48,
+              "recall_pct": 57.21,
+              "f1_pct": 60.18,
+              "mcc": 0.4843,
+              "support_residues": 78705
+            },
+            "C": {
+              "precision_pct": 65.18,
+              "recall_pct": 67.04,
+              "f1_pct": 66.09,
+              "mcc": 0.4379,
+              "support_residues": 127272
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              90468,
+              7916,
+              20825
+            ],
+            [
+              8923,
+              45025,
+              24757
+            ],
+            [
+              23964,
+              17989,
+              85319
+            ]
+          ],
+          "n_proteins": 1315,
+          "n_residues": 325186,
+          "mean_protein_q3_pct": 68.37,
+          "mean_protein_sov99_pct": 63.98
+        },
+        "Eukaryota": {
+          "overall_q3_pct": 71.23,
+          "MCC_H": 0.5772,
+          "MCC_E": 0.4579,
+          "MCC_C": 0.4914,
+          "mean_mcc": 0.5088,
+          "per_state": {
+            "H": {
+              "precision_pct": 70.82,
+              "recall_pct": 70.97,
+              "f1_pct": 70.9,
+              "mcc": 0.5772,
+              "support_residues": 587667
+            },
+            "E": {
+              "precision_pct": 60.03,
+              "recall_pct": 48.38,
+              "f1_pct": 53.58,
+              "mcc": 0.4579,
+              "support_residues": 316057
+            },
+            "C": {
+              "precision_pct": 74.19,
+              "recall_pct": 78.72,
+              "f1_pct": 76.39,
+              "mcc": 0.4914,
+              "support_residues": 984056
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              417089,
+              28957,
+              141621
+            ],
+            [
+              35337,
+              152910,
+              127810
+            ],
+            [
+              136543,
+              72875,
+              774638
+            ]
+          ],
+          "n_proteins": 4850,
+          "n_residues": 1887780,
+          "mean_protein_q3_pct": 70.9,
+          "mean_protein_sov99_pct": 58.24
+        },
+        "Viruses": {
+          "overall_q3_pct": 65.32,
+          "MCC_H": 0.5062,
+          "MCC_E": 0.3891,
+          "MCC_C": 0.3917,
+          "mean_mcc": 0.429,
+          "per_state": {
+            "H": {
+              "precision_pct": 62.26,
+              "recall_pct": 64.78,
+              "f1_pct": 63.5,
+              "mcc": 0.5062,
+              "support_residues": 118692
+            },
+            "E": {
+              "precision_pct": 56.23,
+              "recall_pct": 46.77,
+              "f1_pct": 51.07,
+              "mcc": 0.3891,
+              "support_residues": 103326
+            },
+            "C": {
+              "precision_pct": 69.88,
+              "recall_pct": 73.51,
+              "f1_pct": 71.65,
+              "mcc": 0.3917,
+              "support_residues": 241661
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              76893,
+              9582,
+              32217
+            ],
+            [
+              10639,
+              48328,
+              44359
+            ],
+            [
+              35974,
+              28032,
+              177655
+            ]
+          ],
+          "n_proteins": 1115,
+          "n_residues": 463679,
+          "mean_protein_q3_pct": 66.24,
+          "mean_protein_sov99_pct": 51.61
+        }
+      },
+      "by_stratum": {
+        "Bacteria": {
+          "overall_q3_pct": 68.38,
+          "MCC_H": 0.5953,
+          "MCC_E": 0.4683,
+          "MCC_C": 0.4506,
+          "mean_mcc": 0.5047,
+          "per_state": {
+            "H": {
+              "precision_pct": 73.61,
+              "recall_pct": 75.24,
+              "f1_pct": 74.42,
+              "mcc": 0.5953,
+              "support_residues": 505772
+            },
+            "E": {
+              "precision_pct": 62.1,
+              "recall_pct": 53.72,
+              "f1_pct": 57.61,
+              "mcc": 0.4683,
+              "support_residues": 308004
+            },
+            "C": {
+              "precision_pct": 66.67,
+              "recall_pct": 70.18,
+              "f1_pct": 68.38,
+              "mcc": 0.4506,
+              "support_residues": 575732
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              380553,
+              29479,
+              95740
+            ],
+            [
+              36257,
+              165472,
+              106275
+            ],
+            [
+              100153,
+              71519,
+              404060
+            ]
+          ],
+          "n_proteins": 3838,
+          "n_residues": 1389508,
+          "mean_protein_q3_pct": 69.06,
+          "mean_protein_sov99_pct": 62.67
+        },
+        "Archaea": {
+          "overall_q3_pct": 67.9,
+          "MCC_H": 0.5951,
+          "MCC_E": 0.4843,
+          "MCC_C": 0.4379,
+          "mean_mcc": 0.5058,
+          "per_state": {
+            "H": {
+              "precision_pct": 73.34,
+              "recall_pct": 75.89,
+              "f1_pct": 74.59,
+              "mcc": 0.5951,
+              "support_residues": 119209
+            },
+            "E": {
+              "precision_pct": 63.48,
+              "recall_pct": 57.21,
+              "f1_pct": 60.18,
+              "mcc": 0.4843,
+              "support_residues": 78705
+            },
+            "C": {
+              "precision_pct": 65.18,
+              "recall_pct": 67.04,
+              "f1_pct": 66.09,
+              "mcc": 0.4379,
+              "support_residues": 127272
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              90468,
+              7916,
+              20825
+            ],
+            [
+              8923,
+              45025,
+              24757
+            ],
+            [
+              23964,
+              17989,
+              85319
+            ]
+          ],
+          "n_proteins": 1315,
+          "n_residues": 325186,
+          "mean_protein_q3_pct": 68.37,
+          "mean_protein_sov99_pct": 63.98
+        },
+        "Animals": {
+          "overall_q3_pct": 71.9,
+          "MCC_H": 0.5796,
+          "MCC_E": 0.4478,
+          "MCC_C": 0.4964,
+          "mean_mcc": 0.5079,
+          "per_state": {
+            "H": {
+              "precision_pct": 69.9,
+              "recall_pct": 70.37,
+              "f1_pct": 70.14,
+              "mcc": 0.5796,
+              "support_residues": 244581
+            },
+            "E": {
+              "precision_pct": 59.95,
+              "recall_pct": 46.45,
+              "f1_pct": 52.34,
+              "mcc": 0.4478,
+              "support_residues": 140441
+            },
+            "C": {
+              "precision_pct": 75.55,
+              "recall_pct": 80.45,
+              "f1_pct": 77.92,
+              "mcc": 0.4964,
+              "support_residues": 462226
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              172116,
+              11583,
+              60882
+            ],
+            [
+              15729,
+              65235,
+              59477
+            ],
+            [
+              58381,
+              31994,
+              371851
+            ]
+          ],
+          "n_proteins": 2199,
+          "n_residues": 847248,
+          "mean_protein_q3_pct": 71.26,
+          "mean_protein_sov99_pct": 57.56
+        },
+        "Plants": {
+          "overall_q3_pct": 70.77,
+          "MCC_H": 0.5899,
+          "MCC_E": 0.4655,
+          "MCC_C": 0.4943,
+          "mean_mcc": 0.5166,
+          "per_state": {
+            "H": {
+              "precision_pct": 73.04,
+              "recall_pct": 72.68,
+              "f1_pct": 72.86,
+              "mcc": 0.5899,
+              "support_residues": 141207
+            },
+            "E": {
+              "precision_pct": 58.85,
+              "recall_pct": 52.03,
+              "f1_pct": 55.23,
+              "mcc": 0.4655,
+              "support_residues": 72996
+            },
+            "C": {
+              "precision_pct": 72.9,
+              "recall_pct": 76.2,
+              "f1_pct": 74.51,
+              "mcc": 0.4943,
+              "support_residues": 202368
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              102628,
+              8225,
+              30354
+            ],
+            [
+              8050,
+              37982,
+              26964
+            ],
+            [
+              29829,
+              18334,
+              154205
+            ]
+          ],
+          "n_proteins": 1155,
+          "n_residues": 416571,
+          "mean_protein_q3_pct": 71.01,
+          "mean_protein_sov99_pct": 60.27
+        },
+        "Fungi": {
+          "overall_q3_pct": 70.61,
+          "MCC_H": 0.5533,
+          "MCC_E": 0.4692,
+          "MCC_C": 0.4763,
+          "mean_mcc": 0.4996,
+          "per_state": {
+            "H": {
+              "precision_pct": 69.3,
+              "recall_pct": 69.23,
+              "f1_pct": 69.27,
+              "mcc": 0.5533,
+              "support_residues": 157886
+            },
+            "E": {
+              "precision_pct": 61.65,
+              "recall_pct": 48.41,
+              "f1_pct": 54.24,
+              "mcc": 0.4692,
+              "support_residues": 83586
+            },
+            "C": {
+              "precision_pct": 73.42,
+              "recall_pct": 78.45,
+              "f1_pct": 75.85,
+              "mcc": 0.4763,
+              "support_residues": 264419
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              109309,
+              7045,
+              41532
+            ],
+            [
+              9560,
+              40468,
+              33558
+            ],
+            [
+              38859,
+              18132,
+              207428
+            ]
+          ],
+          "n_proteins": 1140,
+          "n_residues": 505891,
+          "mean_protein_q3_pct": 70.28,
+          "mean_protein_sov99_pct": 56.98
+        },
+        "Protists": {
+          "overall_q3_pct": 70.65,
+          "MCC_H": 0.5947,
+          "MCC_E": 0.4531,
+          "MCC_C": 0.4823,
+          "mean_mcc": 0.51,
+          "per_state": {
+            "H": {
+              "precision_pct": 74.22,
+              "recall_pct": 75.09,
+              "f1_pct": 74.66,
+              "mcc": 0.5947,
+              "support_residues": 43993
+            },
+            "E": {
+              "precision_pct": 58.59,
+              "recall_pct": 48.47,
+              "f1_pct": 53.05,
+              "mcc": 0.4531,
+              "support_residues": 19034
+            },
+            "C": {
+              "precision_pct": 71.18,
+              "recall_pct": 74.77,
+              "f1_pct": 72.93,
+              "mcc": 0.4823,
+              "support_residues": 55043
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              33036,
+              2104,
+              8853
+            ],
+            [
+              1998,
+              9225,
+              7811
+            ],
+            [
+              9474,
+              4415,
+              41154
+            ]
+          ],
+          "n_proteins": 356,
+          "n_residues": 118070,
+          "mean_protein_q3_pct": 70.28,
+          "mean_protein_sov99_pct": 59.95
+        },
+        "Viruses": {
+          "overall_q3_pct": 65.32,
+          "MCC_H": 0.5062,
+          "MCC_E": 0.3891,
+          "MCC_C": 0.3917,
+          "mean_mcc": 0.429,
+          "per_state": {
+            "H": {
+              "precision_pct": 62.26,
+              "recall_pct": 64.78,
+              "f1_pct": 63.5,
+              "mcc": 0.5062,
+              "support_residues": 118692
+            },
+            "E": {
+              "precision_pct": 56.23,
+              "recall_pct": 46.77,
+              "f1_pct": 51.07,
+              "mcc": 0.3891,
+              "support_residues": 103326
+            },
+            "C": {
+              "precision_pct": 69.88,
+              "recall_pct": 73.51,
+              "f1_pct": 71.65,
+              "mcc": 0.3917,
+              "support_residues": 241661
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              76893,
+              9582,
+              32217
+            ],
+            [
+              10639,
+              48328,
+              44359
+            ],
+            [
+              35974,
+              28032,
+              177655
+            ]
+          ],
+          "n_proteins": 1115,
+          "n_residues": 463679,
+          "mean_protein_q3_pct": 66.24,
+          "mean_protein_sov99_pct": 51.61
+        }
+      },
+      "uniprot_test_presets": {
+        "P37957": {
+          "accession": "P37957",
+          "protein_name": "Lipase EstA",
+          "organism": "Bacillus subtilis (strain 168)",
+          "stratum": "Bacteria",
+          "length": 212,
+          "q3_pct": 65.09,
+          "sov99_pct": 67.41,
+          "obs_helix_pct": 34.91,
+          "obs_strand_pct": 18.4,
+          "obs_coil_pct": 46.7,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_pct": 17.92,
+          "pred_strand_pct": 28.77,
+          "pred_coil_pct": 53.3,
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_count": 3,
+          "pred_strand_count": 8
+        },
+        "P42212": {
+          "accession": "P42212",
+          "protein_name": "Green fluorescent protein",
+          "organism": "Aequorea victoria",
+          "stratum": "Animals",
+          "length": 238,
+          "q3_pct": 59.66,
+          "sov99_pct": 61.92,
+          "obs_helix_pct": 18.07,
+          "obs_strand_pct": 58.82,
+          "obs_coil_pct": 23.11,
+          "obs_fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+          "pred_helix_pct": 1.68,
+          "pred_strand_pct": 52.94,
+          "pred_coil_pct": 45.38,
+          "pred_fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+          "pred_helix_count": 1,
+          "pred_strand_count": 15
+        },
+        "P00698": {
+          "accession": "P00698",
+          "protein_name": "Lysozyme C",
+          "organism": "Gallus gallus",
+          "stratum": "Animals",
+          "length": 147,
+          "q3_pct": 48.3,
+          "sov99_pct": 38.28,
+          "obs_helix_pct": 37.41,
+          "obs_strand_pct": 17.01,
+          "obs_coil_pct": 45.58,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_pct": 12.93,
+          "pred_strand_pct": 19.05,
+          "pred_coil_pct": 68.03,
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_count": 2,
+          "pred_strand_count": 4
+        },
+        "P00918": {
+          "accession": "P00918",
+          "protein_name": "Carbonic anhydrase 2",
+          "organism": "Homo sapiens",
+          "stratum": "Animals",
+          "length": 260,
+          "q3_pct": 59.23,
+          "sov99_pct": 45.97,
+          "obs_helix_pct": 16.15,
+          "obs_strand_pct": 46.54,
+          "obs_coil_pct": 37.31,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_pct": 9.62,
+          "pred_strand_pct": 29.23,
+          "pred_coil_pct": 61.15,
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_count": 4,
+          "pred_strand_count": 10
+        },
+        "P02185": {
+          "accession": "P02185",
+          "protein_name": "Myoglobin",
+          "organism": "Physeter macrocephalus",
+          "stratum": "Animals",
+          "length": 154,
+          "q3_pct": 80.52,
+          "sov99_pct": 66.11,
+          "obs_helix_pct": 76.62,
+          "obs_strand_pct": 0.0,
+          "obs_coil_pct": 23.38,
+          "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_helix_pct": 76.62,
+          "pred_strand_pct": 0.0,
+          "pred_coil_pct": 23.38,
+          "pred_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_helix_count": 7,
+          "pred_strand_count": 0
+        },
+        "P02769": {
+          "accession": "P02769",
+          "protein_name": "Albumin",
+          "organism": "Bos taurus",
+          "stratum": "Animals",
+          "length": 607,
+          "q3_pct": 74.79,
+          "sov99_pct": 67.3,
+          "obs_helix_pct": 73.97,
+          "obs_strand_pct": 3.95,
+          "obs_coil_pct": 22.08,
+          "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_helix_pct": 65.9,
+          "pred_strand_pct": 0.0,
+          "pred_coil_pct": 34.1,
+          "pred_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_helix_count": 21,
+          "pred_strand_count": 0
+        }
+      }
+    },
+    "gor4_baseline": {
+      "overall_q3_pct": 61.57,
+      "MCC_H": 0.4246,
+      "MCC_E": 0.2962,
+      "MCC_C": 0.3702,
+      "mean_mcc": 0.3637,
+      "per_state": {
+        "H": {
+          "precision_pct": 57.73,
+          "recall_pct": 68.53,
+          "f1_pct": 62.67,
+          "mcc": 0.4246,
+          "support_residues": 1331340
+        },
+        "E": {
+          "precision_pct": 57.43,
+          "recall_pct": 25.99,
+          "f1_pct": 35.79,
+          "mcc": 0.2962,
+          "support_residues": 806092
+        },
+        "C": {
+          "precision_pct": 65.14,
+          "recall_pct": 71.63,
+          "f1_pct": 68.23,
+          "mcc": 0.3702,
+          "support_residues": 1928721
+        }
+      },
+      "confusion_matrix_HEC": [
+        [
+          912367,
+          56665,
+          362308
+        ],
+        [
+          219429,
+          209539,
+          377124
+        ],
+        [
+          448485,
+          98641,
+          1381595
+        ]
+      ],
+      "method": "GOR IV Baseline (Garnier-Gibrat-Robson 1996)",
+      "n_test_proteins": 11118,
+      "n_test_residues": 4066153,
+      "mean_protein_q3_pct": 61.46,
+      "std_protein_q3_pct": 9.48,
+      "median_protein_q3_pct": 61.48,
+      "mean_protein_sov99_pct": 49.17,
+      "std_protein_sov99_pct": 15.87,
+      "residue_weighted_sov99_pct": 45.8,
+      "composition_mae": {
+        "helix_pct_mae": 10.81,
+        "strand_pct_mae": 12.61,
+        "coil_pct_mae": 11.53,
+        "overall_mean_mae": 11.65
+      },
+      "fold_class_accuracy_pct": 70.29,
+      "mean_inference_ms": 3.968,
+      "median_inference_ms": 3.409,
+      "total_eval_seconds": 50.9,
+      "by_domain": {
+        "Bacteria": {
+          "overall_q3_pct": 60.35,
+          "MCC_H": 0.4341,
+          "MCC_E": 0.3043,
+          "MCC_C": 0.3592,
+          "mean_mcc": 0.3659,
+          "per_state": {
+            "H": {
+              "precision_pct": 61.3,
+              "recall_pct": 69.55,
+              "f1_pct": 65.16,
+              "mcc": 0.4341,
+              "support_residues": 505772
+            },
+            "E": {
+              "precision_pct": 60.35,
+              "recall_pct": 26.88,
+              "f1_pct": 37.19,
+              "mcc": 0.3043,
+              "support_residues": 308004
+            },
+            "C": {
+              "precision_pct": 59.55,
+              "recall_pct": 70.18,
+              "f1_pct": 64.43,
+              "mcc": 0.3592,
+              "support_residues": 575732
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              351742,
+              20129,
+              133901
+            ],
+            [
+              84633,
+              82782,
+              140589
+            ],
+            [
+              137433,
+              34252,
+              404047
+            ]
+          ],
+          "n_proteins": 3838,
+          "n_residues": 1389508,
+          "mean_protein_q3_pct": 60.62,
+          "mean_protein_sov99_pct": 51.99
+        },
+        "Archaea": {
+          "overall_q3_pct": 60.16,
+          "MCC_H": 0.4393,
+          "MCC_E": 0.3287,
+          "MCC_C": 0.3653,
+          "mean_mcc": 0.3778,
+          "per_state": {
+            "H": {
+              "precision_pct": 59.85,
+              "recall_pct": 74.2,
+              "f1_pct": 66.26,
+              "mcc": 0.4393,
+              "support_residues": 119209
+            },
+            "E": {
+              "precision_pct": 64.29,
+              "recall_pct": 29.17,
+              "f1_pct": 40.13,
+              "mcc": 0.3287,
+              "support_residues": 78705
+            },
+            "C": {
+              "precision_pct": 59.43,
+              "recall_pct": 66.16,
+              "f1_pct": 62.62,
+              "mcc": 0.3653,
+              "support_residues": 127272
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              88449,
+              4746,
+              26014
+            ],
+            [
+              24269,
+              22960,
+              31476
+            ],
+            [
+              35056,
+              8007,
+              84209
+            ]
+          ],
+          "n_proteins": 1315,
+          "n_residues": 325186,
+          "mean_protein_q3_pct": 60.67,
+          "mean_protein_sov99_pct": 54.29
+        },
+        "Eukaryota": {
+          "overall_q3_pct": 63.31,
+          "MCC_H": 0.419,
+          "MCC_E": 0.2897,
+          "MCC_C": 0.3818,
+          "mean_mcc": 0.3635,
+          "per_state": {
+            "H": {
+              "precision_pct": 56.37,
+              "recall_pct": 67.24,
+              "f1_pct": 61.33,
+              "mcc": 0.419,
+              "support_residues": 587667
+            },
+            "E": {
+              "precision_pct": 53.63,
+              "recall_pct": 25.37,
+              "f1_pct": 34.44,
+              "mcc": 0.2897,
+              "support_residues": 316057
+            },
+            "C": {
+              "precision_pct": 69.4,
+              "recall_pct": 73.16,
+              "f1_pct": 71.23,
+              "mcc": 0.3818,
+              "support_residues": 984056
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              395138,
+              26664,
+              165865
+            ],
+            [
+              84284,
+              80179,
+              151594
+            ],
+            [
+              221497,
+              42665,
+              719894
+            ]
+          ],
+          "n_proteins": 4850,
+          "n_residues": 1887780,
+          "mean_protein_q3_pct": 62.64,
+          "mean_protein_sov99_pct": 46.87
+        },
+        "Viruses": {
+          "overall_q3_pct": 59.11,
+          "MCC_H": 0.3823,
+          "MCC_E": 0.2544,
+          "MCC_C": 0.315,
+          "mean_mcc": 0.3172,
+          "per_state": {
+            "H": {
+              "precision_pct": 48.83,
+              "recall_pct": 64.91,
+              "f1_pct": 55.73,
+              "mcc": 0.3823,
+              "support_residues": 118692
+            },
+            "E": {
+              "precision_pct": 55.62,
+              "recall_pct": 22.86,
+              "f1_pct": 32.4,
+              "mcc": 0.2544,
+              "support_residues": 103326
+            },
+            "C": {
+              "precision_pct": 65.84,
+              "recall_pct": 71.77,
+              "f1_pct": 68.68,
+              "mcc": 0.315,
+              "support_residues": 241661
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              77038,
+              5126,
+              36528
+            ],
+            [
+              26243,
+              23618,
+              53465
+            ],
+            [
+              54499,
+              13717,
+              173445
+            ]
+          ],
+          "n_proteins": 1115,
+          "n_residues": 463679,
+          "mean_protein_q3_pct": 60.19,
+          "mean_protein_sov99_pct": 43.46
+        }
+      },
+      "by_stratum": {
+        "Bacteria": {
+          "overall_q3_pct": 60.35,
+          "MCC_H": 0.4341,
+          "MCC_E": 0.3043,
+          "MCC_C": 0.3592,
+          "mean_mcc": 0.3659,
+          "per_state": {
+            "H": {
+              "precision_pct": 61.3,
+              "recall_pct": 69.55,
+              "f1_pct": 65.16,
+              "mcc": 0.4341,
+              "support_residues": 505772
+            },
+            "E": {
+              "precision_pct": 60.35,
+              "recall_pct": 26.88,
+              "f1_pct": 37.19,
+              "mcc": 0.3043,
+              "support_residues": 308004
+            },
+            "C": {
+              "precision_pct": 59.55,
+              "recall_pct": 70.18,
+              "f1_pct": 64.43,
+              "mcc": 0.3592,
+              "support_residues": 575732
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              351742,
+              20129,
+              133901
+            ],
+            [
+              84633,
+              82782,
+              140589
+            ],
+            [
+              137433,
+              34252,
+              404047
+            ]
+          ],
+          "n_proteins": 3838,
+          "n_residues": 1389508,
+          "mean_protein_q3_pct": 60.62,
+          "mean_protein_sov99_pct": 51.99
+        },
+        "Archaea": {
+          "overall_q3_pct": 60.16,
+          "MCC_H": 0.4393,
+          "MCC_E": 0.3287,
+          "MCC_C": 0.3653,
+          "mean_mcc": 0.3778,
+          "per_state": {
+            "H": {
+              "precision_pct": 59.85,
+              "recall_pct": 74.2,
+              "f1_pct": 66.26,
+              "mcc": 0.4393,
+              "support_residues": 119209
+            },
+            "E": {
+              "precision_pct": 64.29,
+              "recall_pct": 29.17,
+              "f1_pct": 40.13,
+              "mcc": 0.3287,
+              "support_residues": 78705
+            },
+            "C": {
+              "precision_pct": 59.43,
+              "recall_pct": 66.16,
+              "f1_pct": 62.62,
+              "mcc": 0.3653,
+              "support_residues": 127272
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              88449,
+              4746,
+              26014
+            ],
+            [
+              24269,
+              22960,
+              31476
+            ],
+            [
+              35056,
+              8007,
+              84209
+            ]
+          ],
+          "n_proteins": 1315,
+          "n_residues": 325186,
+          "mean_protein_q3_pct": 60.67,
+          "mean_protein_sov99_pct": 54.29
+        },
+        "Animals": {
+          "overall_q3_pct": 63.39,
+          "MCC_H": 0.413,
+          "MCC_E": 0.2739,
+          "MCC_C": 0.3818,
+          "mean_mcc": 0.3562,
+          "per_state": {
+            "H": {
+              "precision_pct": 53.4,
+              "recall_pct": 68.07,
+              "f1_pct": 59.85,
+              "mcc": 0.413,
+              "support_residues": 244581
+            },
+            "E": {
+              "precision_pct": 52.13,
+              "recall_pct": 23.86,
+              "f1_pct": 32.73,
+              "mcc": 0.2739,
+              "support_residues": 140441
+            },
+            "C": {
+              "precision_pct": 71.54,
+              "recall_pct": 72.93,
+              "f1_pct": 72.22,
+              "mcc": 0.3818,
+              "support_residues": 462226
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              166482,
+              11400,
+              66699
+            ],
+            [
+              39522,
+              33503,
+              67416
+            ],
+            [
+              105784,
+              19361,
+              337081
+            ]
+          ],
+          "n_proteins": 2199,
+          "n_residues": 847248,
+          "mean_protein_q3_pct": 62.25,
+          "mean_protein_sov99_pct": 45.07
+        },
+        "Plants": {
+          "overall_q3_pct": 63.31,
+          "MCC_H": 0.4354,
+          "MCC_E": 0.3024,
+          "MCC_C": 0.3882,
+          "mean_mcc": 0.3753,
+          "per_state": {
+            "H": {
+              "precision_pct": 61.15,
+              "recall_pct": 65.62,
+              "f1_pct": 63.31,
+              "mcc": 0.4354,
+              "support_residues": 141207
+            },
+            "E": {
+              "precision_pct": 54.04,
+              "recall_pct": 27.8,
+              "f1_pct": 36.71,
+              "mcc": 0.3024,
+              "support_residues": 72996
+            },
+            "C": {
+              "precision_pct": 66.27,
+              "recall_pct": 74.5,
+              "f1_pct": 70.14,
+              "mcc": 0.3882,
+              "support_residues": 202368
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              92664,
+              7080,
+              41463
+            ],
+            [
+              17432,
+              20293,
+              35271
+            ],
+            [
+              41431,
+              10178,
+              150759
+            ]
+          ],
+          "n_proteins": 1155,
+          "n_residues": 416571,
+          "mean_protein_q3_pct": 63.43,
+          "mean_protein_sov99_pct": 50.12
+        },
+        "Fungi": {
+          "overall_q3_pct": 63.4,
+          "MCC_H": 0.4165,
+          "MCC_E": 0.3045,
+          "MCC_C": 0.3778,
+          "mean_mcc": 0.3663,
+          "per_state": {
+            "H": {
+              "precision_pct": 55.96,
+              "recall_pct": 67.79,
+              "f1_pct": 61.31,
+              "mcc": 0.4165,
+              "support_residues": 157886
+            },
+            "E": {
+              "precision_pct": 57.02,
+              "recall_pct": 24.96,
+              "f1_pct": 34.73,
+              "mcc": 0.3045,
+              "support_residues": 83586
+            },
+            "C": {
+              "precision_pct": 69.35,
+              "recall_pct": 72.93,
+              "f1_pct": 71.09,
+              "mcc": 0.3778,
+              "support_residues": 264419
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              107031,
+              5619,
+              45236
+            ],
+            [
+              22738,
+              20867,
+              39981
+            ],
+            [
+              61479,
+              10112,
+              192828
+            ]
+          ],
+          "n_proteins": 1140,
+          "n_residues": 505891,
+          "mean_protein_q3_pct": 62.91,
+          "mean_protein_sov99_pct": 46.2
+        },
+        "Protists": {
+          "overall_q3_pct": 62.42,
+          "MCC_H": 0.4193,
+          "MCC_E": 0.2942,
+          "MCC_C": 0.3725,
+          "mean_mcc": 0.362,
+          "per_state": {
+            "H": {
+              "precision_pct": 62.48,
+              "recall_pct": 65.83,
+              "f1_pct": 64.11,
+              "mcc": 0.4193,
+              "support_residues": 43993
+            },
+            "E": {
+              "precision_pct": 49.72,
+              "recall_pct": 28.98,
+              "f1_pct": 36.62,
+              "mcc": 0.2942,
+              "support_residues": 19034
+            },
+            "C": {
+              "precision_pct": 64.71,
+              "recall_pct": 71.26,
+              "f1_pct": 67.83,
+              "mcc": 0.3725,
+              "support_residues": 55043
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              28961,
+              2565,
+              12467
+            ],
+            [
+              4592,
+              5516,
+              8926
+            ],
+            [
+              12803,
+              3014,
+              39226
+            ]
+          ],
+          "n_proteins": 356,
+          "n_residues": 118070,
+          "mean_protein_q3_pct": 61.66,
+          "mean_protein_sov99_pct": 49.64
+        },
+        "Viruses": {
+          "overall_q3_pct": 59.11,
+          "MCC_H": 0.3823,
+          "MCC_E": 0.2544,
+          "MCC_C": 0.315,
+          "mean_mcc": 0.3172,
+          "per_state": {
+            "H": {
+              "precision_pct": 48.83,
+              "recall_pct": 64.91,
+              "f1_pct": 55.73,
+              "mcc": 0.3823,
+              "support_residues": 118692
+            },
+            "E": {
+              "precision_pct": 55.62,
+              "recall_pct": 22.86,
+              "f1_pct": 32.4,
+              "mcc": 0.2544,
+              "support_residues": 103326
+            },
+            "C": {
+              "precision_pct": 65.84,
+              "recall_pct": 71.77,
+              "f1_pct": 68.68,
+              "mcc": 0.315,
+              "support_residues": 241661
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              77038,
+              5126,
+              36528
+            ],
+            [
+              26243,
+              23618,
+              53465
+            ],
+            [
+              54499,
+              13717,
+              173445
+            ]
+          ],
+          "n_proteins": 1115,
+          "n_residues": 463679,
+          "mean_protein_q3_pct": 60.19,
+          "mean_protein_sov99_pct": 43.46
+        }
+      },
+      "uniprot_test_presets": {
+        "P37957": {
+          "accession": "P37957",
+          "protein_name": "Lipase EstA",
+          "organism": "Bacillus subtilis (strain 168)",
+          "stratum": "Bacteria",
+          "length": 212,
+          "q3_pct": 56.13,
+          "sov99_pct": 53.77,
+          "obs_helix_pct": 34.91,
+          "obs_strand_pct": 18.4,
+          "obs_coil_pct": 46.7,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_pct": 24.53,
+          "pred_strand_pct": 23.58,
+          "pred_coil_pct": 51.89,
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_count": 0,
+          "pred_strand_count": 0
+        },
+        "P42212": {
+          "accession": "P42212",
+          "protein_name": "Green fluorescent protein",
+          "organism": "Aequorea victoria",
+          "stratum": "Animals",
+          "length": 238,
+          "q3_pct": 33.61,
+          "sov99_pct": 32.56,
+          "obs_helix_pct": 18.07,
+          "obs_strand_pct": 58.82,
+          "obs_coil_pct": 23.11,
+          "obs_fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+          "pred_helix_pct": 21.43,
+          "pred_strand_pct": 21.01,
+          "pred_coil_pct": 57.56,
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_count": 0,
+          "pred_strand_count": 0
+        },
+        "P00698": {
+          "accession": "P00698",
+          "protein_name": "Lysozyme C",
+          "organism": "Gallus gallus",
+          "stratum": "Animals",
+          "length": 147,
+          "q3_pct": 45.58,
+          "sov99_pct": 37.55,
+          "obs_helix_pct": 37.41,
+          "obs_strand_pct": 17.01,
+          "obs_coil_pct": 45.58,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_pct": 29.93,
+          "pred_strand_pct": 10.2,
+          "pred_coil_pct": 59.86,
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_count": 0,
+          "pred_strand_count": 0
+        },
+        "P00918": {
+          "accession": "P00918",
+          "protein_name": "Carbonic anhydrase 2",
+          "organism": "Homo sapiens",
+          "stratum": "Animals",
+          "length": 260,
+          "q3_pct": 38.85,
+          "sov99_pct": 18.25,
+          "obs_helix_pct": 16.15,
+          "obs_strand_pct": 46.54,
+          "obs_coil_pct": 37.31,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_pct": 20.77,
+          "pred_strand_pct": 7.31,
+          "pred_coil_pct": 71.92,
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_count": 0,
+          "pred_strand_count": 0
+        },
+        "P02185": {
+          "accession": "P02185",
+          "protein_name": "Myoglobin",
+          "organism": "Physeter macrocephalus",
+          "stratum": "Animals",
+          "length": 154,
+          "q3_pct": 69.48,
+          "sov99_pct": 57.16,
+          "obs_helix_pct": 76.62,
+          "obs_strand_pct": 0.0,
+          "obs_coil_pct": 23.38,
+          "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_helix_pct": 64.29,
+          "pred_strand_pct": 1.95,
+          "pred_coil_pct": 33.77,
+          "pred_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_helix_count": 0,
+          "pred_strand_count": 0
+        },
+        "P02769": {
+          "accession": "P02769",
+          "protein_name": "Albumin",
+          "organism": "Bos taurus",
+          "stratum": "Animals",
+          "length": 607,
+          "q3_pct": 66.06,
+          "sov99_pct": 58.17,
+          "obs_helix_pct": 73.97,
+          "obs_strand_pct": 3.95,
+          "obs_coil_pct": 22.08,
+          "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_helix_pct": 56.67,
+          "pred_strand_pct": 0.33,
+          "pred_coil_pct": 43.0,
+          "pred_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_helix_count": 0,
+          "pred_strand_count": 0
+        }
+      }
+    },
+    "chou_fasman_baseline": {
+      "overall_q3_pct": 49.15,
+      "MCC_H": 0.206,
+      "MCC_E": 0.1546,
+      "MCC_C": 0.2601,
+      "mean_mcc": 0.2069,
+      "per_state": {
+        "H": {
+          "precision_pct": 48.85,
+          "recall_pct": 39.5,
+          "f1_pct": 43.68,
+          "mcc": 0.206,
+          "support_residues": 1331340
+        },
+        "E": {
+          "precision_pct": 29.56,
+          "recall_pct": 42.68,
+          "f1_pct": 34.93,
+          "mcc": 0.1546,
+          "support_residues": 806092
+        },
+        "C": {
+          "precision_pct": 61.82,
+          "recall_pct": 58.51,
+          "f1_pct": 60.12,
+          "mcc": 0.2601,
+          "support_residues": 1928721
+        }
+      },
+      "confusion_matrix_HEC": [
+        [
+          525909,
+          424538,
+          380893
+        ],
+        [
+          145979,
+          344054,
+          316059
+        ],
+        [
+          404752,
+          395412,
+          1128557
+        ]
+      ],
+      "method": "Chou-Fasman Baseline (1978 Empirical Nucleation)",
+      "n_test_proteins": 11118,
+      "n_test_residues": 4066153,
+      "mean_protein_q3_pct": 48.89,
+      "std_protein_q3_pct": 9.45,
+      "median_protein_q3_pct": 49.4,
+      "mean_protein_sov99_pct": 39.64,
+      "std_protein_sov99_pct": 14.38,
+      "residue_weighted_sov99_pct": 36.45,
+      "composition_mae": {
+        "helix_pct_mae": 14.09,
+        "strand_pct_mae": 13.55,
+        "coil_pct_mae": 10.11,
+        "overall_mean_mae": 12.58
+      },
+      "fold_class_accuracy_pct": 72.07,
+      "mean_inference_ms": 1.603,
+      "median_inference_ms": 1.359,
+      "total_eval_seconds": 24.54,
+      "by_domain": {
+        "Bacteria": {
+          "overall_q3_pct": 48.96,
+          "MCC_H": 0.2356,
+          "MCC_E": 0.1622,
+          "MCC_C": 0.2538,
+          "mean_mcc": 0.2172,
+          "per_state": {
+            "H": {
+              "precision_pct": 54.06,
+              "recall_pct": 43.32,
+              "f1_pct": 48.1,
+              "mcc": 0.2356,
+              "support_residues": 505772
+            },
+            "E": {
+              "precision_pct": 33.01,
+              "recall_pct": 41.45,
+              "f1_pct": 36.75,
+              "mcc": 0.1622,
+              "support_residues": 308004
+            },
+            "C": {
+              "precision_pct": 55.83,
+              "recall_pct": 57.94,
+              "f1_pct": 56.87,
+              "mcc": 0.2538,
+              "support_residues": 575732
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              219104,
+              142264,
+              144404
+            ],
+            [
+              60822,
+              127672,
+              119510
+            ],
+            [
+              125367,
+              116786,
+              333579
+            ]
+          ],
+          "n_proteins": 3838,
+          "n_residues": 1389508,
+          "mean_protein_q3_pct": 48.99,
+          "mean_protein_sov99_pct": 43.64
+        },
+        "Archaea": {
+          "overall_q3_pct": 48.65,
+          "MCC_H": 0.2318,
+          "MCC_E": 0.1881,
+          "MCC_C": 0.2464,
+          "mean_mcc": 0.2221,
+          "per_state": {
+            "H": {
+              "precision_pct": 52.73,
+              "recall_pct": 46.85,
+              "f1_pct": 49.62,
+              "mcc": 0.2318,
+              "support_residues": 119209
+            },
+            "E": {
+              "precision_pct": 36.61,
+              "recall_pct": 44.88,
+              "f1_pct": 40.33,
+              "mcc": 0.1881,
+              "support_residues": 78705
+            },
+            "C": {
+              "precision_pct": 54.58,
+              "recall_pct": 52.65,
+              "f1_pct": 53.6,
+              "mcc": 0.2464,
+              "support_residues": 127272
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              55849,
+              33316,
+              30044
+            ],
+            [
+              17659,
+              35326,
+              25720
+            ],
+            [
+              32405,
+              27854,
+              67013
+            ]
+          ],
+          "n_proteins": 1315,
+          "n_residues": 325186,
+          "mean_protein_q3_pct": 49.1,
+          "mean_protein_sov99_pct": 46.04
+        },
+        "Eukaryota": {
+          "overall_q3_pct": 49.36,
+          "MCC_H": 0.1709,
+          "MCC_E": 0.1467,
+          "MCC_C": 0.2658,
+          "mean_mcc": 0.1945,
+          "per_state": {
+            "H": {
+              "precision_pct": 44.92,
+              "recall_pct": 35.76,
+              "f1_pct": 39.82,
+              "mcc": 0.1709,
+              "support_residues": 587667
+            },
+            "E": {
+              "precision_pct": 25.42,
+              "recall_pct": 43.26,
+              "f1_pct": 32.02,
+              "mcc": 0.1467,
+              "support_residues": 316057
+            },
+            "C": {
+              "precision_pct": 66.31,
+              "recall_pct": 59.43,
+              "f1_pct": 62.68,
+              "mcc": 0.2658,
+              "support_residues": 984056
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              210149,
+              207110,
+              170408
+            ],
+            [
+              52585,
+              136734,
+              126738
+            ],
+            [
+              205138,
+              194077,
+              584841
+            ]
+          ],
+          "n_proteins": 4850,
+          "n_residues": 1887780,
+          "mean_protein_q3_pct": 48.82,
+          "mean_protein_sov99_pct": 35.76
+        },
+        "Viruses": {
+          "overall_q3_pct": 49.23,
+          "MCC_H": 0.192,
+          "MCC_E": 0.1401,
+          "MCC_C": 0.2313,
+          "mean_mcc": 0.1878,
+          "per_state": {
+            "H": {
+              "precision_pct": 41.83,
+              "recall_pct": 34.38,
+              "f1_pct": 37.74,
+              "mcc": 0.192,
+              "support_residues": 118692
+            },
+            "E": {
+              "precision_pct": 31.02,
+              "recall_pct": 42.9,
+              "f1_pct": 36.01,
+              "mcc": 0.1401,
+              "support_residues": 103326
+            },
+            "C": {
+              "precision_pct": 64.11,
+              "recall_pct": 59.23,
+              "f1_pct": 61.57,
+              "mcc": 0.2313,
+              "support_residues": 241661
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              40807,
+              41848,
+              36037
+            ],
+            [
+              14913,
+              44322,
+              44091
+            ],
+            [
+              41842,
+              56695,
+              143124
+            ]
+          ],
+          "n_proteins": 1115,
+          "n_residues": 463679,
+          "mean_protein_q3_pct": 48.61,
+          "mean_protein_sov99_pct": 35.15
+        }
+      },
+      "by_stratum": {
+        "Bacteria": {
+          "overall_q3_pct": 48.96,
+          "MCC_H": 0.2356,
+          "MCC_E": 0.1622,
+          "MCC_C": 0.2538,
+          "mean_mcc": 0.2172,
+          "per_state": {
+            "H": {
+              "precision_pct": 54.06,
+              "recall_pct": 43.32,
+              "f1_pct": 48.1,
+              "mcc": 0.2356,
+              "support_residues": 505772
+            },
+            "E": {
+              "precision_pct": 33.01,
+              "recall_pct": 41.45,
+              "f1_pct": 36.75,
+              "mcc": 0.1622,
+              "support_residues": 308004
+            },
+            "C": {
+              "precision_pct": 55.83,
+              "recall_pct": 57.94,
+              "f1_pct": 56.87,
+              "mcc": 0.2538,
+              "support_residues": 575732
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              219104,
+              142264,
+              144404
+            ],
+            [
+              60822,
+              127672,
+              119510
+            ],
+            [
+              125367,
+              116786,
+              333579
+            ]
+          ],
+          "n_proteins": 3838,
+          "n_residues": 1389508,
+          "mean_protein_q3_pct": 48.99,
+          "mean_protein_sov99_pct": 43.64
+        },
+        "Archaea": {
+          "overall_q3_pct": 48.65,
+          "MCC_H": 0.2318,
+          "MCC_E": 0.1881,
+          "MCC_C": 0.2464,
+          "mean_mcc": 0.2221,
+          "per_state": {
+            "H": {
+              "precision_pct": 52.73,
+              "recall_pct": 46.85,
+              "f1_pct": 49.62,
+              "mcc": 0.2318,
+              "support_residues": 119209
+            },
+            "E": {
+              "precision_pct": 36.61,
+              "recall_pct": 44.88,
+              "f1_pct": 40.33,
+              "mcc": 0.1881,
+              "support_residues": 78705
+            },
+            "C": {
+              "precision_pct": 54.58,
+              "recall_pct": 52.65,
+              "f1_pct": 53.6,
+              "mcc": 0.2464,
+              "support_residues": 127272
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              55849,
+              33316,
+              30044
+            ],
+            [
+              17659,
+              35326,
+              25720
+            ],
+            [
+              32405,
+              27854,
+              67013
+            ]
+          ],
+          "n_proteins": 1315,
+          "n_residues": 325186,
+          "mean_protein_q3_pct": 49.1,
+          "mean_protein_sov99_pct": 46.04
+        },
+        "Animals": {
+          "overall_q3_pct": 49.83,
+          "MCC_H": 0.1697,
+          "MCC_E": 0.1417,
+          "MCC_C": 0.2683,
+          "mean_mcc": 0.1932,
+          "per_state": {
+            "H": {
+              "precision_pct": 42.39,
+              "recall_pct": 35.89,
+              "f1_pct": 38.87,
+              "mcc": 0.1697,
+              "support_residues": 244581
+            },
+            "E": {
+              "precision_pct": 24.94,
+              "recall_pct": 42.77,
+              "f1_pct": 31.51,
+              "mcc": 0.1417,
+              "support_residues": 140441
+            },
+            "C": {
+              "precision_pct": 68.7,
+              "recall_pct": 59.35,
+              "f1_pct": 63.69,
+              "mcc": 0.2683,
+              "support_residues": 462226
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              87769,
+              88308,
+              68504
+            ],
+            [
+              23898,
+              60073,
+              56470
+            ],
+            [
+              95367,
+              92508,
+              274351
+            ]
+          ],
+          "n_proteins": 2199,
+          "n_residues": 847248,
+          "mean_protein_q3_pct": 48.63,
+          "mean_protein_sov99_pct": 34.3
+        },
+        "Plants": {
+          "overall_q3_pct": 49.12,
+          "MCC_H": 0.1897,
+          "MCC_E": 0.1527,
+          "MCC_C": 0.2669,
+          "mean_mcc": 0.2031,
+          "per_state": {
+            "H": {
+              "precision_pct": 49.57,
+              "recall_pct": 36.13,
+              "f1_pct": 41.8,
+              "mcc": 0.1897,
+              "support_residues": 141207
+            },
+            "E": {
+              "precision_pct": 26.62,
+              "recall_pct": 43.95,
+              "f1_pct": 33.16,
+              "mcc": 0.1527,
+              "support_residues": 72996
+            },
+            "C": {
+              "precision_pct": 62.93,
+              "recall_pct": 60.05,
+              "f1_pct": 61.46,
+              "mcc": 0.2669,
+              "support_residues": 202368
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              51019,
+              47469,
+              42719
+            ],
+            [
+              12035,
+              32085,
+              28876
+            ],
+            [
+              39871,
+              40966,
+              121531
+            ]
+          ],
+          "n_proteins": 1155,
+          "n_residues": 416571,
+          "mean_protein_q3_pct": 49.6,
+          "mean_protein_sov99_pct": 38.33
+        },
+        "Fungi": {
+          "overall_q3_pct": 49.39,
+          "MCC_H": 0.1597,
+          "MCC_E": 0.159,
+          "MCC_C": 0.2619,
+          "mean_mcc": 0.1935,
+          "per_state": {
+            "H": {
+              "precision_pct": 43.79,
+              "recall_pct": 36.05,
+              "f1_pct": 39.54,
+              "mcc": 0.1597,
+              "support_residues": 157886
+            },
+            "E": {
+              "precision_pct": 26.09,
+              "recall_pct": 43.6,
+              "f1_pct": 32.64,
+              "mcc": 0.159,
+              "support_residues": 83586
+            },
+            "C": {
+              "precision_pct": 66.24,
+              "recall_pct": 59.18,
+              "f1_pct": 62.52,
+              "mcc": 0.2619,
+              "support_residues": 264419
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              56913,
+              54677,
+              46296
+            ],
+            [
+              13700,
+              36441,
+              33445
+            ],
+            [
+              59345,
+              48582,
+              156492
+            ]
+          ],
+          "n_proteins": 1140,
+          "n_residues": 505891,
+          "mean_protein_q3_pct": 49.09,
+          "mean_protein_sov99_pct": 35.23
+        },
+        "Protists": {
+          "overall_q3_pct": 46.62,
+          "MCC_H": 0.1661,
+          "MCC_E": 0.1094,
+          "MCC_C": 0.2599,
+          "mean_mcc": 0.1785,
+          "per_state": {
+            "H": {
+              "precision_pct": 51.68,
+              "recall_pct": 32.84,
+              "f1_pct": 40.16,
+              "mcc": 0.1661,
+              "support_residues": 43993
+            },
+            "E": {
+              "precision_pct": 22.1,
+              "recall_pct": 42.74,
+              "f1_pct": 29.13,
+              "mcc": 0.1094,
+              "support_residues": 19034
+            },
+            "C": {
+              "precision_pct": 60.91,
+              "recall_pct": 58.98,
+              "f1_pct": 59.93,
+              "mcc": 0.2599,
+              "support_residues": 55043
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              14448,
+              16656,
+              12889
+            ],
+            [
+              2952,
+              8135,
+              7947
+            ],
+            [
+              10555,
+              12021,
+              32467
+            ]
+          ],
+          "n_proteins": 356,
+          "n_residues": 118070,
+          "mean_protein_q3_pct": 46.6,
+          "mean_protein_sov99_pct": 38.08
+        },
+        "Viruses": {
+          "overall_q3_pct": 49.23,
+          "MCC_H": 0.192,
+          "MCC_E": 0.1401,
+          "MCC_C": 0.2313,
+          "mean_mcc": 0.1878,
+          "per_state": {
+            "H": {
+              "precision_pct": 41.83,
+              "recall_pct": 34.38,
+              "f1_pct": 37.74,
+              "mcc": 0.192,
+              "support_residues": 118692
+            },
+            "E": {
+              "precision_pct": 31.02,
+              "recall_pct": 42.9,
+              "f1_pct": 36.01,
+              "mcc": 0.1401,
+              "support_residues": 103326
+            },
+            "C": {
+              "precision_pct": 64.11,
+              "recall_pct": 59.23,
+              "f1_pct": 61.57,
+              "mcc": 0.2313,
+              "support_residues": 241661
+            }
+          },
+          "confusion_matrix_HEC": [
+            [
+              40807,
+              41848,
+              36037
+            ],
+            [
+              14913,
+              44322,
+              44091
+            ],
+            [
+              41842,
+              56695,
+              143124
+            ]
+          ],
+          "n_proteins": 1115,
+          "n_residues": 463679,
+          "mean_protein_q3_pct": 48.61,
+          "mean_protein_sov99_pct": 35.15
+        }
+      },
+      "uniprot_test_presets": {
+        "P37957": {
+          "accession": "P37957",
+          "protein_name": "Lipase EstA",
+          "organism": "Bacillus subtilis (strain 168)",
+          "stratum": "Bacteria",
+          "length": 212,
+          "q3_pct": 46.23,
+          "sov99_pct": 47.32,
+          "obs_helix_pct": 34.91,
+          "obs_strand_pct": 18.4,
+          "obs_coil_pct": 46.7,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_pct": 8.49,
+          "pred_strand_pct": 50.47,
+          "pred_coil_pct": 41.04,
+          "pred_fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+          "pred_helix_count": 0,
+          "pred_strand_count": 0
+        },
+        "P42212": {
+          "accession": "P42212",
+          "protein_name": "Green fluorescent protein",
+          "organism": "Aequorea victoria",
+          "stratum": "Animals",
+          "length": 238,
+          "q3_pct": 37.39,
+          "sov99_pct": 36.1,
+          "obs_helix_pct": 18.07,
+          "obs_strand_pct": 58.82,
+          "obs_coil_pct": 23.11,
+          "obs_fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+          "pred_helix_pct": 23.95,
+          "pred_strand_pct": 24.37,
+          "pred_coil_pct": 51.68,
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_count": 0,
+          "pred_strand_count": 0
+        },
+        "P00698": {
+          "accession": "P00698",
+          "protein_name": "Lysozyme C",
+          "organism": "Gallus gallus",
+          "stratum": "Animals",
+          "length": 147,
+          "q3_pct": 38.1,
+          "sov99_pct": 25.06,
+          "obs_helix_pct": 37.41,
+          "obs_strand_pct": 17.01,
+          "obs_coil_pct": 45.58,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_pct": 10.2,
+          "pred_strand_pct": 21.09,
+          "pred_coil_pct": 68.71,
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_count": 0,
+          "pred_strand_count": 0
+        },
+        "P00918": {
+          "accession": "P00918",
+          "protein_name": "Carbonic anhydrase 2",
+          "organism": "Homo sapiens",
+          "stratum": "Animals",
+          "length": 260,
+          "q3_pct": 41.15,
+          "sov99_pct": 27.93,
+          "obs_helix_pct": 16.15,
+          "obs_strand_pct": 46.54,
+          "obs_coil_pct": 37.31,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_pct": 20.0,
+          "pred_strand_pct": 21.15,
+          "pred_coil_pct": 58.85,
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_count": 0,
+          "pred_strand_count": 0
+        },
+        "P02185": {
+          "accession": "P02185",
+          "protein_name": "Myoglobin",
+          "organism": "Physeter macrocephalus",
+          "stratum": "Animals",
+          "length": 154,
+          "q3_pct": 48.05,
+          "sov99_pct": 40.6,
+          "obs_helix_pct": 76.62,
+          "obs_strand_pct": 0.0,
+          "obs_coil_pct": 23.38,
+          "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_helix_pct": 55.84,
+          "pred_strand_pct": 24.68,
+          "pred_coil_pct": 19.48,
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_count": 0,
+          "pred_strand_count": 0
+        },
+        "P02769": {
+          "accession": "P02769",
+          "protein_name": "Albumin",
+          "organism": "Bos taurus",
+          "stratum": "Animals",
+          "length": 607,
+          "q3_pct": 40.53,
+          "sov99_pct": 39.16,
+          "obs_helix_pct": 73.97,
+          "obs_strand_pct": 3.95,
+          "obs_coil_pct": 22.08,
+          "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_helix_pct": 33.61,
+          "pred_strand_pct": 25.04,
+          "pred_coil_pct": 41.35,
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_helix_count": 0,
+          "pred_strand_count": 0
+        }
+      }
+    }
+  },
+  "zero_leakage_verification": {
+    "strict_train_only_fitting": true,
+    "train_test_accession_overlap": 0,
+    "train_test_sequence_overlap": 0,
+    "classroom_presets_in_train": 0,
+    "internal_train_splits": {
+      "s1_train_fraction": 0.76,
+      "s2_train_fraction": 0.14,
+      "cal_val_fraction": 0.1,
+      "oof_gor4_folds": 5
+    }
+  }
+}

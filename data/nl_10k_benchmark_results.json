@@ -1,0 +1,378 @@
+{
+  "benchmark_name": "ProPurify Studio >=10,000-Protein Multi-Domain Plain-Language Search & Reproducibility Benchmark",
+  "generated_at_utc": "2026-11-16T09:51:02Z",
+  "corpus_summary": {
+    "total_unique_swissprot_proteins": 13403,
+    "unique_taxon_ids": 1798,
+    "counts_by_stratum": {
+      "Bacteria": 3793,
+      "Archaea": 2283,
+      "Eukaryota: Animals": 1913,
+      "Eukaryota: Plants": 1257,
+      "Eukaryota: Fungi": 1211,
+      "Eukaryota: Protists": 1240,
+      "Viruses & Phages": 1706
+    },
+    "source_metadata": {
+      "metadata": {
+        "dataset_name": "ProPurify Studio Multi-Domain Swiss-Prot 10K+ Natural-Language Benchmark Corpus",
+        "source_api": "https://rest.uniprot.org/uniprotkb/search (reviewed:true)",
+        "generated_at_utc": "2026-11-16T07:55:06Z",
+        "http_requests_made": 40,
+        "total_unique_proteins": 13403,
+        "unique_species_count": 1202,
+        "unique_tax_id_count": 1798,
+        "fragment_count": 33,
+        "with_primary_gene_count": 12300,
+        "domain_counts": {
+          "Bacteria": 3793,
+          "Archaea": 2283,
+          "Eukaryota": 5621,
+          "Viruses": 1706
+        },
+        "eukaryotic_kingdom_counts": {
+          "Metazoa": 1913,
+          "Viridiplantae": 1257,
+          "Fungi": 1211,
+          "Protists": 1240
+        },
+        "collision_class_counts": {
+          "histidine_pathway_his": 450,
+          "flagellin_fliC": 66,
+          "viral_hemagglutinin_HA": 271,
+          "viral_3C_protease_and_picornaviruses": 52,
+          "genes_with_3C": 23,
+          "gst_family": 360,
+          "mbp_family": 34,
+          "myc_family": 39,
+          "streptavidin_avidin": 4,
+          "name_contains_with": 451,
+          "name_contains_plus": 11,
+          "name_contains_and": 154,
+          "name_contains_containing": 186
+        },
+        "star_clade_counts": {
+          "Escherichia coli": 390,
+          "Bacillus subtilis": 189,
+          "Staphylococcus aureus": 141,
+          "Mycobacterium tuberculosis": 278,
+          "Pseudomonas aeruginosa": 229,
+          "Thermus aquaticus": 48,
+          "Streptococcus pyogenes": 243,
+          "Synechocystis": 197,
+          "Vibrio cholerae": 42,
+          "Helicobacter pylori": 258,
+          "Streptomyces coelicolor": 39,
+          "Caulobacter": 109,
+          "Methanocaldococcus jannaschii": 320,
+          "Sulfolobus acidocaldarius": 210,
+          "Saccharolobus solfataricus": 268,
+          "Pyrococcus furiosus": 208,
+          "Thermococcus kodakarensis": 197,
+          "Haloferax volcanii": 147,
+          "Halobacterium salinarum": 330,
+          "Archaeoglobus fulgidus": 240,
+          "Nitrosopumilus": 44,
+          "Homo sapiens": 380,
+          "Mus musculus": 240,
+          "Rattus norvegicus": 221,
+          "Gallus gallus": 111,
+          "Bos taurus": 85,
+          "Danio rerio": 220,
+          "Drosophila melanogaster": 220,
+          "Caenorhabditis elegans": 220,
+          "Xenopus laevis": 106,
+          "Arabidopsis thaliana": 350,
+          "Oryza sativa": 275,
+          "Zea mays": 100,
+          "Spinacia oleracea": 29,
+          "Solanum lycopersicum": 45,
+          "Chlamydomonas reinhardtii": 48,
+          "Saccharomyces cerevisiae": 340,
+          "Schizosaccharomyces pombe": 204,
+          "Neurospora crassa": 38,
+          "Aspergillus": 264,
+          "Candida albicans": 209,
+          "Plasmodium falciparum": 399,
+          "Trypanosoma brucei": 280,
+          "Dictyostelium discoideum": 280,
+          "Tetrahymena thermophila": 104,
+          "Diatoms (Thalassiosira/Phaeodactylum)": 170,
+          "Bacteriophage T4": 220,
+          "Bacteriophage T7": 56,
+          "Phage Lambda": 61,
+          "Tobacco etch virus": 2,
+          "SARS-CoV-2": 16,
+          "Influenza A virus": 550,
+          "HIV-1": 278,
+          "Vaccinia virus": 89,
+          "Herpesvirus": 1,
+          "Tobacco mosaic virus": 19,
+          "Sulfolobus viruses": 32
+        }
+      }
+    }
+  },
+  "tier1_full_corpus_benchmark": {
+    "total_unique_corpus_proteins": 13403,
+    "unique_corpus_proteins_covered": 13403,
+    "corpus_coverage_pct": 100.0,
+    "total_prompts_evaluated": 15303,
+    "wall_time_seconds": 35.52,
+    "overall": {
+      "grammar_overall_accuracy_pct": 100.0,
+      "tag_accuracy_pct": 100.0,
+      "tag_position_accuracy_pct": 100.0,
+      "cleavage_accuracy_pct": 100.0,
+      "non_truncated_retrievable_query_pct": 100.0,
+      "strict_accession_match_pct": 97.5103,
+      "biological_identity_match_pct": 100.0,
+      "top3_strict_accession_pct": 98.9022,
+      "adversarial_decoy_trap_rate_pct": 0.0,
+      "grammar_error_count": 0,
+      "biological_identity_mismatch_count": 0
+    },
+    "by_domain_stratum": {
+      "Bacteria": {
+        "total_prompts": 4843,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 98.658,
+        "biological_identity_match_pct": 100.0,
+        "top3_strict_accession_pct": 99.938
+      },
+      "Archaea": {
+        "total_prompts": 2341,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 99.018,
+        "biological_identity_match_pct": 100.0,
+        "top3_strict_accession_pct": 100.0
+      },
+      "Eukaryota: Animals": {
+        "total_prompts": 2311,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 99.827,
+        "biological_identity_match_pct": 100.0,
+        "top3_strict_accession_pct": 99.957
+      },
+      "Eukaryota: Plants": {
+        "total_prompts": 1397,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 99.284,
+        "biological_identity_match_pct": 100.0,
+        "top3_strict_accession_pct": 99.785
+      },
+      "Eukaryota: Fungi": {
+        "total_prompts": 1237,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 99.596,
+        "biological_identity_match_pct": 100.0,
+        "top3_strict_accession_pct": 100.0
+      },
+      "Eukaryota: Protists": {
+        "total_prompts": 1290,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 97.209,
+        "biological_identity_match_pct": 100.0,
+        "top3_strict_accession_pct": 99.457
+      },
+      "Viruses & Phages": {
+        "total_prompts": 1884,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 87.367,
+        "biological_identity_match_pct": 100.0,
+        "top3_strict_accession_pct": 91.826
+      },
+      "Eukaryota (All Kingdoms Combined)": {
+        "total_prompts": 6235,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 99.118,
+        "biological_identity_match_pct": 100.0,
+        "top3_strict_accession_pct": 99.824
+      }
+    },
+    "by_prompt_family": {
+      "hard_collision_tagged": {
+        "total_prompts": 950,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 97.684,
+        "biological_identity_match_pct": 100.0,
+        "top3_strict_accession_pct": 99.053
+      },
+      "hard_collision_untagged": {
+        "total_prompts": 950,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 97.684,
+        "biological_identity_match_pct": 100.0,
+        "top3_strict_accession_pct": 99.053
+      },
+      "tagged_and_cleavage": {
+        "total_prompts": 4020,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 97.687,
+        "biological_identity_match_pct": 100.0,
+        "top3_strict_accession_pct": 98.955
+      },
+      "untagged_gene_and_combined": {
+        "total_prompts": 2413,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 97.638,
+        "biological_identity_match_pct": 100.0,
+        "top3_strict_accession_pct": 99.13
+      },
+      "untagged_org_protein_and_clauses": {
+        "total_prompts": 3617,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 97.346,
+        "biological_identity_match_pct": 100.0,
+        "top3_strict_accession_pct": 98.728
+      },
+      "untagged_protein_org": {
+        "total_prompts": 3353,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 97.286,
+        "biological_identity_match_pct": 100.0,
+        "top3_strict_accession_pct": 98.777
+      }
+    },
+    "by_collision_category": {
+      "3c_gene_or_protease": {
+        "total_prompts": 28,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 100.0,
+        "biological_identity_match_pct": 100.0
+      },
+      "flagellin_flag": {
+        "total_prompts": 137,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 97.81,
+        "biological_identity_match_pct": 100.0
+      },
+      "grammar_keyword_in_name": {
+        "total_prompts": 559,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 100.0,
+        "biological_identity_match_pct": 100.0
+      },
+      "gst_enzyme": {
+        "total_prompts": 669,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 97.608,
+        "biological_identity_match_pct": 100.0
+      },
+      "hemagglutinin_ha": {
+        "total_prompts": 374,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 83.69,
+        "biological_identity_match_pct": 100.0
+      },
+      "his_pathway_or_histidine": {
+        "total_prompts": 964,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 100.0,
+        "biological_identity_match_pct": 100.0
+      },
+      "mbp_collision": {
+        "total_prompts": 54,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 100.0,
+        "biological_identity_match_pct": 100.0
+      },
+      "myc_or_mycobacterium": {
+        "total_prompts": 667,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 98.351,
+        "biological_identity_match_pct": 100.0
+      },
+      "protease_collision": {
+        "total_prompts": 3,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 100.0,
+        "biological_identity_match_pct": 100.0
+      },
+      "streptavidin_or_streptomyces": {
+        "total_prompts": 645,
+        "grammar_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 98.76,
+        "biological_identity_match_pct": 100.0
+      }
+    },
+    "sample_grammar_failures": [],
+    "sample_ranking_failures": []
+  },
+  "tier2_live_uniprot_benchmark": {
+    "total_live_prompts": 640,
+    "max_workers": 8,
+    "wall_time_seconds": 493.54,
+    "latency_ms": {
+      "mean": 6148.2,
+      "median": 3852.1,
+      "p95": 17979.0
+    },
+    "overall": {
+      "http_success_pct": 100.0,
+      "grammar_and_construct_accuracy_pct": 100.0,
+      "strict_accession_match_pct": 95.9375,
+      "biological_identity_match_pct": 100.0,
+      "failure_count": 0
+    },
+    "by_domain_stratum": {
+      "Bacteria": {
+        "total_prompts": 160,
+        "http_success_pct": 100.0,
+        "grammar_and_construct_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 97.5,
+        "biological_identity_match_pct": 100.0
+      },
+      "Archaea": {
+        "total_prompts": 105,
+        "http_success_pct": 100.0,
+        "grammar_and_construct_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 99.048,
+        "biological_identity_match_pct": 100.0
+      },
+      "Eukaryota: Animals": {
+        "total_prompts": 105,
+        "http_success_pct": 100.0,
+        "grammar_and_construct_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 100.0,
+        "biological_identity_match_pct": 100.0
+      },
+      "Eukaryota: Plants": {
+        "total_prompts": 85,
+        "http_success_pct": 100.0,
+        "grammar_and_construct_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 98.824,
+        "biological_identity_match_pct": 100.0
+      },
+      "Eukaryota: Fungi": {
+        "total_prompts": 65,
+        "http_success_pct": 100.0,
+        "grammar_and_construct_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 100.0,
+        "biological_identity_match_pct": 100.0
+      },
+      "Eukaryota: Protists": {
+        "total_prompts": 55,
+        "http_success_pct": 100.0,
+        "grammar_and_construct_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 96.364,
+        "biological_identity_match_pct": 100.0
+      },
+      "Viruses & Phages": {
+        "total_prompts": 65,
+        "http_success_pct": 100.0,
+        "grammar_and_construct_accuracy_pct": 100.0,
+        "strict_accession_match_pct": 72.308,
+        "biological_identity_match_pct": 100.0
+      }
+    },
+    "reproducibility_100_shuffled": {
+      "total_retested_prompts": 100,
+      "wall_time_seconds": 59.9,
+      "exact_match_count": 100,
+      "reproducibility_pct": 100.0,
+      "mismatches": []
+    },
+    "sample_live_failures": []
+  }
+}

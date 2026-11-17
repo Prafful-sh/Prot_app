@@ -1,0 +1,2 @@
+Timestamp: 2026-11-14T21:26:45+05:30
+Notification: User notified to check the RCSB Protein Data Bank usage policy and terms at https://www.rcsb.org/pages/usage-policy.

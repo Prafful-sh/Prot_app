@@ -1,0 +1,334 @@
+{
+  "dataset_name": "ProPurify Studio Multi-Domain Experimental PDB/DSSP Secondary Structure Corpus",
+  "source_api": "https://rest.uniprot.org/uniprotkb/search ((reviewed:true) AND (structure_3d:true))",
+  "generated_at_utc": "2026-11-16T21:24:54Z",
+  "http_requests_made": 61,
+  "npz_file_size_bytes": 7920791,
+  "total_proteins": 14869,
+  "train_count": 3751,
+  "test_count": 11118,
+  "unique_species_count": 1940,
+  "unique_tax_id_count": 2316,
+  "total_residues": 5515640,
+  "train_residues": 1449487,
+  "test_residues": 4066153,
+  "mean_sequence_length": 370.95,
+  "q3_state_counts": {
+    "H": 1812748,
+    "E": 1081533,
+    "C": 2621359
+  },
+  "q3_state_fractions": {
+    "H": 0.328656,
+    "E": 0.196085,
+    "C": 0.475259
+  },
+  "q3_state_fractions_train": {
+    "H": 0.332123,
+    "E": 0.190027,
+    "C": 0.47785
+  },
+  "q3_state_fractions_test": {
+    "H": 0.32742,
+    "E": 0.198244,
+    "C": 0.474336
+  },
+  "q4_state_fractions": {
+    "H": 0.328656,
+    "E": 0.196085,
+    "T": 0.028498,
+    "C": 0.446761
+  },
+  "q4_state_fractions_train": {
+    "H": 0.332123,
+    "E": 0.190027,
+    "T": 0.02779,
+    "C": 0.450061
+  },
+  "q4_state_fractions_test": {
+    "H": 0.32742,
+    "E": 0.198244,
+    "T": 0.028751,
+    "C": 0.445585
+  },
+  "domain_counts_total": {
+    "Bacteria": 5212,
+    "Archaea": 1617,
+    "Eukaryota": 6761,
+    "Viruses": 1279
+  },
+  "domain_counts_train": {
+    "Bacteria": 1374,
+    "Archaea": 302,
+    "Eukaryota": 1911,
+    "Viruses": 164
+  },
+  "domain_counts_test": {
+    "Bacteria": 3838,
+    "Archaea": 1315,
+    "Eukaryota": 4850,
+    "Viruses": 1115
+  },
+  "eukaryotic_kingdom_counts_total": {
+    "Metazoa": 3024,
+    "Viridiplantae": 1578,
+    "Fungi": 1647,
+    "Protists": 512
+  },
+  "eukaryotic_kingdom_counts_train": {
+    "Metazoa": 825,
+    "Viridiplantae": 423,
+    "Fungi": 507,
+    "Protists": 156
+  },
+  "eukaryotic_kingdom_counts_test": {
+    "Metazoa": 2199,
+    "Viridiplantae": 1155,
+    "Fungi": 1140,
+    "Protists": 356
+  },
+  "strata_counts_total": {
+    "Bacteria": 5212,
+    "Archaea": 1617,
+    "Animals": 3024,
+    "Plants": 1578,
+    "Fungi": 1647,
+    "Protists": 512,
+    "Viruses": 1279
+  },
+  "strata_counts_train": {
+    "Bacteria": 1374,
+    "Archaea": 302,
+    "Animals": 825,
+    "Plants": 423,
+    "Fungi": 507,
+    "Protists": 156,
+    "Viruses": 164
+  },
+  "strata_counts_test": {
+    "Bacteria": 3838,
+    "Archaea": 1315,
+    "Animals": 2199,
+    "Plants": 1155,
+    "Fungi": 1140,
+    "Protists": 356,
+    "Viruses": 1115
+  },
+  "classroom_presets_in_test": {
+    "P37957": {
+      "uniprot_id": "ESTA_BACSU",
+      "protein_name": "Lipase EstA",
+      "organism": "Bacillus subtilis (strain 168)",
+      "domain": "Bacteria",
+      "stratum": "Bacteria",
+      "split": "test",
+      "length": 212,
+      "helix_pct": 34.91,
+      "strand_pct": 18.4,
+      "coil_pct": 46.7
+    },
+    "P42212": {
+      "uniprot_id": "GFP_AEQVI",
+      "protein_name": "Green fluorescent protein",
+      "organism": "Aequorea victoria",
+      "domain": "Eukaryota",
+      "stratum": "Animals",
+      "split": "test",
+      "length": 238,
+      "helix_pct": 18.07,
+      "strand_pct": 58.82,
+      "coil_pct": 23.11
+    },
+    "P00698": {
+      "uniprot_id": "LYSC_CHICK",
+      "protein_name": "Lysozyme C",
+      "organism": "Gallus gallus",
+      "domain": "Eukaryota",
+      "stratum": "Animals",
+      "split": "test",
+      "length": 147,
+      "helix_pct": 37.41,
+      "strand_pct": 17.01,
+      "coil_pct": 45.58
+    },
+    "P00918": {
+      "uniprot_id": "CAH2_HUMAN",
+      "protein_name": "Carbonic anhydrase 2",
+      "organism": "Homo sapiens",
+      "domain": "Eukaryota",
+      "stratum": "Animals",
+      "split": "test",
+      "length": 260,
+      "helix_pct": 16.15,
+      "strand_pct": 46.54,
+      "coil_pct": 37.31
+    },
+    "P02185": {
+      "uniprot_id": "MYG_PHYMC",
+      "protein_name": "Myoglobin",
+      "organism": "Physeter macrocephalus",
+      "domain": "Eukaryota",
+      "stratum": "Animals",
+      "split": "test",
+      "length": 154,
+      "helix_pct": 76.62,
+      "strand_pct": 0.0,
+      "coil_pct": 23.38
+    },
+    "P02769": {
+      "uniprot_id": "ALBU_BOVIN",
+      "protein_name": "Albumin",
+      "organism": "Bos taurus",
+      "domain": "Eukaryota",
+      "stratum": "Animals",
+      "split": "test",
+      "length": 607,
+      "helix_pct": 73.97,
+      "strand_pct": 3.95,
+      "coil_pct": 22.08
+    }
+  },
+  "zero_leakage_audit": {
+    "total_connected_components": 10076,
+    "train_components": 3307,
+    "test_components": 6769,
+    "homology_5mer_edges_linked": 3776,
+    "accession_overlap_count": 0,
+    "exact_sequence_overlap_count": 0,
+    "primary_gene_domain_collision_count": 0,
+    "primary_gene_global_collision_count": 0,
+    "pairs_5mer_jaccard_ge_0_30": 0,
+    "pairs_5mer_containment_ge_0_30": 0,
+    "max_train_test_5mer_jaccard": 0.157895,
+    "max_train_test_5mer_containment": 0.278409,
+    "classroom_presets_in_train": 0
+  },
+  "npz_schema": {
+    "accessions": {
+      "shape": [
+        14869
+      ],
+      "dtype": "<U16"
+    },
+    "uniprot_ids": {
+      "shape": [
+        14869
+      ],
+      "dtype": "<U24"
+    },
+    "protein_names": {
+      "shape": [
+        14869
+      ],
+      "dtype": "<U160"
+    },
+    "gene_names": {
+      "shape": [
+        14869
+      ],
+      "dtype": "<U48"
+    },
+    "organisms": {
+      "shape": [
+        14869
+      ],
+      "dtype": "<U120"
+    },
+    "tax_ids": {
+      "shape": [
+        14869
+      ],
+      "dtype": "int32"
+    },
+    "domains": {
+      "shape": [
+        14869
+      ],
+      "dtype": "<U16"
+    },
+    "kingdoms": {
+      "shape": [
+        14869
+      ],
+      "dtype": "<U32"
+    },
+    "strata": {
+      "shape": [
+        14869
+      ],
+      "dtype": "<U16"
+    },
+    "lengths": {
+      "shape": [
+        14869
+      ],
+      "dtype": "int32"
+    },
+    "sequences": {
+      "shape": [
+        14869
+      ],
+      "dtype": "<U1500"
+    },
+    "ss3_strings": {
+      "shape": [
+        14869
+      ],
+      "dtype": "<U1500"
+    },
+    "ss4_strings": {
+      "shape": [
+        14869
+      ],
+      "dtype": "<U1500"
+    },
+    "splits": {
+      "shape": [
+        14869
+      ],
+      "dtype": "<U8"
+    },
+    "helix_fracs": {
+      "shape": [
+        14869
+      ],
+      "dtype": "float32"
+    },
+    "strand_fracs": {
+      "shape": [
+        14869
+      ],
+      "dtype": "float32"
+    },
+    "turn_fracs": {
+      "shape": [
+        14869
+      ],
+      "dtype": "float32"
+    },
+    "coil_fracs": {
+      "shape": [
+        14869
+      ],
+      "dtype": "float32"
+    },
+    "structured_fracs": {
+      "shape": [
+        14869
+      ],
+      "dtype": "float32"
+    },
+    "disordered_fracs": {
+      "shape": [
+        14869
+      ],
+      "dtype": "float32"
+    },
+    "is_classroom_preset": {
+      "shape": [
+        14869
+      ],
+      "dtype": "bool"
+    }
+  }
+}
