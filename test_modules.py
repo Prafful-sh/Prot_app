@@ -1638,7 +1638,19 @@ def test_interactive_sec_column_visualizer_and_intuitive_plots(root_dir: str) ->
     svg_match = re.search(r"(<svg\b.*?</svg>)", studio_mds[0], flags=re.DOTALL)
     assert svg_match is not None, "SVG tag missing inside sec-studio-card!"
     # Parse SVG with XML ElementTree to guarantee 100% well-formed XML (no unescaped > or &!)
-    ET.fromstring(svg_match.group(1))
+    svg_root = ET.fromstring(svg_match.group(1))
+
+    # Verify sidebar "Or Load Your Own Protein" has Plain English last & UniProt first
+    sidebar_opts = list(at.sidebar.radio[0].options)
+    assert sidebar_opts[0] == "🔍 UniProt ID", f"Expected UniProt ID first, got {sidebar_opts}"
+    assert sidebar_opts[-1] == "💬 Describe in Plain English", f"Expected Plain English last, got {sidebar_opts}"
+
+    # Verify every line inside Panel 3 cheat-sheet box (x="746") fits comfortably (<= 55 chars)
+    p3_texts = ["".join(el.itertext()) for el in svg_root.iter("{http://www.w3.org/2000/svg}text") if el.attrib.get("x") == "746"]
+    assert len(p3_texts) == 5, f"Expected 5 lines in Panel 3 cheat-sheet box, got {len(p3_texts)}"
+    for t_line in p3_texts:
+        assert len(t_line) <= 55, f"Panel 3 cheat-sheet text too long ({len(t_line)} chars): {t_line!r}"
+    assert "below to race" in p3_texts[-1]
 
     # Verify Bead Pores Entered column in summary dataframe
     assert "Bead Pores Entered" in list(at.dataframe[0].value.columns)

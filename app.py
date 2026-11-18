@@ -1310,11 +1310,11 @@ with st.sidebar:
     input_method = st.radio(
         "How would you like to enter it?",
         [
-            "💬 Describe in Plain English",
             "🔍 UniProt ID",
             "🏛️ NCBI Accession",
             "🔤 Paste Amino Acid / FASTA",
-            "🧬 Translate DNA / RNA"
+            "🧬 Translate DNA / RNA",
+            "💬 Describe in Plain English"
         ]
     )
 
@@ -2351,10 +2351,10 @@ def render_sec_column_visualizer_html(snapshot: dict, sim_data: dict, col_config
     # Student How-to-Read Cheat Sheet Card (y = 292 .. 412)
     svg.append('<rect x="734" y="292" width="322" height="118" rx="10" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1"/>')
     svg.append('<text x="746" y="311" class="sec-svg-bold" fill="#0B221C">🎓 How to Read Any SEC Graph in 3 Steps:</text>')
-    svg.append('<text x="746" y="331" class="sec-svg-lbl">• <tspan class="sec-svg-bold" fill="#B91C1C">Left (Small mL):</tspan> Skipped pores ➜ <tspan class="sec-svg-bold">BIGGER</tspan> size</text>')
-    svg.append('<text x="746" y="351" class="sec-svg-lbl">• <tspan class="sec-svg-bold" fill="#0F766E">Right (Large mL):</tspan> Explored maze ➜ <tspan class="sec-svg-bold">SMALLER</tspan> size</text>')
-    svg.append('<text x="746" y="371" class="sec-svg-lbl">• <tspan class="sec-svg-bold" fill="#4F46E5">Peak Height (mAU):</tspan> How much protein is in that tube</text>')
-    svg.append('<text x="746" y="393" class="sec-svg-micro" fill="#47625B">💡 Tip: Check "2× Dimer", "4× Tetra", or "Aggregate" above to race them!</text>')
+    svg.append('<text x="746" y="331" class="sec-svg-lbl">• <tspan class="sec-svg-bold" fill="#B91C1C">Left (Small mL):</tspan> Skipped pores ➜ <tspan class="sec-svg-bold">BIGGER</tspan></text>')
+    svg.append('<text x="746" y="351" class="sec-svg-lbl">• <tspan class="sec-svg-bold" fill="#0F766E">Right (Large mL):</tspan> Explored maze ➜ <tspan class="sec-svg-bold">SMALLER</tspan></text>')
+    svg.append('<text x="746" y="371" class="sec-svg-lbl">• <tspan class="sec-svg-bold" fill="#4F46E5">Peak Height (mAU):</tspan> Protein amount in tube</text>')
+    svg.append('<text x="746" y="394" class="sec-svg-micro" fill="#47625B">💡 Tip: Tick "2× Dimer" or "Aggregate" below to race!</text>')
 
     svg.append('</svg>')
 
