@@ -449,12 +449,63 @@ def detect_sequence_terminal_tag(sequence: str) -> Dict[str, Any]:
     return {"tag_detected": "None", "tag_position": "N/A", "core_sequence": seq}
 
 
+_METAL_OR_COFACTOR_LIGAND_RX = re.compile(
+    r"(?:\b(?:ni|zn|fe|cu|mn|co|mo|ca|mg|w|v)\s*\(\s*[123]?\+\s*\)|\b(?:ni|zn|fe|cu|mn|co|ca|mg)\s+cation\b|"
+    r"\b(?:nickel|zinc|iron|copper|manganese|cobalt|molybdenum|tungsten|vanadium|calcium|magnesium)\b|"
+    r"\[[234]fe-[234]s\]|iron-sulfur|heme|protoheme|siroheme|hemin|cobalamin|molybdopterin|"
+    r"pyridoxal|flavin|\bfad\b|\bfmn\b|\bf430\b)",
+    flags=re.IGNORECASE,
+)
+
+_NON_COFACTOR_LIGAND_WORDS = {
+    "substrate", "inhibitor", "transition state", "transition-state", "product",
+    "atp", "gtp", "adp", "gdp", "amp", "gmp", "nad", "nadh", "nadp", "nadph",
+    "glutathione", "o2", "dioxygen", "nitrite", "water", "h2o", "coa", "acetyl-coa",
+    "dna", "rna", "peptide", "lipid", "cholesterol", "glucose", "maltose", "urea",
+}
+
+_KNOWN_COFACTOR_CHEBI_IDS = {
+    "CHEBI:49786",  # Ni(2+)
+    "CHEBI:29105",  # Zn(2+)
+    "CHEBI:29033",  # Fe(2+)
+    "CHEBI:29034",  # Fe(3+)
+    "CHEBI:29036",  # Cu(2+)
+    "CHEBI:49552",  # Cu(+)
+    "CHEBI:23378",  # Cu cation
+    "CHEBI:29035",  # Mn(2+)
+    "CHEBI:48828",  # Co(2+)
+    "CHEBI:30411",  # cobalamin / B12
+    "CHEBI:18420",  # Mg(2+)
+    "CHEBI:29108",  # Ca(2+)
+    "CHEBI:49883",  # [4Fe-4S] cluster
+    "CHEBI:49601",  # [2Fe-2S] cluster
+    "CHEBI:21137",  # [3Fe-4S] cluster
+    "CHEBI:30408",  # iron-sulfur cluster
+    "CHEBI:60344",  # heme b
+    "CHEBI:26355",  # heme
+    "CHEBI:61717",  # heme c
+    "CHEBI:60342",  # heme a
+    "CHEBI:17627",  # heme / protoheme
+    "CHEBI:597326", # pyridoxal 5'-phosphate (PLP)
+    "CHEBI:57692",  # FAD
+    "CHEBI:58210",  # FMN
+    "CHEBI:57618",  # FMNH2
+    "CHEBI:60240",  # divalent metal cation
+    "CHEBI:60539",  # molybdopterin cofactor
+    "CHEBI:71302",  # Moco
+}
+
+
 def _extract_uniprot_biochem_annotations(data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Extracts structured biochemical, cofactor, metal-ligand, redox, and membrane topology
-    annotations from a UniProtKB REST JSON entry (comments, features, keywords, EC numbers).
+    Extracts structured biochemical, cofactor (with ChEBI IDs), metal-ligand, redox, and membrane
+    topology annotations from a UniProtKB REST JSON entry.
+    Strictly filters out generic substrates/inhibitors from metal_ligands and keeps free-text
+    cofactor_notes separate from structured cofactors so prose negations ('not nickel(II)') never
+    cause false-positive metal calls.
     """
     cofactors: List[str] = []
+    cofactor_chebi_ids: List[str] = []
     cofactor_notes: List[str] = []
     subcellular_locations: List[str] = []
     for comm in (data.get("comments") or []):
@@ -464,6 +515,9 @@ def _extract_uniprot_biochem_annotations(data: Dict[str, Any]) -> Dict[str, Any]
                 cf_name = (cf.get("name") or "").strip()
                 if cf_name and cf_name not in cofactors:
                     cofactors.append(cf_name)
+                cf_chebi = ((cf.get("cofactorCrossReference") or {}).get("id") or "").strip().upper()
+                if cf_chebi and cf_chebi not in cofactor_chebi_ids:
+                    cofactor_chebi_ids.append(cf_chebi)
             for nt in ((comm.get("note") or {}).get("texts") or []):
                 val = (nt.get("value") or "").strip()
                 if val:
@@ -478,6 +532,7 @@ def _extract_uniprot_biochem_annotations(data: Dict[str, Any]) -> Dict[str, Any]
                     subcellular_locations.append(top_val)
 
     metal_ligands: List[str] = []
+    metal_ligand_chebi_ids: List[str] = []
     disulfide_count = 0
     transmembrane_count = 0
     has_signal_peptide = False
@@ -494,10 +549,28 @@ def _extract_uniprot_biochem_annotations(data: Dict[str, Any]) -> Dict[str, Any]
             zinc_finger_count += 1
             if "Zn(2+) [Zinc finger]" not in metal_ligands:
                 metal_ligands.append("Zn(2+) [Zinc finger]")
+            if "CHEBI:29105" not in metal_ligand_chebi_ids:
+                metal_ligand_chebi_ids.append("CHEBI:29105")
         elif ftype in ("Binding site", "Metal binding"):
-            lig_name = ((feat.get("ligand") or {}).get("name") or feat.get("description") or "").strip()
-            if lig_name and lig_name not in metal_ligands:
-                metal_ligands.append(lig_name)
+            lig_obj = feat.get("ligand") or {}
+            lig_name = (lig_obj.get("name") or feat.get("description") or "").strip()
+            lig_id = (lig_obj.get("id") or "").strip().upper()
+            feat_desc_low = str(feat.get("description") or "").lower()
+            lig_low = lig_name.lower()
+            # Skip inhibitors, non-physiological crystallization artifacts, and generic small-molecule substrates
+            if any(w in feat_desc_low for w in ("inhibitor", "non-physiological", "artifact")):
+                continue
+            if lig_low in _NON_COFACTOR_LIGAND_WORDS:
+                continue
+            is_true_metal_or_cof = (
+                (lig_id in _KNOWN_COFACTOR_CHEBI_IDS)
+                or bool(_METAL_OR_COFACTOR_LIGAND_RX.search(lig_name))
+            )
+            if is_true_metal_or_cof:
+                if lig_name and lig_name not in metal_ligands:
+                    metal_ligands.append(lig_name)
+                if lig_id and lig_id not in metal_ligand_chebi_ids:
+                    metal_ligand_chebi_ids.append(lig_id)
 
     keywords: List[str] = []
     for kw in (data.get("keywords") or []):
@@ -514,8 +587,10 @@ def _extract_uniprot_biochem_annotations(data: Dict[str, Any]) -> Dict[str, Any]
 
     return {
         "cofactors": cofactors,
+        "cofactor_chebi_ids": cofactor_chebi_ids,
         "cofactor_notes": cofactor_notes,
         "metal_ligands": metal_ligands,
+        "metal_ligand_chebi_ids": metal_ligand_chebi_ids,
         "disulfide_count": disulfide_count,
         "transmembrane_count": transmembrane_count,
         "has_signal_peptide": has_signal_peptide,
@@ -1023,8 +1098,10 @@ OFFLINE_UNIPROT_REFERENCES: Dict[str, Dict[str, Any]] = {
         "organism": "Canavalia ensiformis",
         "biochem_annotations": {
             "cofactors": ["Ni(2+)"],
+            "cofactor_chebi_ids": ["CHEBI:49786"],
             "cofactor_notes": ["Binds 2 Ni(2+) ions per subunit (carbamylated Lys-bridged dinuclear nickel active site)."],
             "metal_ligands": ["Ni(2+)"],
+            "metal_ligand_chebi_ids": ["CHEBI:49786"],
             "disulfide_count": 0,
             "transmembrane_count": 0,
             "has_signal_peptide": False,
@@ -1043,6 +1120,23 @@ OFFLINE_UNIPROT_REFERENCES: Dict[str, Dict[str, Any]] = {
             "j9N+F2CwhhwVCmB4bjXRY9t6O7wVu65axxeXtmQwJ8lCp3hZfc7ea19FxzzLLe5+w8Y/mVH35w=="
         ),
     },
+}
+
+# Add Jack Bean Urease (first enzyme ever crystallized — Sumner, 1926; classic Ni2+ metalloenzyme) to Classroom Presets
+CLASSROOM_PRESET_PROTEINS["urease_jack_bean"] = {
+    "label": "🪙 Jack Bean Urease (90.8 kDa • Ni²⁺ Metalloenzyme — Avoid Ni-NTA!)",
+    "name": "Urease (Canavalia ensiformis • Dinuclear Ni²⁺ Metalloenzyme)",
+    "uniprot_id": "P07374",
+    "organism": "Canavalia ensiformis (Jack bean)",
+    "sequence": OFFLINE_UNIPROT_REFERENCES["P07374"]["sequence"],
+    "tag": "None",
+    "construct_parts": None,
+    "biochem_annotations": dict(OFFLINE_UNIPROT_REFERENCES["P07374"]["biochem_annotations"]),
+    "student_story": (
+        "The very first enzyme ever crystallized (James Sumner, 1926 — proving enzymes are proteins; 1946 Nobel Prize)! "
+        "Each 90.8 kDa subunit houses a carbamylated-Lys-bridged dinuclear Ni²⁺ active site (native hexamer ~545 kDa). "
+        "A vital lab lesson: never expose Urease to Ni-NTA, Imidazole, or EDTA—purify natively via EDTA-free Anion-Exchange (HiTrap Q), HIC, and SEC!"
+    ),
 }
 
 _LOCAL_CORPUS_CACHE: Optional[List[Dict[str, Any]]] = None
@@ -2478,10 +2572,21 @@ def _is_valid_modifier_clause(clause_text: str) -> bool:
 def _split_target_and_modifiers(prompt: str) -> Tuple[str, str, bool]:
     """
     Context-aware grammar separation between Target Protein (+ Organism) and Engineered Tag / Cleavage Modifiers.
+    Handles spaced/punctuated real-world tag notations ('6x His', '6× His', 'His-6', 'Twin Strep', 'Urease + 6x His tag').
     Returns: (target_phrase, modifier_text, force_untagged)
     """
     work = " ".join(prompt.strip().split())
     force_untagged = False
+
+    # 0. Canonicalize spaced/hyphenated affinity tag spellings BEFORE clause/inline extraction
+    #    so '6x His tagged urease', 'Urease + 6x His tag', 'Urease 6x His tag', 'Urease with 6x His' never strand '6x'!
+    work = re.sub(r'(?<![A-Za-z0-9])(6|8|10)\s*[x×]\s*-?\s*his\b', r'\1xHis', work, flags=re.IGNORECASE)
+    work = re.sub(r'(?<![A-Za-z0-9])his\s*-\s*(6|8|10)(?![A-Za-z0-9])', r'\1xHis', work, flags=re.IGNORECASE)
+    work = re.sub(r'(?<![A-Za-z0-9])(6|8|10)\s+his(?=\s*(?:tags?|tagged|fusion|fused|\b|$))', r'\1xHis', work, flags=re.IGNORECASE)
+    work = re.sub(r'\btwin\s+strep(?:\s+tag)?\b', 'Twin-Strep-tag', work, flags=re.IGNORECASE)
+    work = re.sub(r'\bstrep\s+tag\s+ii\b', 'Strep-tag II', work, flags=re.IGNORECASE)
+    work = re.sub(r'\bstrep\s+tag\b', 'Strep-tag', work, flags=re.IGNORECASE)
+    work = re.sub(r'\bflag\s+tag\b', 'FLAG-tag', work, flags=re.IGNORECASE)
 
     untagged_rx = re.compile(r'\b(?:untagged|tagless|tag-free|without\s+(?:any\s+)?tags?)\b', flags=re.IGNORECASE)
     if untagged_rx.search(work):
@@ -2492,8 +2597,8 @@ def _split_target_and_modifiers(prompt: str) -> Tuple[str, str, bool]:
 
     # 1. Handle "fused to" / "fused with" ("<Target> fused to <Tag>" OR "<Tag> fused to <Target>")
     for fused_match in re.finditer(r'(?<![A-Za-z0-9-])fused\s+(?:to|with)(?![A-Za-z0-9-])', work, flags=re.IGNORECASE):
-        left_side = work[:fused_match.start()].strip(" ,;-")
-        right_side = work[fused_match.end():].strip(" ,;-")
+        left_side = work[:fused_match.start()].strip(" ,;-+&")
+        right_side = work[fused_match.end():].strip(" ,;-+&")
         if _is_pure_modifier_phrase(left_side) and _is_valid_modifier_clause(left_side) and _has_real_protein_tokens(right_side):
             modifier_chunks.append(left_side)
             work = right_side
@@ -2512,15 +2617,15 @@ def _split_target_and_modifiers(prompt: str) -> Tuple[str, str, bool]:
             modifier_chunks.append(right_side)
             break
 
-    # 2. Split on explicit modifier clause introducers ("with ...", "carrying ...", "having ...", "bearing ...", "plus ...")
+    # 2. Split on explicit modifier clause introducers ("with ...", "carrying ...", "having ...", "bearing ...", "plus ...", "+ ...")
     # Iterate RIGHT-TO-LEFT so proteins whose own names contain 'with' ('Arf-GAP with ... with 6xHis tag') split at the trailing modifier!
     clause_rx = re.compile(
-        r'(?<![A-Za-z0-9-])(?:with|carrying|having|bearing|plus)(?![A-Za-z0-9-])',
+        r'(?:(?<![A-Za-z0-9-])(?:with|carrying|having|bearing|plus)(?![A-Za-z0-9-])|\s+\+\s+)',
         flags=re.IGNORECASE
     )
     for clause_match in reversed(list(clause_rx.finditer(work))):
-        left_side = work[:clause_match.start()].strip(" ,;-")
-        right_side = work[clause_match.end():].strip(" ,;-")
+        left_side = work[:clause_match.start()].strip(" ,;-+&")
+        right_side = work[clause_match.end():].strip(" ,;-+&")
         if _has_real_protein_tokens(left_side) and _is_valid_modifier_clause(right_side):
             left_org = _extract_organism_details(left_side)
             right_org = _extract_organism_details(right_side)
@@ -2555,7 +2660,7 @@ def _split_target_and_modifiers(prompt: str) -> Tuple[str, str, bool]:
             flags=re.IGNORECASE
         ),
         re.compile(
-            r'(?<![A-Za-z0-9-])(?:twin-strep|strep-tag\s+ii|10xhis|8xhis|6xhis|hexahis|octahis|decahis)(?![A-Za-z0-9-])',
+            r'(?<![A-Za-z0-9-])(?:twin-strep(?:-tag)?|strep-tag(?:\s+ii)?|10xhis|8xhis|6xhis|hexahis|octahis|decahis)(?![A-Za-z0-9-])',
             flags=re.IGNORECASE
         ),
         re.compile(
@@ -2571,13 +2676,13 @@ def _split_target_and_modifiers(prompt: str) -> Tuple[str, str, bool]:
             m = rx.search(work)
             if not m:
                 break
-            candidate_remaining = (work[:m.start()] + " " + work[m.end():]).strip(" ,;-")
+            candidate_remaining = (work[:m.start()] + " " + work[m.end():]).strip(" ,;-+&")
             candidate_remaining = re.sub(
                 r'^\b(?:of|and)\b\s*|\s*\b(?:of|and)\b$',
                 '',
                 candidate_remaining,
                 flags=re.IGNORECASE
-            ).strip()
+            ).strip(" ,;-+&")
             if _has_real_protein_tokens(candidate_remaining):
                 modifier_chunks.append(m.group(0))
                 work = " ".join(candidate_remaining.split())
@@ -2744,6 +2849,10 @@ def _normalize_protein_query(raw_protein_phrase: str) -> str:
         "periplasmic", "outer", "inner", "nuclear", "nucleocapsid", "tail", "portal", "holin",
     }:
         q = m_single_prot.group(1)
+
+    m_ase_enz = re.match(r'^([A-Za-z0-9_-]+ase)\s+enzyme$', q, flags=re.IGNORECASE)
+    if m_ase_enz:
+        q = m_ase_enz.group(1)
 
     return q
 
@@ -2915,21 +3024,29 @@ def _get_canonical_preferences(
             preferred_accs = ["P02769"]
         preferred_genes = ["ALB"]
         specific_field_clause = '(gene_exact:ALB OR protein_name:"Serum albumin" OR protein_name:"Albumin")'
-    elif pq_low in {"urease", "jack bean urease", "urea amidohydrolase"}:
-        if not has_any_org or organism_taxid == 3823:
-            preferred_accs = ["P07374"]
-        elif organism_taxid in (85962, 210):
-            preferred_accs = ["P69996", "P14916"]
-        elif organism_taxid == 548:
-            preferred_accs = ["P18314"]
-        elif organism_taxid == 1474:
-            preferred_accs = ["P41020"]
-        preferred_genes = ["UREA", "UREB", "UREC"]
-        acc_hint = "accession:P07374 OR " if (not has_any_org or organism_taxid == 3823) else ""
-        specific_field_clause = (
-            f'({acc_hint}protein_name:"Urease" OR protein_name:"Urease subunit alpha" '
-            'OR protein_name:"Urease subunit beta" OR gene:ureC OR gene:ureB OR gene:ureA)'
-        )
+    elif pq_low in {"urease", "jack bean urease", "plant urease", "urea amidohydrolase", "bacterial urease"}:
+        if pq_low == "bacterial urease":
+            preferred_accs = ["P18314", "P69996", "P41020"]
+            preferred_genes = ["UREC", "UREB"]
+            specific_field_clause = (
+                '(accession:P18314 OR accession:P69996 OR accession:P41020 '
+                'OR protein_name:"Urease subunit alpha" OR protein_name:"Urease subunit beta")'
+            )
+        else:
+            if not has_any_org or organism_taxid == 3823:
+                preferred_accs = ["P07374"]
+            elif organism_taxid in (85962, 210):
+                preferred_accs = ["P69996", "P14916"]
+            elif organism_taxid == 548:
+                preferred_accs = ["P18314"]
+            elif organism_taxid == 1474:
+                preferred_accs = ["P41020"]
+            preferred_genes = ["UREA", "UREB", "UREC"]
+            acc_hint = "accession:P07374 OR " if (not has_any_org or organism_taxid == 3823) else ""
+            specific_field_clause = (
+                f'({acc_hint}protein_name:"Urease" OR protein_name:"Urease subunit alpha" '
+                'OR protein_name:"Urease subunit beta" OR ec:3.5.1.5)'
+            )
     elif pq_low in {"if1", "if-1", "initiation factor 1", "initiation factor if1", "initiation factor if-1", "translation initiation factor 1"}:
         if is_ecoli or not has_any_org:
             preferred_accs = ["P69222"]
@@ -3353,7 +3470,7 @@ def _match_offline_classroom_target(
         return dict(OFFLINE_UNIPROT_REFERENCES["Q8WZ42"])
     if pq in {"dystrophin", "dmd"} and _org_compatible(9606, "Homo sapiens"):
         return dict(OFFLINE_UNIPROT_REFERENCES["P11532"])
-    if pq in {"urease", "jack bean urease", "urea amidohydrolase"} and _org_compatible(3823, "Canavalia ensiformis"):
+    if pq in {"urease", "jack bean urease", "plant urease", "urea amidohydrolase"} and _org_compatible(3823, "Canavalia ensiformis"):
         return dict(OFFLINE_UNIPROT_REFERENCES["P07374"])
     return None
 
@@ -4080,6 +4197,68 @@ def rank_uniprot_candidates(
     return sorted(entries, key=_sort_key)
 
 
+def _candidate_matches_requested_protein(hit: Dict[str, Any], comp: Dict[str, Any]) -> bool:
+    """
+    Semantic guard preventing loose UniProt full-text fallbacks from silently returning a completely
+    unrelated protein (e.g., returning Zn2+ Dihydropyrimidinase or Protein SIS1 when a user asks for
+    'Human urease' or 'Yeast urease', which those organisms do not encode).
+    """
+    cand = _extract_candidate_view(hit)
+    pref_accs = set(comp.get("preferred_accessions") or [])
+    if cand["accession"] and cand["accession"] in pref_accs:
+        return True
+
+    pref_genes = {g.upper() for g in (comp.get("preferred_genes") or []) if g}
+    cand_genes = {g.upper() for g in ([cand["gene_primary"]] + cand["gene_synonyms"]) if g}
+    if pref_genes and (pref_genes & cand_genes):
+        return True
+
+    pq_raw = comp.get("protein_query") or ""
+    gene_hint = comp.get("gene_hint")
+    pname_hint = comp.get("protein_name_hint")
+    eff_q = pname_hint if pname_hint else pq_raw
+
+    if gene_hint:
+        gh_u = gene_hint.strip().upper()
+        if any(g == gh_u or g.replace("-", "") == gh_u.replace("-", "") for g in cand_genes):
+            return True
+
+    # Gather all candidate name & gene tokens (including fused alphanumeric tokens)
+    cand_text_fields = (
+        [cand["rec_name"]]
+        + cand["short_names"]
+        + cand["alt_names"]
+        + cand["component_names"]
+        + ([cand["gene_primary"]] if cand["gene_primary"] else [])
+        + cand["gene_synonyms"]
+    )
+    cand_tokens: Set[str] = set()
+    cand_joined_low = " ".join(s.lower() for s in cand_text_fields if s)
+    for s in cand_text_fields:
+        if s:
+            cand_tokens.update(_tokenize_for_matching(s))
+            cand_tokens.update(_extract_fused_alphanum_tokens(s).keys())
+
+    # Require at least one substantive protein query token (or gene token) to match the candidate's names/genes
+    generic_skip = {"protein", "enzyme", "subunit", "chain", "factor", "domain", "bacterial", "plant", "fungal", "viral", "alpha", "beta", "gamma"}
+    q_toks = [t for t in _tokenize_for_matching(eff_q) if t not in generic_skip and len(t) >= 2]
+    if not q_toks:
+        q_toks = _tokenize_for_matching(eff_q)
+    if not q_toks:
+        return True
+
+    for qt in q_toks:
+        if qt in cand_tokens:
+            return True
+        if len(qt) >= 4 and qt in cand_joined_low:
+            return True
+    # Also check fused query tokens (e.g. 'if-3' -> 'if3')
+    for qf in _extract_fused_alphanum_tokens(eff_q).keys():
+        if qf in cand_tokens:
+            return True
+    return False
+
+
 def parse_natural_language_prompt(prompt: str) -> Dict[str, Any]:
     """
     Parses any plain-language protein or recombinant construct description across all domains of life:
@@ -4131,6 +4310,7 @@ def parse_natural_language_prompt(prompt: str) -> Dict[str, Any]:
     if is_mature_chicken_lysozyme or is_mature_tev_protease:
         target_data = offline_match
 
+    live_uniprot_reachable = False
     if target_data is None:
         search_queries, _, _ = _build_uniprot_search_plan(comp)
         headers = {"Accept": "application/json"}
@@ -4144,10 +4324,14 @@ def parse_natural_language_prompt(prompt: str) -> Dict[str, Any]:
                     if search_resp.status_code in (401, 403, 502, 503, 504):
                         break
                     continue
+                live_uniprot_reachable = True
                 results = search_resp.json().get("results") or []
                 if results:
                     ranked = rank_uniprot_candidates(results, comp)
-                    best_hit = ranked[0]
+                    valid_ranked = [h for h in ranked if _candidate_matches_requested_protein(h, comp)]
+                    if not valid_ranked:
+                        continue
+                    best_hit = valid_ranked[0]
                     parsed_hit = _parse_uniprot_entry_dict(best_hit)
                     if parsed_hit.get("sequence"):
                         target_data = parsed_hit
@@ -4160,10 +4344,15 @@ def parse_natural_language_prompt(prompt: str) -> Dict[str, Any]:
     if target_data is None:
         target_data = offline_match
 
-    if target_data is None:
+    if target_data is None and not live_uniprot_reachable:
         target_data = _search_local_corpus_offline(comp)
 
     if target_data is None:
+        if organism_name:
+            raise ValueError(
+                f"No matching '{protein_query}' protein was found in {organism_name} on UniProt. "
+                f"(Note: {organism_name} may not encode this enzyme—try another species or omit the organism name!)"
+            )
         raise ValueError(
             f"Could not find a matching protein sequence on UniProt for query: '{clean_query}'. "
             "Please check the organism/protein spelling or choose a Classroom Example / UniProt ID directly."

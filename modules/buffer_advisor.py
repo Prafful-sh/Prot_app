@@ -529,12 +529,31 @@ def infer_protein_biochemical_profile(
     clean_name = _strip_construct_tag_phrases_from_name(raw_title)
     search_text = f"{clean_name} {gene_str}".strip()
 
-    cofactors_low = " | ".join(str(x).lower() for x in (annot.get("cofactors") or []) + (annot.get("cofactor_notes") or []))
-    ligands_low = " | ".join(str(x).lower() for x in (annot.get("metal_ligands") or []))
+    # Only trust structured UniProt cofactors, metal-binding ligands, ChEBI IDs, keywords & EC numbers —
+    # NEVER regex-scan free-text prose `cofactor_notes` (which routinely say 'not nickel(II)' or 'inhibited by Zn(2+)')!
+    cofactor_items = [str(x).strip().lower() for x in (annot.get("cofactors") or []) if str(x).strip()]
+    ligand_items = [str(x).strip().lower() for x in (annot.get("metal_ligands") or []) if str(x).strip()]
+    cofactor_chebis = {str(x).strip().upper() for x in (annot.get("cofactor_chebi_ids") or []) if str(x).strip()}
+    ligand_chebis = {str(x).strip().upper() for x in (annot.get("metal_ligand_chebi_ids") or []) if str(x).strip()}
+    all_chebis = cofactor_chebis | ligand_chebis
+    cofactors_low = " | ".join(cofactor_items)
+    ligands_low = " | ".join(ligand_items)
     keywords_low = {str(k).lower() for k in (annot.get("keywords") or [])}
     locs_low = " | ".join(str(x).lower() for x in (annot.get("subcellular_locations") or []))
     ecs = set(annot.get("ec_numbers") or [])
     metal_blob = f"{cofactors_low} | {ligands_low}"
+    has_uniprot_annot = bool(
+        keywords_low or cofactor_items or ligand_items or all_chebis or ecs
+        or int(annot.get("disulfide_count") or 0) > 0
+        or int(annot.get("transmembrane_count") or 0) > 0
+    )
+
+    # Serum cargo/transport carriers (e.g., BSA/HSA) bind transient blood ions non-catalytically (COFACTOR is empty)
+    # and fold via disulfide bridges—they are NOT catalytic metalloenzymes.
+    is_serum_carrier = (
+        acc in {"P02769", "P02768"}
+        or bool(re.search(r"\b(?:serum\s+albumin|bovine\s+serum\s+albumin)\b|^albumin\b", clean_name))
+    )
 
     core_len = max(1, len(core_seq)) if core_seq else int((metrics or {}).get("length") or 1)
     cys_count = core_seq.count("C") if core_seq else int(((metrics or {}).get("counts") or {}).get("cysteines", 0))
@@ -545,34 +564,56 @@ def infer_protein_biochemical_profile(
     metal_labels: List[str] = []
 
     # --- A. NICKEL METALLOENZYMES & MATURATION CHAPERONES (e.g. Urease, [NiFe]-Hydrogenase, CODH, Ni-SOD) ---
-    ni_accs = {
-        "P07374", "E6Y5X0", "P18314", "P18315", "P18316", "P18317",
-        "P41020", "P41022", "P50049", "P69996", "P69997", "P14916",
-        "P9WFF1", "P17086", "O25560", "P0A0U4", "Q09065", "Q09066",
+    ni_catalytic_urease_accs = {
+        "P07374", "E6Y5X0", "P18314", "P18315", "P18316",
+        "P41020", "P41022", "P69996", "P14916", "P9WFF1", "P17086", "P08298", "B5YUX3",
     }
-    has_ni_annot = (
-        "nickel" in keywords_low
-        or bool(re.search(r"\bni\s*\(\s*2\+\s*\)|\bni2\+|\bnickel\b|\[nife\]|\bf430\b", metal_blob))
-        or "3.5.1.5" in ecs
-    )
-    has_ni_name = bool(re.search(
-        r"\b(?:urease|urea\s+amidohydrolase|ure[a-g]|hyp[ab]|\[?nife\]?[-\s]*hydrogenase|"
-        r"nickel\s+superoxide\s+dismutase|sodn|carbon\s+monoxide\s+dehydrogenase|coos|"
-        r"methyl[-\s]*coenzyme\s+m\s+reductase)\b",
-        search_text,
+    ni_chaperone_accs = {"P18317", "P50049", "O25560", "P0A0U4", "Q09065", "Q09066"}
+    is_urea_channel_or_mod_enz = bool(re.search(
+        r"\b(?:urea\s+channel|urea\s+transporter|urea-proton\s+symporter|symporter|urei|methyltransferase|kinase|phosphatase|inhibitor)\b",
+        clean_name,
     ))
+    is_aerobic_mo_codh = bool(re.search(r"\b(?:cox[lms]|cut[lms])\b", gene_str))
+    has_ni_annot = (
+        not is_serum_carrier
+        and not is_urea_channel_or_mod_enz
+        and (
+            "nickel" in keywords_low
+            or "CHEBI:49786" in all_chebis
+            or bool(re.search(r"\bni\s*\(\s*2\+\s*\)|\bni\s+cation\b|\bni2\+|\bnickel\b|\[nife\]|\bf430\b", metal_blob))
+            or "3.5.1.5" in ecs
+        )
+    )
+    has_ni_gene = bool(re.search(r"\b(?:ure[a-g]|hyp[ab]|sodn|coos\d*)\b", gene_str))
+    has_ni_name = (not is_urea_channel_or_mod_enz and not is_aerobic_mo_codh) and (
+        has_ni_gene
+        or bool(re.search(
+            r"\b(?:urease|urea\s+amidohydrolase|\[?nife\]?[-\s]*hydrogenase|"
+            r"nickel\s+superoxide\s+dismutase|superoxide\s+dismutase\s*\[ni\]|"
+            r"carbon\s+monoxide\s+dehydrogenase|methyl[-\s]*coenzyme\s+m\s+reductase)\b",
+            clean_name,
+        ))
+    )
     has_urease_motif = bool(core_seq and re.search(r"EH[LM]DMLMVCHHL|[MVLI][VLI]CHHL[DNSK]", core_seq))
-    if acc in ni_accs or has_ni_annot or has_ni_name or has_urease_motif:
+    is_urease_accessory = bool(re.search(r"\b(?:accessory|maturation|chaperone|ure[defg]|hyp[ab])\b", search_text)) or (acc in ni_chaperone_accs)
+    if acc in ni_catalytic_urease_accs or acc in ni_chaperone_accs or has_ni_annot or has_ni_name or has_urease_motif:
         categories.append("ni_metalloenzyme")
-        if "urease" in search_text or acc in {"P07374", "E6Y5X0", "P18314", "P41020", "P69996", "P9WFF1"} or has_urease_motif:
+        if is_urease_accessory and not has_urease_motif and acc not in ni_catalytic_urease_accs:
+            metal_labels.append("Ni²⁺ Maturation / Chaperone")
+        elif ("urease" in clean_name or "3.5.1.5" in ecs or acc in ni_catalytic_urease_accs or has_urease_motif):
             metal_labels.append("Ni²⁺ (Dinuclear Active Site)")
         else:
             metal_labels.append("Ni²⁺ Cofactor")
 
     # --- B. O2-SENSITIVE IRON-SULFUR ([2Fe-2S], [3Fe-4S], [4Fe-4S]) & RADICAL SAM ENZYMES ---
+    fes_chebis = {"CHEBI:49883", "CHEBI:49601", "CHEBI:21137", "CHEBI:30408"}
     has_fes_annot = (
-        "iron-sulfur" in keywords_low
-        or bool(re.search(r"\[?[234]fe-[234]s\]?|iron-sulfur|fe-s\s+cluster", metal_blob))
+        not is_serum_carrier
+        and (
+            "iron-sulfur" in keywords_low
+            or bool(fes_chebis & all_chebis)
+            or bool(re.search(r"\[?[234]fe-[234]s\]?|iron-sulfur|fe-s\s+cluster", metal_blob))
+        )
     )
     is_fnr_flavo = bool(re.search(r"ferredoxin\s*[-\u2013]+\s*nadp", search_text))
     has_fes_name = (not is_fnr_flavo) and bool(re.search(
@@ -581,15 +622,20 @@ def infer_protein_biochemical_profile(
         r"endonuclease\s+iii|sulfhydrogenase|xanthine\s+dehydrogenase)\b",
         search_text,
     ))
-    has_fes_motif = bool(core_seq and re.search(r"C.{2}C.{2}C.{3}CP", core_seq))
+    has_fes_motif = bool((not has_uniprot_annot) and core_seq and re.search(r"C.{2}C.{2}C.{3}CP", core_seq))
     if has_fes_annot or has_fes_name or has_fes_motif:
         categories.append("fe_s_cluster")
         metal_labels.append("[Fe–S] Cluster (O₂-Labile)")
 
     # --- C. HEME PROTEINS / HEMOPROTEINS (Globins, Cytochromes, P450s, Catalases, Heme Peroxidases) ---
+    heme_chebis = {"CHEBI:60344", "CHEBI:26355", "CHEBI:61717", "CHEBI:60342", "CHEBI:17627"}
     has_heme_annot = (
-        "heme" in keywords_low
-        or bool(re.search(r"\bheme\b|\bprotoheme\b|\bsiroheme\b|\bhemin\b", metal_blob))
+        not is_serum_carrier
+        and (
+            "heme" in keywords_low
+            or bool(heme_chebis & all_chebis)
+            or bool(re.search(r"\bheme\b|\bprotoheme\b|\bsiroheme\b|\bhemin\b", metal_blob))
+        )
     )
     is_thiol_peroxidase = bool(re.search(r"\b(?:glutathione\s+peroxidase|peroxiredoxin|thioredoxin\s+peroxidase)\b", search_text))
     is_p450_reductase = bool(re.search(r"cytochrome\s+p450\s+reductase", search_text))
@@ -599,29 +645,48 @@ def infer_protein_biochemical_profile(
         r"nitric\s+oxide\s+synthase|indoleamine\s+2,3-dioxygenase|tryptophan\s+2,3-dioxygenase)\b",
         search_text,
     ))
-    has_cyp_motif = bool(core_seq and re.search(r"F[SGNH].[GD][^F][RKHPT][^P]C[LIVMFAP][GAD]", core_seq))
+    has_cyp_motif = bool(
+        (not has_uniprot_annot)
+        and core_seq
+        and "deaminase" not in clean_name
+        and re.search(r"F[SGNH].[GD][^F][RKHPT][^P]C[LIVMFAP][GAD]", core_seq)
+    )
     if acc == "P02185" or has_heme_annot or has_heme_name or has_cyp_motif:
         categories.append("heme_protein")
         metal_labels.append("Heme Fe (Porphyrin)")
 
     # --- D. ZINC METALLOENZYMES & STRUCTURAL ZINC-FINGER PROTEINS ---
-    has_zn_annot = (
-        "zinc" in keywords_low
-        or "zinc-finger" in keywords_low
-        or "metalloprotease" in keywords_low
-        or int(annot.get("zinc_finger_count") or 0) > 0
-        or bool(re.search(r"\bzn\s*\(\s*2\+\s*\)|\bzn2\+|\bzinc\b", metal_blob))
+    has_zn_primary_annot = (
+        not is_serum_carrier
+        and (
+            "zinc" in keywords_low
+            or "zinc-finger" in keywords_low
+            or "metalloprotease" in keywords_low
+            or int(annot.get("zinc_finger_count") or 0) > 0
+            or "CHEBI:29105" in ligand_chebis
+            or bool(re.search(r"\bzn\s*\(\s*2\+\s*\)|\bzn\s+cation\b|\bzn2\+|\bzinc\b", ligands_low))
+        )
     )
-    has_zn_name = bool(re.search(
+    has_zn_annot = (
+        not is_serum_carrier
+        and (
+            has_zn_primary_annot
+            or "CHEBI:29105" in cofactor_chebis
+            or bool(re.search(r"\bzn\s*\(\s*2\+\s*\)|\bzn\s+cation\b|\bzn2\+|\bzinc\b", cofactors_low))
+        )
+    )
+    has_zn_name = (not is_serum_carrier) and bool(re.search(
         r"\b(?:carbonic\s+anhydrase|metalloproteinase|metalloprotease|matrix\s+metalloproteinase|mmp-?\d+|"
         r"thermolysin|collagenase|stromelysin|gelatinase|matrilysin|astacin|adamalysin|serralysin|"
         r"carboxypeptidase\s*[ab]|alkaline\s+phosphatase|alcohol\s+dehydrogenase|metallo-?beta-?lactamase|"
         r"ndm-?\d+|aminopeptidase|histone\s+deacetylase|hdac\d*|superoxide\s+dismutase\s*\[?cu-?zn\]?|sod1|"
-        r"zinc[-\s]+finger|cellular\s+tumor\s+antigen\s+p53|tumor\s+protein\s+p53|tp53)\b",
+        r"dihydropyrimidinase|zinc[-\s]+finger|cellular\s+tumor\s+antigen\s+p53|tumor\s+protein\s+p53|tp53)\b",
         search_text,
     ))
     has_zn_motif = bool(
-        core_seq
+        (not has_uniprot_annot)
+        and (not is_serum_carrier)
+        and core_seq
         and "ni_metalloenzyme" not in categories
         and (
             re.search(r"HE[LIVMFYW]{2}H[A-Z]{2}[GSTA][LIVMFYW]|HE[A-Z]{2}H[A-Z]{2}G[A-Z]{2}[HD]", core_seq)
@@ -629,59 +694,91 @@ def infer_protein_biochemical_profile(
             or len(re.findall(r"C[A-Z]{2,4}C[A-Z]{12}H[A-Z]{3,5}H", core_seq)) >= 2
         )
     )
-    if acc in {"P00918", "P04637"} or has_zn_annot or has_zn_name or has_zn_motif:
+    if (not is_serum_carrier) and (acc in {"P00918", "P04637"} or has_zn_annot or has_zn_name or has_zn_motif):
         categories.append("zn_metalloprotein")
         if "Zn²⁺" not in " ".join(metal_labels):
             metal_labels.append("Zn²⁺ Cofactor")
 
     # --- E. COPPER, MANGANESE, COBALT, MOLYBDENUM & NON-HEME IRON METALLOENZYMES ---
-    has_other_tm_annot = (
-        bool({"copper", "manganese", "cobalt", "molybdenum", "tungsten", "vanadium"} & keywords_low)
-        or bool(re.search(
-            r"\bcu\s*\(\s*[12]?\+\s*\)|\bcopper\b|\bmn\s*\(\s*2\+\s*\)|\bmanganese\b|"
-            r"\bco\s*\(\s*2\+\s*\)|\bcobalt\b|\bcobalamin\b|\bmolybd|\btungsten\b",
-            metal_blob,
-        ))
-        or (
-            ("iron" in keywords_low or bool(re.search(r"\bfe\s*\(\s*[23]\+\s*\)|\bfe\s+cation\b|\bdiiron\b", metal_blob)))
-            and "heme_protein" not in categories
-            and "fe_s_cluster" not in categories
-        )
+    # When physiological Zn2+ is already confirmed by Swiss-Prot keywords/ligands (e.g. Carbonic Anhydrase II P00918
+    # where Co(2+) is only listed as a lower-efficiency in-vitro substitute), require keyword or ligand confirmation
+    # for secondary Co/Cu/Mn/Fe so minor in-vitro substitutes never pollute the native cofactor identity!
+    tm_text_for_check = ligands_low if has_zn_primary_annot else metal_blob
+    tm_chebis_for_check = ligand_chebis if has_zn_primary_annot else all_chebis
+    cu_chebis = {"CHEBI:29036", "CHEBI:49552", "CHEBI:23378"}
+    has_cu_sig = (
+        "copper" in keywords_low
+        or bool(cu_chebis & tm_chebis_for_check)
+        or bool(re.search(r"\bcu\s*\(\s*[12]?\+\s*\)|\bcu\s+cation\b|\bcopper\b", tm_text_for_check))
     )
-    has_other_tm_name = bool(re.search(
+    has_mn_sig = (
+        "manganese" in keywords_low
+        or "CHEBI:29035" in tm_chebis_for_check
+        or bool(re.search(r"\bmn\s*\(\s*2\+\s*\)|\bmn\s+cation\b|\bmanganese\b", tm_text_for_check))
+    )
+    has_co_sig = (
+        "cobalt" in keywords_low
+        or bool({"CHEBI:48828", "CHEBI:30411"} & tm_chebis_for_check)
+        or bool(re.search(r"\bco\s*\(\s*2\+\s*\)|\bco\s+cation\b|\bcobalt\b|\bcobalamin\b", tm_text_for_check))
+    )
+    has_mo_sig = (
+        bool({"molybdenum", "tungsten", "vanadium"} & keywords_low)
+        or bool({"CHEBI:60539", "CHEBI:71302"} & tm_chebis_for_check)
+        or bool(re.search(r"\bmolybd|\btungsten\b|\bvanadium\b", tm_text_for_check))
+    )
+    has_nonheme_fe_sig = (
+        (
+            "iron" in keywords_low
+            or bool({"CHEBI:29033", "CHEBI:29034"} & tm_chebis_for_check)
+            or bool(re.search(r"\bfe\s*\(\s*[23]\+\s*\)|\bfe\s+cation\b|\bdiiron\b", tm_text_for_check))
+        )
+        and "heme_protein" not in categories
+        and "fe_s_cluster" not in categories
+    )
+    has_other_tm_annot = (not is_serum_carrier) and (
+        has_cu_sig or has_mn_sig or has_co_sig or has_mo_sig or has_nonheme_fe_sig or is_aerobic_mo_codh
+    )
+    has_other_tm_name = (not is_serum_carrier) and bool(re.search(
         r"\b(?:laccase|tyrosinase|plastocyanin|azurin|ceruloplasmin|ascorbate\s+oxidase|hemocyanin|"
-        r"arginase|superoxide\s+dismutase\s*\[?(?:mn|fe)\]?|sod[23ab]|ribonucleotide\s+reductase|"
+        r"arginase|superoxide\s+dismutase\s*\[?(?:mn|fe|cu-?zn)\]?|sod[123ab]|ribonucleotide\s+reductase|"
         r"lipoxygenase|phenylalanine-?4-?hydroxylase|tyrosine\s+3-?monooxygenase|nitrile\s+hydratase|"
-        r"nitrate\s+reductase|sulfite\s+oxidase|xanthine\s+oxidase|metallothionein|metalloenzyme|metalloprotein)\b",
+        r"nitrate\s+reductase|sulfite\s+oxidase|xanthine\s+oxidase|metallothionein)\b",
         search_text,
     ))
-    if has_other_tm_annot or has_other_tm_name:
+    has_generic_metal_word = (
+        not is_serum_carrier
+        and not any(c in categories for c in ("ni_metalloenzyme", "fe_s_cluster", "zn_metalloprotein", "heme_protein"))
+        and bool(re.search(r"\b(?:metalloenzyme|metalloprotein)\b", search_text))
+    )
+    if has_other_tm_annot or has_other_tm_name or has_generic_metal_word:
         categories.append("cu_mn_co_mo_metalloprotein")
-        if "cu" in metal_blob or "copper" in keywords_low or re.search(r"\b(?:laccase|tyrosinase|plastocyanin|azurin|ceruloplasmin|hemocyanin|sod1)\b", search_text):
+        if has_cu_sig or re.search(r"\b(?:laccase|tyrosinase|plastocyanin|azurin|ceruloplasmin|hemocyanin|sod1|cu-?zn)\b", search_text):
             metal_labels.append("Cu⁺/²⁺ Cofactor")
-        elif "mn" in metal_blob or "manganese" in keywords_low or re.search(r"\b(?:arginase|sod2|soda)\b", search_text):
+        elif has_mn_sig or re.search(r"\b(?:arginase|sod2|soda)\b", search_text):
             metal_labels.append("Mn²⁺ Cofactor")
-        elif "co" in metal_blob or "cobalt" in keywords_low or "cobalamin" in metal_blob:
+        elif has_co_sig:
             metal_labels.append("Co²⁺ / Cobalamin")
-        elif "molybd" in metal_blob or "molybdenum" in keywords_low or re.search(r"\b(?:nitrate\s+reductase|sulfite\s+oxidase|xanthine\s+oxidase)\b", search_text):
+        elif has_mo_sig or is_aerobic_mo_codh or re.search(r"\b(?:nitrate\s+reductase|sulfite\s+oxidase|xanthine\s+oxidase)\b", search_text):
             metal_labels.append("Mo Cofactor")
         else:
             metal_labels.append("Non-Heme Fe / Transition Metal")
 
     # --- F. CALCIUM / MAGNESIUM COFACTOR PROTEINS (EF-Hand, Gla-Domain, Polymerases, Kinases, Subtilisin/Amylase) ---
-    needs_calcium = (
+    needs_calcium = (not is_serum_carrier) and (
         acc == "P00734"
         or "calcium" in keywords_low
-        or bool(re.search(r"\bca\s*\(\s*2\+\s*\)|\bcalcium\b", metal_blob))
+        or "CHEBI:29108" in all_chebis
+        or bool(re.search(r"\bca\s*\(\s*2\+\s*\)|\bca\s+cation\b|\bcalcium\b", metal_blob))
         or bool(re.search(
             r"\b(?:calmodulin|troponin\s+c|parvalbumin|annexin|cadherin|prothrombin|subtilisin|"
             r"alpha-?amylase|deoxyribonuclease-?1|dnase\s+i|thermolysin)\b",
             search_text,
         ))
     )
-    needs_magnesium = (
+    needs_magnesium = (not is_serum_carrier) and (
         "magnesium" in keywords_low
-        or bool(re.search(r"\bmg\s*\(\s*2\+\s*\)|\bmagnesium\b", metal_blob))
+        or "CHEBI:18420" in all_chebis
+        or bool(re.search(r"\bmg\s*\(\s*2\+\s*\)|\bmg\s+cation\b|\bmagnesium\b", metal_blob))
         or bool(re.search(
             r"\b(?:dna\s+polymerase|rna\s+polymerase|reverse\s+transcriptase|hexokinase|enolase|"
             r"pyrophosphatase|atpase|gtpase|cas9|cas12|topoisomerase|gyrase)\b",
@@ -699,8 +796,9 @@ def infer_protein_biochemical_profile(
         c in categories for c in ("ni_metalloenzyme", "fe_s_cluster", "zn_metalloprotein", "cu_mn_co_mo_metalloprotein")
     )
     is_heme_protein = "heme_protein" in categories
-    is_o2_sensitive = "fe_s_cluster" in categories or bool(
-        re.search(r"\b(?:nitrogenase|hydrogenase|methyl[-\s]*coenzyme\s+m\s+reductase|carbon\s+monoxide\s+dehydrogenase)\b", search_text)
+    is_o2_sensitive = "fe_s_cluster" in categories or (
+        not is_urea_channel_or_mod_enz
+        and bool(re.search(r"\b(?:nitrogenase|hydrogenase|methyl[-\s]*coenzyme\s+m\s+reductase|carbon\s+monoxide\s+dehydrogenase)\b", search_text))
     )
     is_chelator_sensitive = is_metalloprotein or ("ca_mg_cofactor" in categories)
 
@@ -709,20 +807,37 @@ def infer_protein_biochemical_profile(
     tm_seq_cnt = _count_internal_tm_helices(core_seq) if core_seq else 0
     has_membrane_annot = tm_annot_cnt >= 1 or ("transmembrane" in keywords_low) or ("multi-pass membrane" in locs_low)
     has_membrane_name = bool(re.search(
-        r"\b(?:rhodopsin|bacteriorhodopsin|aquaporin|(?:potassium|sodium|calcium|chloride|ion)\s+channel|"
+        r"\b(?:rhodopsin|bacteriorhodopsin|aquaporin|(?:potassium|sodium|calcium|chloride|ion|urea)\s+channel|"
         r"kcsa|abc\s+transporter|permease|g-?protein\s+coupled\s+receptor|gpcr|adrenergic\s+receptor|"
         r"porin|ompf|ompc|vdac)\b",
         search_text,
     ))
     has_membrane_seq = (
-        not annot
+        not has_uniprot_annot
         and ((tm_seq_cnt >= 2 and (tm_seq_cnt * 19.0 / core_len) >= 0.10 and gravy >= -0.10) or gravy >= 0.45)
     )
     if has_membrane_annot or has_membrane_name or has_membrane_seq:
         categories.append("membrane_integral")
 
+    # --- K (Evaluated Before Redox). ACTIVE PROTEASES (Autolysis & Self-Inhibition Guard) ---
+    protease_class: Optional[str] = None
+    if "metalloprotease" in keywords_low or bool(re.search(r"\b(?:metalloproteinase|metalloprotease|mmp-?\d+|thermolysin|collagenase|stromelysin|gelatinase|astacin|serralysin|carboxypeptidase\s*[ab])\b", search_text)):
+        protease_class = "metallo"
+    elif "thiol protease" in keywords_low or acc == "P04517" or bool(re.search(r"\b(?:tev\s+protease|nuclear\s+inclusion\s+protein\s+a|3c\s+protease|caspase|papain|cathepsin\s+[blks]|calpain|main\s+protease|3clpro)\b", search_text)):
+        protease_class = "cysteine"
+    elif "serine protease" in keywords_low or acc == "P00734" or bool(re.search(r"\b(?:trypsin|chymotrypsin|elastase|thrombin|prothrombin|subtilisin|enteropeptidase|proteinase\s+k|coagulation\s+factor\s+x)\b", search_text)):
+        protease_class = "serine"
+    elif "aspartyl protease" in keywords_low or bool(re.search(r"\b(?:pepsin|renin|hiv-?1\s+protease|cathepsin\s+d|bace1)\b", search_text)):
+        protease_class = "aspartic"
+    if protease_class:
+        categories.append("active_protease")
+
     # --- H. REDOX ARCHITECTURE: DISULFIDE-BONDED SECRETED vs. CYTOSOLIC FREE-THIOL PROTEINS ---
     disulf_annot_cnt = int(annot.get("disulfide_count") or 0)
+    is_cytosolic_cys_protease = (
+        acc == "P04517"
+        or (protease_class == "cysteine" and "secreted" not in keywords_low)
+    )
     has_disulf_name = bool(re.search(
         r"\b(?:lysozyme|serum\s+albumin|albumin|immunoglobulin|antibody|igg\d*|fab|scfv|nanobody|"
         r"insulin|ribonuclease\s+a|rnase\s+a|trypsin|chymotrypsin|elastase|prothrombin|thrombin|"
@@ -735,18 +850,26 @@ def infer_protein_biochemical_profile(
     )
     # High cysteine density (>= 4.5% Cys & >= 6 Cys) on unannotated non-metalloprotein sequences (e.g. raw HEWL/BSA FASTA)
     has_high_cys_density = (
-        not annot
+        not has_uniprot_annot
         and not is_metalloprotein
+        and not is_cytosolic_cys_protease
         and "membrane_integral" not in categories
         and cys_count >= 6
         and (cys_count / core_len) >= 0.045
     )
-    if acc in {"P00698", "P61626", "P02769", "P00734"} or disulf_annot_cnt >= 1 or ("disulfide bond" in keywords_low) or has_disulf_name or has_secreted_cys or has_high_cys_density:
+    if (not is_cytosolic_cys_protease) and (
+        acc in {"P00698", "P61626", "P02769", "P00734"}
+        or disulf_annot_cnt >= 1
+        or ("disulfide bond" in keywords_low)
+        or has_disulf_name
+        or has_secreted_cys
+        or has_high_cys_density
+    ):
         categories.append("disulfide_structural")
     elif (
-        acc in {"P04517", "P09211", "P08263", "P09488", "P08515", "P04637"}
-        or "thiol protease" in keywords_low
-        or bool(re.search(r"\b(?:tev\s+protease|nuclear\s+inclusion\s+protein\s+a|3c\s+protease|caspase|papain|cathepsin\s+[blks]|calpain|main\s+protease|3clpro|deubiquitinase|tyrosine-?protein\s+phosphatase|ptp1b)\b", search_text))
+        is_cytosolic_cys_protease
+        or acc in {"P09211", "P08263", "P09488", "P08515", "P04637"}
+        or bool(re.search(r"\b(?:deubiquitinase|tyrosine-?protein\s+phosphatase|ptp1b)\b", search_text))
         or (cys_count >= 3 and "secreted" not in keywords_low)
     ):
         categories.append("cytosolic_free_thiol")
@@ -768,6 +891,7 @@ def infer_protein_biochemical_profile(
     # --- J. ORGANIC COFACTOR HOLOENZYMES (PLP Vitamin B6 & Flavin FAD/FMN) ---
     if (
         "pyridoxal phosphate" in keywords_low
+        or "CHEBI:597326" in all_chebis
         or "pyridoxal" in metal_blob
         or bool(re.search(
             r"\b(?:aminotransferase|transaminase|(?:glutamate|ornithine|lysine|histidine|dopa|aromatic-l-amino-acid)\s+decarboxylase|"
@@ -779,6 +903,7 @@ def infer_protein_biochemical_profile(
 
     if (
         "flavoprotein" in keywords_low
+        or bool({"CHEBI:57692", "CHEBI:58210", "CHEBI:57618"} & all_chebis)
         or bool(re.search(r"\bfad\b|\bfmn\b|\bflavin\b", metal_blob))
         or bool(re.search(
             r"\b(?:glucose\s+oxidase|d-amino-acid\s+oxidase|glutathione\s+reductase|thioredoxin\s+reductase|"
@@ -787,19 +912,6 @@ def infer_protein_biochemical_profile(
         ))
     ):
         categories.append("flavin_dependent")
-
-    # --- K. ACTIVE PROTEASES (Autolysis & Self-Inhibition Guard) ---
-    protease_class: Optional[str] = None
-    if "metalloprotease" in keywords_low or bool(re.search(r"\b(?:metalloproteinase|metalloprotease|mmp-?\d+|thermolysin|collagenase|stromelysin|gelatinase|astacin|serralysin|carboxypeptidase\s*[ab])\b", search_text)):
-        protease_class = "metallo"
-    elif "thiol protease" in keywords_low or acc == "P04517" or bool(re.search(r"\b(?:tev\s+protease|nuclear\s+inclusion\s+protein\s+a|3c\s+protease|caspase|papain|cathepsin\s+[blks]|calpain|main\s+protease|3clpro)\b", search_text)):
-        protease_class = "cysteine"
-    elif "serine protease" in keywords_low or acc == "P00734" or bool(re.search(r"\b(?:trypsin|chymotrypsin|elastase|thrombin|prothrombin|subtilisin|enteropeptidase|proteinase\s+k|coagulation\s+factor\s+x)\b", search_text)):
-        protease_class = "serine"
-    elif "aspartyl protease" in keywords_low or bool(re.search(r"\b(?:pepsin|renin|hiv-?1\s+protease|cathepsin\s+d|bace1)\b", search_text)):
-        protease_class = "aspartic"
-    if protease_class:
-        categories.append("active_protease")
 
     # --- L. INTRINSICALLY DISORDERED PROTEINS (IDPs) ---
     if (
@@ -1459,7 +1571,7 @@ def recommend_full_purification_workflow(
         else:
             alerts.append(
                 f"🪙 **Metalloprotein Cofactor Protection ({prof['metal_summary']}):** Avoid **Ni-NTA IMAC** (leached Ni²⁺ causes irreversible Irving–Williams "
-                "**mismetallation** of Zn²⁺/Cu/Mn/Fe active sites) and avoid **Imidazole**, **EDTA**, **EGTA**, `1,10-Phenanthroline`, and **Citrate** (which strip or inhibit "
+                f"**mismetallation** of native {prof['metal_summary']} active sites) and avoid **Imidazole**, **EDTA**, **EGTA**, `1,10-Phenanthroline`, and **Citrate** (which strip or inhibit "
                 f"catalytic {prof['metal_summary']})! Use **EDTA-free** Good's buffers (`HEPES`, `MOPS`, `MES`) and EDTA-free protease inhibitors."
             )
 
@@ -1559,6 +1671,379 @@ def recommend_full_purification_workflow(
         "alerts": alerts,
         "protein_profile": prof,
         "tag_conflict": prof["tag_conflict"],
+    }
+
+
+def recommend_safe_buffer_preset_key(
+    protein_profile: Optional[Dict[str, Any]],
+    metrics: Optional[Dict[str, Any]] = None,
+    working_ph: float = 7.4,
+    net_charge: float = 0.0,
+) -> str:
+    """Returns the safest starter recipe template key in PRESET_RECIPE_TEMPLATES for the active protein."""
+    prof = protein_profile or {}
+    if (
+        prof.get("is_metalloprotein")
+        or prof.get("is_heme_protein")
+        or prof.get("is_chelator_sensitive")
+        or prof.get("avoid_tris_buffer")
+        or prof.get("avoid_phosphate_buffer")
+        or prof.get("avoid_reducing_agents")
+    ):
+        return "metalloprotein_safe"
+    tag_low = str(prof.get("effective_tag") or "").lower()
+    if "his" in tag_low and not prof.get("avoid_imidazole_imac"):
+        return "his_lysis"
+    if "strep" in tag_low:
+        return "strep_elution"
+    if "gst" in tag_low:
+        return "gst_elution"
+    if "mbp" in tag_low:
+        return "mbp_elution"
+    return "sec_running"
+
+
+def build_compatibility_matrix(
+    metrics: Dict[str, Any],
+    working_ph: float,
+    net_charge: float,
+    workflow: Dict[str, Any],
+) -> List[Dict[str, str]]:
+    """
+    Produces a crisp 6-tile visual Reagent & Column Traffic-Light Compatibility Board
+    customized to the active protein's exact biochemistry (zero repetitive prose walls).
+    Each item has keys: title, status ('good'|'warn'|'avoid'), badge, reason.
+    """
+    prof = workflow.get("protein_profile") or {}
+    cats = set(prof.get("categories") or [])
+    hic = workflow.get("hic") or {}
+    pi = float(metrics.get("pi", 7.0))
+    cys_cnt = int((metrics.get("counts") or {}).get("cysteines", 0))
+    msum = prof.get("metal_summary", "metal cofactor")
+
+    # 1. Ni-NTA / Imidazole
+    if prof.get("avoid_imidazole_imac"):
+        if "ni_metalloenzyme" in cats:
+            imac_tile = {
+                "title": "🧲 Ni-NTA / Imidazole",
+                "status": "avoid",
+                "badge": "🚫 Avoid",
+                "reason": f"Resin Ni²⁺ chelation + Imidazole competes with active-site {msum}.",
+            }
+        elif "fe_s_cluster" in cats:
+            imac_tile = {
+                "title": "🧲 Ni-NTA / Imidazole",
+                "status": "avoid",
+                "badge": "🚫 Avoid",
+                "reason": "Imidazole & leached Ni²⁺ destroy O₂-labile [Fe–S] clusters.",
+            }
+        else:
+            imac_tile = {
+                "title": "🧲 Ni-NTA / Imidazole",
+                "status": "avoid",
+                "badge": "🚫 Avoid",
+                "reason": f"Ni²⁺ mismetallation & Imidazole extraction of {msum}.",
+            }
+    elif prof.get("caution_imidazole_imac"):
+        imac_tile = {
+            "title": "🧲 Ni-NTA / Imidazole",
+            "status": "warn",
+            "badge": "⚠️ Caution",
+            "reason": "High Imidazole binds axial heme Fe (use protease cleavage or Strep).",
+        }
+    else:
+        has_his = "his" in str(prof.get("effective_tag") or "").lower()
+        imac_tile = {
+            "title": "🧲 Ni-NTA / Imidazole",
+            "status": "good",
+            "badge": "✅ Safe" if has_his else "✅ Compatible",
+            "reason": "Compatible with 6xHis IMAC (no catalytic metal/heme conflict)." if has_his else "No metal/heme conflict if you clone a 6xHis tag.",
+        }
+
+    # 2. Chelators (EDTA / EGTA / Citrate)
+    if prof.get("is_chelator_sensitive"):
+        chel_tile = {
+            "title": "🧪 EDTA / Citrate",
+            "status": "avoid",
+            "badge": "🚫 Omit (0 mM)",
+            "reason": f"Chelators strip essential {msum} into inactive apoprotein!",
+        }
+    else:
+        chel_tile = {
+            "title": "🧪 EDTA / Citrate",
+            "status": "good",
+            "badge": "✅ Safe (1 mM)",
+            "reason": "Safe to add 1 mM EDTA in lysis (blocks host metalloproteases).",
+        }
+
+    # 3. Reducing Agents (DTT / TCEP)
+    if prof.get("avoid_reducing_agents"):
+        red_tile = {
+            "title": "🔗 DTT / TCEP",
+            "status": "avoid",
+            "badge": "🚫 Omit",
+            "reason": f"Protects structural S–S disulfide bonds ({cys_cnt} Cys).",
+        }
+    elif prof.get("require_reducing_agents"):
+        red_tile = {
+            "title": "🔗 DTT / TCEP",
+            "status": "good",
+            "badge": "⭐ Include",
+            "reason": f"Keep 0.5 mM TCEP or 1 mM DTT to protect free thiols ({cys_cnt} Cys).",
+        }
+    else:
+        red_tile = {
+            "title": "🔗 DTT / TCEP",
+            "status": "warn" if cys_cnt >= 2 else "good",
+            "badge": "🔹 Optional",
+            "reason": "0.5 mM TCEP optional if free thiols oxidize; not strictly required.",
+        }
+
+    # 4. Ion-Exchange (IEX)
+    if abs(working_ph - pi) < 0.6 or abs(net_charge) < 1.8:
+        iex_tile = {
+            "title": "⚡ Ion-Exchange (IEX)",
+            "status": "warn",
+            "badge": "⚠️ Weak Near pI",
+            "reason": f"pH {working_ph:.1f} is close to pI {pi:.2f} (Q={net_charge:+.1f}); shift pH ≥1 unit or use HIC.",
+        }
+    elif net_charge < 0:
+        iex_tile = {
+            "title": "⚡ Ion-Exchange (IEX)",
+            "status": "good",
+            "badge": "✅ HiTrap Q (AEX)",
+            "reason": f"Negative net charge ({net_charge:+.1f}) at pH {working_ph:.1f} binds positively charged Q beads.",
+        }
+    else:
+        iex_tile = {
+            "title": "⚡ Ion-Exchange (IEX)",
+            "status": "good",
+            "badge": "✅ HiTrap SP (CEX)",
+            "reason": f"Positive net charge ({net_charge:+.1f}) at pH {working_ph:.1f} binds negatively charged SP beads.",
+        }
+
+    # 5. Hydrophobic Interaction (HIC)
+    if prof.get("requires_detergent_micelles") or float(metrics.get("gravy", 0.0)) > 0.35:
+        hic_tile = {
+            "title": "💧 Hydrophobic (HIC)",
+            "status": "avoid",
+            "badge": "🚫 Avoid Aqueous",
+            "reason": "Membrane detergents phase-separate in high salt; use Detergent IEX + SEC.",
+        }
+    elif hic.get("is_required_or_strong"):
+        short_res = hic.get("recommended_resin", "Phenyl HP").split("(")[0].strip().replace("HiTrap ", "")
+        hic_tile = {
+            "title": "💧 Hydrophobic (HIC)",
+            "status": "good",
+            "badge": f"⭐ {short_res}",
+            "reason": f"Strong orthogonal step (GRAVY {float(metrics.get('gravy', 0.0)):+.2f}); no dialysis after high salt!",
+        }
+    else:
+        hic_tile = {
+            "title": "💧 Hydrophobic (HIC)",
+            "status": "warn",
+            "badge": "🔹 Secondary",
+            "reason": f"Very polar surface (GRAVY {float(metrics.get('gravy', 0.0)):+.2f}); try IEX before Octyl HIC.",
+        }
+
+    # 6. Ideal Buffer Family
+    if prof.get("avoid_tris_buffer"):
+        buf_tile = {
+            "title": "🧫 Buffer Family",
+            "status": "good",
+            "badge": "⭐ HEPES / PO₄",
+            "reason": "Avoid Tris (forms Schiff-base adduct with PLP cofactor)!",
+        }
+    elif prof.get("avoid_phosphate_buffer"):
+        buf_tile = {
+            "title": "🧫 Buffer Family",
+            "status": "good",
+            "badge": "⭐ HEPES / Tris",
+            "reason": "Avoid Phosphate (precipitates insoluble Ca²⁺/Mn²⁺ phosphate chalk)!",
+        }
+    elif prof.get("is_chelator_sensitive"):
+        buf_tile = {
+            "title": "🧫 Buffer Family",
+            "status": "good",
+            "badge": "⭐ HEPES / MOPS",
+            "reason": "Non-chelating Good's buffers protect bound catalytic metal ions.",
+        }
+    elif prof.get("requires_detergent_micelles"):
+        buf_tile = {
+            "title": "🧫 Buffer Family",
+            "status": "good",
+            "badge": "⭐ HEPES + DDM",
+            "reason": "Keep 0.03% DDM (or LMNG/CHS) above CMC in every column buffer.",
+        }
+    else:
+        buf_tile = {
+            "title": "🧫 Buffer Family",
+            "status": "good",
+            "badge": "✅ Tris / HEPES / PO₄",
+            "reason": "Match buffer pKa within ±1 unit of working pH (check IEX counterion).",
+        }
+
+    return [imac_tile, chel_tile, red_tile, iex_tile, hic_tile, buf_tile]
+
+
+def build_student_lab_challenge(
+    protein_name: str,
+    metrics: Dict[str, Any],
+    working_ph: float,
+    net_charge: float,
+    workflow: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Generates a single, 100%-scientifically-accurate interactive Lab Decision Challenge
+    tailored specifically to the active protein's real cofactor, redox, membrane, or pI physics.
+    """
+    prof = workflow.get("protein_profile") or {}
+    cats = set(prof.get("categories") or [])
+    pi = float(metrics.get("pi", 7.0))
+    msum = prof.get("metal_summary", "catalytic metal")
+    short_name = protein_name.split("(")[0].strip() or "this protein"
+
+    if "ni_metalloenzyme" in cats:
+        return {
+            "question": f"Your labmate wants to purify {short_name} on a Ni-NTA column using 300 mM Imidazole + 1 mM EDTA. What happens?",
+            "options": [
+                "It elutes at >98% purity with higher catalytic activity because extra Ni²⁺ boosts turnover.",
+                f"Protein metal sites can chelate resin Ni²⁺, while Imidazole & EDTA compete with and strip the native {msum}!",
+                "Imidazole cleaves all peptide bonds next to lysine residues.",
+                "EDTA increases hydrophobic binding to Phenyl Sepharose.",
+            ],
+            "correct_index": 1,
+            "explanation": (
+                f"Correct! {short_name} relies on {msum}. Millimolar Imidazole directly competes with protein-bound Ni²⁺, "
+                "apo/accessory pockets strip Ni²⁺ from Ni-NTA beads, and EDTA chelates essential divalent cations. "
+                "Use EDTA-free Ion-Exchange (HiTrap Q/SP) + HIC + SEC in HEPES/MOPS—or EDTA-free Twin-Strep/MBP affinity."
+            ),
+        }
+    if "fe_s_cluster" in cats:
+        return {
+            "question": f"{short_name} contains an [Fe–S] cluster. Which bench condition protects its cofactor during purification?",
+            "options": [
+                "Open-bench Ni-NTA with 300 mM Imidazole and vigorous aerobic stirring.",
+                "Anaerobic glovebox (< 2 ppm O₂), N₂-sparged EDTA-free buffer + 1–2 mM DTT, monitoring A410/A280.",
+                "Adding 10 mM EDTA and 5% hydrogen peroxide to oxidize impurities.",
+                "Boiling lysate at 95°C for 10 minutes before SEC.",
+            ],
+            "correct_index": 1,
+            "explanation": (
+                "Correct! [Fe–S] clusters oxidize rapidly in air and are disrupted by Imidazole/EDTA or leached Ni²⁺. "
+                "Anaerobic IEX/Strep + SEC in N₂-sparged reducing buffer preserves the intact holoenzyme (track A410/A280)."
+            ),
+        }
+    if prof.get("is_metalloprotein"):
+        return {
+            "question": f"{short_name} requires {msum}. Why should you avoid standard Ni-NTA + Imidazole and EDTA?",
+            "options": [
+                f"Leached Ni²⁺ causes irreversible mismetallation, while Imidazole & EDTA extract native {msum} into inactive apoprotein.",
+                "Ni-NTA only works on proteins larger than 200 kDa.",
+                "EDTA precipitates Tris-HCl buffer into insoluble crystals.",
+                "Imidazole permanently reverses the protein's isoelectric point (pI).",
+            ],
+            "correct_index": 0,
+            "explanation": (
+                f"Correct! By the Irving–Williams series, leached Ni²⁺ displaces native {msum} (mismetallation), "
+                "and both Imidazole and EDTA strip divalent metal cofactors. Purify in EDTA-free HEPES/MOPS via native IEX/HIC or Twin-Strep/MBP."
+            ),
+        }
+    if prof.get("is_heme_protein"):
+        return {
+            "question": f"{short_name} is a hemoprotein. What happens if you elute it from Ni-NTA using 300–500 mM Imidazole?",
+            "options": [
+                "Imidazole covalently cuts the porphyrin ring in half.",
+                "Imidazole coordinates the 6th axial position of heme iron—shifting the Soret peak (~410 ➜ ~426 nm) and inhibiting catalysis.",
+                "Imidazole converts heme iron into a disulfide bond.",
+                "Nothing—Imidazole cannot interact with iron ions.",
+            ],
+            "correct_index": 1,
+            "explanation": (
+                "Correct! High Imidazole directly binds the axial site of heme Fe. Use native IEX/HIC, EDTA-free Strep/MBP, "
+                "or imidazole-free on-column protease cleavage, and verify purity with the Reinheitszahl ratio (Rz = A_Soret / A280)."
+            ),
+        }
+    if prof.get("requires_detergent_micelles"):
+        return {
+            "question": f"{short_name} is an integral membrane protein. Which step will RUIN your prep?",
+            "options": [
+                "Solubilizing membranes in 1% DDM and running SEC in 0.03% DDM.",
+                "Running Ammonium Sulfate salting-out or detergent-free aqueous HIC.",
+                "Using a Superdex 200 column to account for the ~70 kDa detergent micelle belt.",
+                "Clarifying unsolubilized membrane debris at 100,000 × g.",
+            ],
+            "correct_index": 1,
+            "explanation": (
+                "Correct! High Ammonium Sulfate causes detergent micelles to phase-separate and makes exposed transmembrane helices aggregate irreversibly. "
+                "Always maintain mild detergent above CMC (e.g., 0.03% DDM or LMNG/CHS) through affinity, IEX, and SEC!"
+            ),
+        }
+    if prof.get("avoid_tris_buffer"):
+        return {
+            "question": f"{short_name} uses a PLP (Vitamin B6) aldehyde cofactor. Which buffer should you AVOID?",
+            "options": [
+                "50 mM HEPES (pH 7.5)",
+                "50 mM Tris-HCl (pH 7.5) — Tris's primary amine forms a covalent Schiff-base adduct with PLP!",
+                "50 mM Sodium Phosphate (pH 7.2)",
+                "150 mM NaCl salt additive",
+            ],
+            "correct_index": 1,
+            "explanation": (
+                "Correct! Tris contains a reactive primary amine that condenses with the aldehyde group of PLP, stripping/quenching the cofactor. "
+                "Use HEPES or Phosphate supplemented with 10–50 µM PLP instead."
+            ),
+        }
+    if prof.get("avoid_reducing_agents"):
+        cys_n = int((metrics.get("counts") or {}).get("cysteines", 0))
+        iex_right = "Cation-Exchange (HiTrap SP)" if net_charge > 0 else "Anion-Exchange (HiTrap Q)"
+        charge_word = "positively" if net_charge > 0 else "negatively"
+        return {
+            "question": f"At pH {working_ph:.1f}, {short_name} has pI {pi:.2f} (net charge {net_charge:+.1f}) and structural disulfide bonds ({cys_n} Cys). Which setup keeps it folded and bound?",
+            "options": [
+                f"{iex_right} in reductant-free buffer (0 mM DTT/TCEP) to preserve native S–S bridges.",
+                f"{'Anion-Exchange (HiTrap Q)' if net_charge > 0 else 'Cation-Exchange (HiTrap SP)'} with 10 mM DTT at 60°C.",
+                "Running IEX exactly at pH = pI so the net charge equals zero.",
+                "Adding 20 mM β-Mercaptoethanol to strengthen disulfide bonds.",
+            ],
+            "correct_index": 0,
+            "explanation": (
+                f"Correct! At pH {working_ph:.1f}, {short_name} is {charge_word} charged ({net_charge:+.1f}), so it binds {iex_right}—and omitting DTT/TCEP "
+                "keeps its stabilizing S–S disulfide bridges intact!"
+            ),
+        }
+    if abs(working_ph - pi) < 0.9 or abs(net_charge) < 2.2:
+        return {
+            "question": f"At pH {working_ph:.1f}, {short_name} (pI {pi:.2f}) has weak net charge ({net_charge:+.1f}). Which chromatography method works WITHOUT relying on net charge?",
+            "options": [
+                "Anion-Exchange (HiTrap Q) at the same pH.",
+                "Hydrophobic Interaction Chromatography (HIC) — separates by surface hydrophobic patches in high kosmotropic salt!",
+                "Cation-Exchange (HiTrap SP) at the same pH.",
+                "Adding 5 mM DTT to shift pI by +4 units.",
+            ],
+            "correct_index": 1,
+            "explanation": (
+                f"Correct! Near pI ({pi:.2f}), proteins carry almost zero net charge so IEX fails. "
+                "HIC separates by surface hydrophobicity in kosmotropic salt (e.g., Ammonium Sulfate), rescuing purification near pI!"
+            ),
+        }
+    correct_iex = "Anion-Exchange (HiTrap Q — positively charged resin)" if net_charge < 0 else "Cation-Exchange (HiTrap SP — negatively charged resin)"
+    wrong_iex = "Cation-Exchange (HiTrap SP — negatively charged resin)" if net_charge < 0 else "Anion-Exchange (HiTrap Q — positively charged resin)"
+    sign_txt = "negatively" if net_charge < 0 else "positively"
+    cmp_txt = "above" if working_ph > pi else "below"
+    return {
+        "question": f"At working pH {working_ph:.1f} (which is {cmp_txt} pI {pi:.2f}), {short_name} has net charge {net_charge:+.1f}. Which Ion-Exchange resin binds it?",
+        "options": [
+            correct_iex,
+            wrong_iex,
+            "Size-Exclusion (Superdex) via electrostatic attraction.",
+            "Neither — proteins only bind IEX when net charge equals 0.",
+        ],
+        "correct_index": 0,
+        "explanation": (
+            f"Correct! Because pH {working_ph:.1f} is {cmp_txt} pI {pi:.2f}, {short_name} is {sign_txt} charged ({net_charge:+.1f}) "
+            f"and binds the oppositely charged resin: {correct_iex}!"
+        ),
     }
 
 

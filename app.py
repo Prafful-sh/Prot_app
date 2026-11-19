@@ -71,6 +71,9 @@ try:
         PRESET_RECIPE_TEMPLATES,
         infer_protein_biochemical_profile,
         recommend_full_purification_workflow,
+        recommend_safe_buffer_preset_key,
+        build_compatibility_matrix,
+        build_student_lab_challenge,
         audit_buffer_compatibility_for_protein,
         compute_custom_buffer_recipe,
         convert_weight_and_molarity,
@@ -122,6 +125,9 @@ except ImportError:
         PRESET_RECIPE_TEMPLATES,
         infer_protein_biochemical_profile,
         recommend_full_purification_workflow,
+        recommend_safe_buffer_preset_key,
+        build_compatibility_matrix,
+        build_student_lab_challenge,
         audit_buffer_compatibility_for_protein,
         compute_custom_buffer_recipe,
         convert_weight_and_molarity,
@@ -1084,6 +1090,115 @@ st.markdown("""
         line-height: 1.55;
     }
 
+    /* Tab 2: 6-Tile Visual Reagent & Column Compatibility Board + Compact Lab Tips */
+    .compat-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 11px;
+        margin: 4px 0 18px 0;
+    }
+    @media (max-width: 1050px) {
+        .compat-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+        .compat-grid { grid-template-columns: 1fr; }
+    }
+    .compat-tile {
+        background: var(--bg-surface);
+        border: 1px solid var(--border-soft);
+        border-radius: 12px;
+        padding: 12px 14px;
+        box-shadow: 0 2px 6px rgba(11, 34, 28, 0.035);
+    }
+    .compat-tile-good {
+        border-left: 4px solid #059669;
+        background: #F7FDFB;
+    }
+    .compat-tile-warn {
+        border-left: 4px solid var(--amber-accent);
+        background: #FFFDF5;
+    }
+    .compat-tile-avoid {
+        border-left: 4px solid var(--crimson-accent);
+        background: #FFF8F8;
+    }
+    .compat-tile-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 5px;
+    }
+    .compat-tile-title {
+        font-size: var(--fs-label);
+        font-weight: 700;
+        color: var(--ink-heading);
+    }
+    .compat-badge {
+        display: inline-block;
+        padding: 2px 9px;
+        border-radius: 9999px;
+        font-size: var(--fs-micro);
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .compat-badge-good {
+        background: var(--teal-tint);
+        color: var(--teal-deep);
+        border: 1px solid #A7F3D0;
+    }
+    .compat-badge-warn {
+        background: var(--amber-pill);
+        color: var(--amber-deep);
+        border: 1px solid var(--amber-border);
+    }
+    .compat-badge-avoid {
+        background: var(--crimson-tint);
+        color: var(--crimson-deep);
+        border: 1px solid var(--crimson-border);
+    }
+    .compat-tile-reason {
+        font-size: var(--fs-micro);
+        color: var(--ink-body);
+        line-height: 1.45;
+    }
+    .compact-tips-box {
+        background: #F4FAF8;
+        border: 1px solid var(--border-soft);
+        border-left: 4px solid var(--teal-primary);
+        border-radius: 11px;
+        padding: 11px 15px;
+        margin-bottom: 14px;
+        font-size: var(--fs-label);
+        color: var(--ink-body);
+        line-height: 1.52;
+    }
+    .compact-tips-title {
+        font-size: var(--fs-label);
+        font-weight: 700;
+        color: var(--teal-deep);
+        margin-bottom: 4px;
+    }
+    .compact-tips-list {
+        margin: 0;
+        padding-left: 18px;
+    }
+    .compact-tips-list li {
+        margin-bottom: 3px;
+    }
+    .challenge-q-box {
+        background: var(--indigo-tint);
+        border: 1px solid var(--indigo-border);
+        border-left: 4px solid var(--indigo-accent);
+        border-radius: 11px;
+        padding: 12px 15px;
+        margin-bottom: 10px;
+        font-size: var(--fs-body);
+        font-weight: 600;
+        color: var(--ink-strong);
+        line-height: 1.48;
+    }
+
     /* Method A (IEX Teal) & Method B (HIC Amber) Recommendation Cards */
     .method-card {
         background: var(--bg-surface);
@@ -1366,7 +1481,8 @@ def _apply_classroom_preset():
             "source": f"Classroom Example • UniProt {p['uniprot_id']}",
             "uniprot_id": p["uniprot_id"],
             "tag": p["tag"],
-            "student_story": p["student_story"]
+            "student_story": p["student_story"],
+            "biochem_annotations": p.get("biochem_annotations", {}),
         },
         construct_parts=p["construct_parts"]
     )
@@ -1376,14 +1492,13 @@ def _apply_classroom_preset():
 st.markdown("""
 <div class="hero-banner">
     <div class="hero-badge-row">
-        <span class="hero-badge badge-gold">🎓 School, College & Research Ready</span>
-        <span class="hero-badge badge-mint">🧪 SEC • SDS-PAGE • Affinity, IEX & HIC • Custom Buffer Lab</span>
+        <span class="hero-badge badge-gold">🎓 Interactive Biochemistry &amp; Purification Studio</span>
+        <span class="hero-badge badge-mint">🧪 SEC • SDS-PAGE • IEX &amp; HIC • Smart Buffer Lab</span>
     </div>
     <div class="hero-title">ProPurify Studio</div>
     <div class="hero-subtitle">
-        Explore how proteins behave in the laboratory! Pick a famous textbook protein like <b>Egg-White Lysozyme</b> or enter your own sequence
-        to simulate <b>Size-Exclusion Chromatography (SEC)</b>, run a virtual <b>SDS-PAGE Gel</b>, design a complete <b>Purification Strategy (including HIC & Ion-Exchange)</b>,
-        and calculate custom <b>Lab Buffer Recipes in grams (g) & milligrams (mg)</b>.
+        Pick a textbook protein or load any sequence from UniProt/NCBI to visualize <b>SEC elution</b>, run an <b>SDS-PAGE gel</b>,
+        build a <b>cofactor-safe purification strategy</b>, and weigh exact <b>lab buffers (g / mg)</b>.
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -1469,18 +1584,6 @@ with st.sidebar:
                             st.success(f"Construct ready: {res['identified_protein']} ({res['length']} aa)!")
                         else:
                             st.success(f"Loaded: {res['identified_protein']} [{res['uniprot_id']}] ({res['length']} aa)!")
-                        chk_prof = infer_protein_biochemical_profile(
-                            sequence=res["full_construct_sequence"],
-                            protein_name=display_name,
-                            metadata=st.session_state.sequence_metadata,
-                            tag_detected=res["tag_detected"],
-                            construct_parts=st.session_state.construct_parts,
-                        )
-                        if chk_prof.get("tag_conflict"):
-                            st.warning(
-                                f"{chk_prof['tag_conflict']['headline']}\n\n"
-                                f"👉 Open **Tab 2 (Purification Strategy)** for the metal/cofactor-safe roadmap."
-                            )
                 except Exception as e:
                     st.error(f"Could not build construct: {e}")
 
@@ -1620,8 +1723,8 @@ if conflict_info:
     conflict_html = (
         f'<div class="{c_cls}">'
         f'<div class="biochem-conflict-title">{_md_inline_to_html(conflict_info["headline"])}</div>'
-        f'<div class="biochem-conflict-body">{_md_inline_to_html(conflict_info["explanation"])} '
-        f'<b>Wise Strategy:</b> {_md_inline_to_html(conflict_info["better_strategy"])}</div>'
+        f'<div class="biochem-conflict-body">👉 Open <b>Tab 2 (Purification Strategy)</b> for the safe alternative roadmap &amp; compatibility matrix, '
+        f'and <b>Tab 3</b> for EDTA-free / Imidazole-free buffer recipes.</div>'
         f'</div>'
     )
 
@@ -2924,10 +3027,7 @@ with tab_sec:
 # =====================================================================
 with tab_strategy:
     st.markdown("### 🧭 Complete 3-Step Protein Purification Strategy")
-    st.caption(
-        "Adjust your working buffer pH below to see how your protein's electrical charge AND surface hydrophobicity "
-        "guide **Affinity**, **Ion-Exchange (AEX / CEX)**, **Hydrophobic Interaction Chromatography (HIC)**, and **SEC**."
-    )
+    st.caption("Adjust working pH below — every recommendation automatically adapts to your protein's charge, hydrophobicity, cofactors, and redox stability.")
 
     ph_col1, ph_col2 = st.columns([1.4, 2.2])
     with ph_col1:
@@ -2979,22 +3079,43 @@ with tab_strategy:
         </div>
         """, unsafe_allow_html=True)
 
-    # Prominent Tag <-> Cofactor/Biochemistry Conflict Banner (e.g. 6xHis on Urease / Metalloprotein!)
+    # Prominent Tag <-> Cofactor/Biochemistry Conflict Banner (Single Authoritative Explanation)
     t_conf = workflow.get("tag_conflict")
     if t_conf:
         conf_msg = (
             f"**{t_conf['headline']}**\n\n"
             f"{t_conf['explanation']}\n\n"
-            f"✅ **Recommended Strategy:** {t_conf['better_strategy']}"
+            f"✅ **Better Strategy:** {t_conf['better_strategy']}"
         )
         if t_conf.get("severity") == "critical":
             st.error(conf_msg)
         else:
             st.warning(conf_msg)
 
-    # Smart Biochemical Alerts (Metalloproteins, Heme, Fe-S, Ca2+/PO4, PLP/Tris, Membrane, Disulfides, pI, Cold-room)
+    # Deduplicated Compact Bench Notes (Never repeat what Tag Conflict banner already explained!)
+    display_alerts = []
     for alert_msg in workflow["alerts"]:
-        st.info(alert_msg)
+        if t_conf:
+            if t_conf.get("severity") == "critical" and (
+                "Nickel Metalloenzyme Protection" in alert_msg
+                or "Metalloprotein Cofactor Protection" in alert_msg
+                or "Oxygen-Sensitive [Fe–S] Cluster Alert" in alert_msg
+            ):
+                continue
+            if "Heme–Imidazole" in t_conf.get("headline", "") and "Hemoprotein / Soret Band Tip" in alert_msg:
+                continue
+            if "Disulfide–Glutathione" in t_conf.get("headline", "") and "Disulfide Bridge Protection" in alert_msg:
+                continue
+        display_alerts.append(alert_msg)
+
+    if display_alerts:
+        tips_li = "".join(f"<li>{_md_inline_to_html(a)}</li>" for a in display_alerts)
+        st.markdown(f"""
+        <div class="compact-tips-box">
+            <div class="compact-tips-title">💡 Key Lab Notes for This Protein</div>
+            <ul class="compact-tips-list">{tips_li}</ul>
+        </div>
+        """, unsafe_allow_html=True)
 
     # --- 3-STEP VISUAL PURIFICATION ROADMAP ---
     rm = workflow["roadmap"]
@@ -3018,6 +3139,51 @@ with tab_strategy:
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # --- AT-A-GLANCE 6-TILE REAGENT & COLUMN COMPATIBILITY BOARD ---
+    compat_tiles = build_compatibility_matrix(metrics, working_ph, curr_charge, workflow)
+    compat_cards_html = []
+    for tile in compat_tiles:
+        st_cls = tile["status"]
+        compat_cards_html.append(
+            f'<div class="compat-tile compat-tile-{st_cls}">'
+            f'<div class="compat-tile-top">'
+            f'<span class="compat-tile-title">{html.escape(tile["title"])}</span>'
+            f'<span class="compat-badge compat-badge-{st_cls}">{html.escape(tile["badge"])}</span>'
+            f'</div>'
+            f'<div class="compat-tile-reason">{html.escape(tile["reason"])}</div>'
+            f'</div>'
+        )
+    st.markdown("#### 🚦 Quick Compatibility Board: What Works & What to Avoid")
+    st.markdown(f'<div class="compat-grid">{"".join(compat_cards_html)}</div>', unsafe_allow_html=True)
+
+    # --- INTERACTIVE 1-MINUTE STUDENT LAB BENCH CHALLENGE ---
+    challenge = build_student_lab_challenge(st.session_state.sequence_name, metrics, working_ph, curr_charge, workflow)
+    with st.expander("🎯 Test Yourself: 1-Minute Lab Decision Challenge for This Protein", expanded=False):
+        st.markdown(f'<div class="challenge-q-box">🧪 {html.escape(challenge["question"])}</div>', unsafe_allow_html=True)
+        opt_letters = ["A", "B", "C", "D"]
+        opt_lines = "".join(
+            f"<li><b>{opt_letters[i]})</b> {html.escape(opt_txt)}</li>"
+            for i, opt_txt in enumerate(challenge["options"])
+        )
+        st.markdown(f'<ul class="compact-tips-list">{opt_lines}</ul>', unsafe_allow_html=True)
+        chal_ctx = (st.session_state.sequence_name, round(working_ph, 1), tag_detected)
+        if st.session_state.get("_lab_chal_ctx") != chal_ctx:
+            st.session_state["_lab_chal_ctx"] = chal_ctx
+            st.session_state["lab_challenge_radio"] = "A"
+        chosen_letter = st.radio(
+            "Select your answer:",
+            options=opt_letters,
+            horizontal=True,
+            key="lab_challenge_radio",
+        )
+        if st.button("✅ Check My Answer", key="btn_check_lab_challenge", type="primary"):
+            if opt_letters.index(chosen_letter) == challenge["correct_index"]:
+                st.success(f"🎉 {challenge['explanation']}")
+            else:
+                st.warning(
+                    "🔄 Not quite! Check the Compatibility Board above for a clue, then try another option."
+                )
 
     # --- SIDE-BY-SIDE DEEP DIVE: ION-EXCHANGE (CHARGE) vs. HYDROPHOBIC INTERACTION (HIC) ---
     col_iex_box, col_hic_box = st.columns([1.25, 1.15])
@@ -3114,41 +3280,33 @@ with tab_strategy:
     with col_hic_box:
         st.markdown("#### 💧 Method B: Hydrophobic Interaction Chromatography (HIC)")
         hic = workflow["hic"]
-
-        if hic["is_required_or_strong"]:
-            st.success(f"**{hic['status_badge']}**\n\n{hic['when_why']}")
-        else:
-            st.info(f"**{hic['status_badge']}**\n\n{hic['when_why']}")
+        hic_badge_cls = "kpi-status-warn" if "Avoid" in hic["status_badge"] else ("method-badge-teal" if hic["is_required_or_strong"] else "method-badge-amber")
 
         st.markdown(f"""
         <div class="method-card method-card-amber">
             <div class="method-card-header">
-                <span class="method-card-title">🧪 Recommended HIC Column & Salt Setup</span>
-                <span class="method-badge-amber">{hic['recommended_resin']}</span>
+                <span class="method-card-title">🧪 HIC Column &amp; Salt Plan</span>
+                <span class="{hic_badge_cls}">{html.escape(hic['status_badge'])}</span>
             </div>
             <div class="method-spec-list">
-                <div><span class="method-spec-key">Best HIC Resin:</span> <code>{hic['recommended_resin']}</code></div>
-                <div><span class="method-spec-key">High-Salt Binding Buffer:</span> <code>{hic['starting_salt']}</code></div>
-                <div><span class="method-spec-key">Why This Ligand:</span> {hic['ligand_reason']}</div>
-                <div><span class="method-spec-key">Elution Gradient:</span> {hic['elution_protocol']}</div>
+                <div><span class="method-spec-key">Why HIC Here:</span> {_md_inline_to_html(hic['when_why'])}</div>
+                <div><span class="method-spec-key">Best HIC Resin:</span> <code>{html.escape(hic['recommended_resin'])}</code></div>
+                <div><span class="method-spec-key">High-Salt Binding:</span> <code>{html.escape(hic['starting_salt'])}</code></div>
+                <div><span class="method-spec-key">Elution Gradient:</span> {html.escape(hic['elution_protocol'])}</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
         st.markdown(f"""
         <div class="student-callout">
-            <div class="student-callout-title">🎓 Student Concept — How HIC Is the Opposite of Ion-Exchange</div>
-            <div>{hic['student_analogy']}</div>
+            <div class="student-callout-title">🎓 Quick Intuition — HIC Is the Opposite of Ion-Exchange</div>
+            <div>{html.escape(hic['student_analogy'])}</div>
         </div>
         """, unsafe_allow_html=True)
 
     # --- ALL 7 PURIFICATION METHODS COMPARISON TABLE ---
     st.markdown("---")
     st.markdown("#### 🗂️ All 7 Protein Purification Methods Compared for Your Protein")
-    st.caption(
-        "Biochemists combine methods that separate by *different* physical properties (Tag ➜ Charge ➜ Hydrophobicity ➜ Size). "
-        "Here is how every major lab technique fits your active protein:"
-    )
     st.dataframe(pd.DataFrame(workflow["all_methods"]), hide_index=True, width="stretch")
 
     if workflow["iex"]["recommended_buffers"]:
@@ -3168,18 +3326,23 @@ with tab_strategy:
 with tab_buffers:
     st.markdown("### 🧪 Customizable Laboratory Buffer & Recipe Calculator")
     st.caption(
-        "Start from a standard chromatography preset OR build your own custom buffer! "
-        "Edit any chemical, molecular weight, concentration (`mM`, `M`, `%`), volume (`mL` / `L`), or enter weights directly in **grams (`g`)** or **milligrams (`mg`)**."
+        "Pick a starter buffer or edit any component below — supports concentrations (`mM`, `M`, `%`) or direct weights (`g` / `mg`) with live protein-safety checks."
     )
+
+    preset_keys = list(PRESET_RECIPE_TEMPLATES.keys())
+    if st.session_state.get("_pending_safe_preset_key") in PRESET_RECIPE_TEMPLATES:
+        st.session_state["buffer_preset_select"] = st.session_state.pop("_pending_safe_preset_key")
+    elif "buffer_preset_select" not in st.session_state:
+        st.session_state["buffer_preset_select"] = st.session_state.active_recipe_key
 
     # 1. Top Setup Row: Starter Preset + Custom Volume (mL or L) + Target pH
     b_top1, b_top2, b_top3, b_top4 = st.columns([1.7, 0.95, 0.65, 0.85])
     with b_top1:
         selected_preset_key = st.selectbox(
             "1️⃣ Load a Starter Recipe Template (or Custom Blank):",
-            options=list(PRESET_RECIPE_TEMPLATES.keys()),
+            options=preset_keys,
             format_func=lambda k: PRESET_RECIPE_TEMPLATES[k]["label"],
-            index=0
+            key="buffer_preset_select",
         )
         if selected_preset_key != st.session_state.active_recipe_key:
             st.session_state.active_recipe_key = selected_preset_key
@@ -3212,8 +3375,8 @@ with tab_buffers:
     total_volume_ml = vol_number * 1000.0 if vol_unit == "L" else vol_number
     st.info(f"💡 **Template Note:** {st.session_state.custom_buffer_note}")
 
-    # 2. Quick-Add Reagent Bar (From Common Lab Shelf Chemicals OR Custom Chemical Name + Concentration OR g/mg!)
-    with st.expander(f"➕ Quick-Add a Chemical from the Lab Shelf ({len(COMMON_LAB_REAGENTS)} Standard Reagents or Custom)", expanded=True):
+    # 2. Quick-Add Reagent Bar (Collapsed by default so Editable Recipe & Weigh-Out Sheet stay above the fold!)
+    with st.expander(f"➕ Quick-Add a Chemical from the Lab Shelf ({len(COMMON_LAB_REAGENTS)} Standard Reagents or Custom)", expanded=False):
         qa1, qa2, qa3, qa4, qa5 = st.columns([1.8, 0.95, 0.95, 0.9, 0.8])
         shelf_options = ["✍️ Custom Chemical (Type Name & MW)"] + [r["name"] for r in COMMON_LAB_REAGENTS]
         with qa1:
@@ -3333,15 +3496,26 @@ with tab_buffers:
             return f"{ul:.2f} µL" if ul < 10.0 else f"{ul:,.1f} µL"
         return f"{liq_ml:,.2f} mL"
 
-    # 4. Live Active-Protein Compatibility Check + Calculated Recipe Sheet Showing BOTH Grams (g) AND Milligrams (mg)!
+    # 4. Live Active-Protein Compatibility Check + 1-Click Safe Buffer Switch + Exact Weigh-Out Sheet!
     buffer_compat_warnings = audit_buffer_compatibility_for_protein(
         sanitized_rows,
         custom_ph,
         protein_profile,
         protein_name=st.session_state.sequence_name,
     )
-    for bw in buffer_compat_warnings:
-        st.warning(bw)
+    if buffer_compat_warnings:
+        for bw in buffer_compat_warnings:
+            st.warning(bw)
+        safe_tpl_key = recommend_safe_buffer_preset_key(protein_profile, metrics, custom_ph, calculate_net_charge_at_ph(current_seq, custom_ph))
+        safe_tpl = PRESET_RECIPE_TEMPLATES[safe_tpl_key]
+        if st.button(f"✨ 1-Click Switch to Safe Buffer ({safe_tpl['label'].split('—')[0].strip()})", key="btn_autoload_safe_buf", type="primary"):
+            st.session_state.active_recipe_key = safe_tpl_key
+            st.session_state._pending_safe_preset_key = safe_tpl_key
+            st.session_state.custom_buffer_rows = [dict(r) for r in safe_tpl["rows"]]
+            st.session_state.custom_buffer_ph = float(safe_tpl["target_ph"])
+            st.session_state.custom_buffer_note = safe_tpl["notes"]
+            st.session_state.buffer_editor_ver += 1
+            st.rerun()
 
     computed_recipe = compute_custom_buffer_recipe(sanitized_rows, total_volume_ml)
 

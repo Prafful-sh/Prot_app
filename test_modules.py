@@ -1685,17 +1685,61 @@ def test_biochemical_protein_intelligence_and_metalloprotein_safety(root_dir: st
     from unittest.mock import patch
     import requests as _requests
     from streamlit.testing.v1 import AppTest
-    from modules.sequence_parser import detect_sequence_terminal_tag
+    from modules.sequence_parser import (
+        detect_sequence_terminal_tag,
+        extract_nl_query_components,
+        _extract_uniprot_biochem_annotations,
+        _candidate_matches_requested_protein,
+    )
     from modules.buffer_advisor import (
         infer_protein_biochemical_profile,
         audit_buffer_compatibility_for_protein,
+        build_compatibility_matrix,
+        build_student_lab_challenge,
+        recommend_safe_buffer_preset_key,
     )
 
-    # 1. Exact user scenario: "Urease with 6x His tag" (both online-eligible & forced offline)
+    # 1. Exact user scenarios: ALL spaced/punctuated Urease + 6xHis phrasings MUST resolve to catalytic Ni2+ Urease (NEVER Zn2+!)
+    for ure_prompt in (
+        "Urease with 6x His tag",
+        "6x His tagged urease",
+        "Urease + 6x His tag",
+        "Urease 6x His tag",
+        "Urease with 6x His",
+        "His-6 urease",
+        "Urease enzyme with 6x His tag",
+        "Plant urease with 6x His tag",
+    ):
+        ucomp = extract_nl_query_components(ure_prompt)
+        assert ucomp["tag_detected"] == "6xHis", f"Tag missed on {ure_prompt!r}: {ucomp['tag_detected']}"
+        assert "6x" not in ucomp["protein_query"].lower() and "+" not in ucomp["protein_query"]
+        assert "P07374" in ucomp["preferred_accessions"], f"Expected P07374 preferred for {ure_prompt!r}, got {ucomp}"
+
+    bact_comp = extract_nl_query_components("Bacterial urease with 6x His tag")
+    assert bact_comp["tag_detected"] == "6xHis" and "P18314" in bact_comp["preferred_accessions"]
+
+    # Semantic non-existence guard: must REJECT unrelated Zn2+ Dihydropyrimidinase (Q14117) for "Human urease"!
+    hum_ure_comp = extract_nl_query_components("Human urease with 6x His tag")
+    fake_dhp_hit = {
+        "primaryAccession": "Q14117",
+        "proteinDescription": {"recommendedName": {"fullName": {"value": "Dihydropyrimidinase"}}},
+        "genes": [{"geneName": {"value": "DPYS"}}],
+        "organism": {"scientificName": "Homo sapiens", "taxonId": 9606},
+    }
+    assert _candidate_matches_requested_protein(fake_dhp_hit, hum_ure_comp) is False
+    real_ure_hit = {
+        "primaryAccession": "P07374",
+        "proteinDescription": {"recommendedName": {"fullName": {"value": "Urease"}}},
+        "genes": [{"geneName": {"value": "UREA"}}],
+        "organism": {"scientificName": "Canavalia ensiformis", "taxonId": 3823},
+    }
+    assert _candidate_matches_requested_protein(real_ure_hit, extract_nl_query_components("Urease with 6x His tag")) is True
+
     with patch("modules.sequence_parser.requests.get", side_effect=_requests.ConnectionError("Simulated offline")):
         nl_urease = parse_natural_language_prompt("Urease with 6x His tag")
-    assert nl_urease["uniprot_id"] == "P07374"
-    assert nl_urease["tag_detected"] == "6xHis"
+        nl_urease_spaced = parse_natural_language_prompt("6x His tagged urease")
+    assert nl_urease["uniprot_id"] == "P07374" and nl_urease_spaced["uniprot_id"] == "P07374"
+    assert nl_urease["tag_detected"] == "6xHis" and nl_urease_spaced["tag_detected"] == "6xHis"
     ure_seq = nl_urease["full_construct_sequence"]
     ure_metrics = analyze_all_parameters(ure_seq)
     ure_q74 = calculate_net_charge_at_ph(ure_seq, 7.4)
@@ -1713,11 +1757,82 @@ def test_biochemical_protein_intelligence_and_metalloprotein_safety(root_dir: st
         construct_parts=nl_urease["construct_parts"],
     )
     assert "ni_metalloenzyme" in ure_prof["categories"]
+    assert "zn_metalloprotein" not in ure_prof["categories"]
+    assert ure_prof["metal_labels"] == ["Ni²⁺ (Dinuclear Active Site)"]
     assert ure_prof["is_metalloprotein"] is True
     assert ure_prof["avoid_imidazole_imac"] is True
     assert ure_prof["is_chelator_sensitive"] is True
     assert ure_prof["tag_conflict"] is not None and ure_prof["tag_conflict"]["severity"] == "critical"
     assert "Imidazole" in ure_prof["tag_conflict"]["explanation"] and "Ni²⁺" in ure_prof["tag_conflict"]["explanation"]
+    assert "Zn²⁺" not in ure_prof["tag_conflict"]["explanation"]
+
+    # Classroom Preset Jack Bean Urease (8th preset) must also be strictly Ni2+ only
+    ure_preset = CLASSROOM_PRESET_PROTEINS["urease_jack_bean"]
+    assert ure_preset["uniprot_id"] == "P07374" and len(ure_preset["sequence"]) == 840
+    ure_preset_prof = infer_protein_biochemical_profile(
+        sequence=ure_preset["sequence"],
+        protein_name=ure_preset["name"],
+        metadata={"uniprot_id": "P07374", "biochem_annotations": ure_preset["biochem_annotations"]},
+    )
+    assert ure_preset_prof["metal_labels"] == ["Ni²⁺ (Dinuclear Active Site)"]
+
+    # Structured UniProt JSON precision regressions:
+    # (i) Carbonic Anhydrase II (P00918) prose note says 'not copper(II), nickel(II) and manganese(II)' + in-vitro Co(2+) -> STRICTLY Zn2+ ONLY!
+    ca2_live_ann = _extract_uniprot_biochem_annotations({
+        "comments": [{
+            "commentType": "COFACTOR",
+            "cofactors": [
+                {"name": "Zn(2+)", "cofactorCrossReference": {"id": "CHEBI:29105"}},
+                {"name": "Co(2+)", "cofactorCrossReference": {"id": "CHEBI:48828"}},
+            ],
+            "note": {"texts": [{"value": "Zinc. Can also use cobalt(II) with lower efficiency, but not copper(II), nickel(II) and manganese(II)."}]},
+        }],
+        "features": [
+            {"type": "Binding site", "ligand": {"name": "Zn(2+)", "id": "CHEBI:29105"}},
+            {"type": "Binding site", "ligand": {"name": "substrate"}},
+        ],
+        "keywords": [{"name": "Metal-binding"}, {"name": "Zinc"}],
+        "proteinDescription": {"recommendedName": {"ecNumbers": [{"value": "4.2.1.1"}]}},
+    })
+    ca2_live_prof = infer_protein_biochemical_profile(
+        CLASSROOM_PRESET_PROTEINS["carbonic_anhydrase"]["sequence"],
+        "Carbonic anhydrase 2",
+        {"uniprot_id": "P00918", "biochem_annotations": ca2_live_ann},
+        tag_detected="6xHis",
+    )
+    assert ca2_live_prof["metal_labels"] == ["Zn²⁺ Cofactor"], f"CA II leaked extra metals: {ca2_live_prof['metal_labels']}"
+    assert "ni_metalloenzyme" not in ca2_live_prof["categories"]
+
+    # (ii) BSA (P02769) serum cargo carrier binding sites must NOT misclassify BSA as a catalytic metalloprotein!
+    bsa_live_ann = _extract_uniprot_biochem_annotations({
+        "comments": [],
+        "features": [
+            {"type": "Binding site", "ligand": {"name": "Cu cation"}},
+            {"type": "Binding site", "ligand": {"name": "Zn(2+)", "id": "CHEBI:29105"}},
+            {"type": "Binding site", "ligand": {"name": "Ca(2+)", "id": "CHEBI:29108"}},
+        ],
+        "keywords": [{"name": "Calcium"}, {"name": "Copper"}, {"name": "Disulfide bond"}, {"name": "Metal-binding"}, {"name": "Secreted"}, {"name": "Zinc"}],
+    })
+    bsa_live_prof = infer_protein_biochemical_profile(
+        CLASSROOM_PRESET_PROTEINS["bsa"]["sequence"],
+        "Albumin",
+        {"uniprot_id": "P02769", "biochem_annotations": bsa_live_ann},
+        tag_detected="6xHis",
+    )
+    assert bsa_live_prof["is_metalloprotein"] is False and "disulfide_structural" in bsa_live_prof["categories"]
+
+    # (iii) Live TEV Protease P04517 viral polyprotein 'Disulfide bond' keyword must NOT suppress DTT/TCEP requirement!
+    tev_live_prof = infer_protein_biochemical_profile(
+        "", "Genome polyprotein", {"uniprot_id": "P04517", "biochem_annotations": {"keywords": ["Disulfide bond"]}}
+    )
+    assert tev_live_prof["protease_class"] == "cysteine"
+    assert tev_live_prof["require_reducing_agents"] is True and tev_live_prof["avoid_reducing_agents"] is False
+
+    # (iv) Acid-activated urea channel (Q09068 ureI) & MCR methyltransferase (Q8THG6) must NOT trigger ni_metalloenzyme!
+    urei_prof = infer_protein_biochemical_profile("", "Acid-activated urea channel", {"uniprot_id": "Q09068", "gene_name": "ureI"})
+    assert urei_prof["is_metalloprotein"] is False and "membrane_integral" in urei_prof["categories"]
+    mcr_mt_prof = infer_protein_biochemical_profile("", "[Methyl coenzyme M reductase]-L-arginine C-5-methyltransferase", {"uniprot_id": "Q8THG6"})
+    assert "ni_metalloenzyme" not in mcr_mt_prof["categories"]
 
     wf_urease_his = recommend_full_purification_workflow(
         ure_metrics, 7.4, ure_q74, tag_detected="6xHis",
@@ -1728,6 +1843,13 @@ def test_biochemical_protein_intelligence_and_metalloprotein_safety(root_dir: st
     assert "Avoid Ni-NTA" in wf_urease_his["all_methods"][0]["Suitability"]
     assert "IMAC eluate" not in wf_urease_his["roadmap"][1]["detail"]
     assert any("Nickel Metalloenzyme Protection" in a and "EDTA" in a for a in wf_urease_his["alerts"])
+
+    # Compatibility Board (6 tiles) & Interactive Student Lab Challenge
+    ure_tiles = build_compatibility_matrix(ure_metrics, 7.4, ure_q74, wf_urease_his)
+    assert len(ure_tiles) == 6 and ure_tiles[0]["status"] == "avoid" and ure_tiles[1]["status"] == "avoid"
+    ure_chal = build_student_lab_challenge("Urease", ure_metrics, 7.4, ure_q74, wf_urease_his)
+    assert "Ni²⁺" in ure_chal["options"][ure_chal["correct_index"]] and "Zn²⁺" not in ure_chal["explanation"]
+    assert recommend_safe_buffer_preset_key(ure_prof, ure_metrics, 7.4, ure_q74) == "metalloprotein_safe"
 
     # Verify Strep-tag & MBP-tag on Urease automatically switch to 0 mM EDTA (EDTA-FREE!)
     for safe_tag in ("Twin-Strep-tag", "MBP"):
@@ -1868,7 +1990,19 @@ def test_biochemical_protein_intelligence_and_metalloprotein_safety(root_dir: st
     all_ure_md = "\n".join(m.value for m in at.markdown if "<style>" not in m.value)
     assert "Bypass Ni-NTA / Imidazole" in all_ure_md
     assert "Affinity Capture: Ni-NTA" not in all_ure_md
+    assert "Quick Compatibility Board" in all_ure_md
+    assert "compat-grid" in all_ure_md
+    assert "Ni²⁺ (Dinuclear Active Site)" in all_ure_md
+    assert "This protein coordinates **Zn²⁺" not in all_ure_md
     assert len(re.findall(r"font-size\s*:", all_ure_md, flags=re.IGNORECASE)) == 0
+
+    # Click the 1-Click Safe Buffer Switch button in Tab 3 and verify the Imidazole warning clears!
+    safe_btns = [b for b in at.button if "Switch to Safe Buffer" in b.label]
+    assert len(safe_btns) == 1, f"Expected 1-Click Safe Buffer button, found {[b.label for b in at.button]}"
+    safe_btns[0].click().run(timeout=30)
+    assert len(at.exception) == 0
+    assert at.session_state["active_recipe_key"] == "metalloprotein_safe"
+    assert not any("Metalloprotein–Imidazole Conflict" in w.value for w in at.warning)
 
 
 def test_pipeline() -> None:
