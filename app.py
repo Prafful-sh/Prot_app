@@ -45,6 +45,7 @@ try:
         LYSOZYME_MATURE_SEQ,
         CLASSROOM_PRESET_PROTEINS,
         clean_amino_acid_sequence,
+        extract_fasta_header_metadata,
         detect_sequence_terminal_tag,
         fetch_uniprot_by_id,
         fetch_ncbi_by_id,
@@ -99,6 +100,7 @@ except ImportError:
         LYSOZYME_MATURE_SEQ,
         CLASSROOM_PRESET_PROTEINS,
         clean_amino_acid_sequence,
+        extract_fasta_header_metadata,
         detect_sequence_terminal_tag,
         fetch_uniprot_by_id,
         fetch_ncbi_by_id,
@@ -146,7 +148,8 @@ st.set_page_config(
     page_title="ProPurify Studio | Interactive Protein Purification & SEC Lab",
     page_icon="🧪",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items={},
 )
 
 # Standard anhydrous average nucleic acid residue molar masses (IUPAC / 50% GC free-acid convention):
@@ -1404,6 +1407,18 @@ st.markdown("""
     .stTabs [aria-selected="true"] p {
         color: #FFFFFF !important;
     }
+
+    /* Minimize Streamlit chrome & viewer-badge branding inside the app viewport */
+    #MainMenu,
+    footer,
+    [data-testid="stToolbar"],
+    [data-testid="stDecoration"],
+    [class*="viewerBadge"],
+    [class*="_profileContainer"],
+    [class*="_profilePreview"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1506,7 +1521,7 @@ with st.sidebar:
         uid_input = st.text_input(
             "UniProt Accession ID:",
             value="P00698",
-            help="Live UniProt entries store full precursors (e.g., 147 aa with signal peptide for P00698); use an example below for cleaved mature chains."
+            help="Supports canonical accessions (P00698, A0A024RBG1), isoforms (P04637-2), entry names (LYSC_CHICK), or UniProt URLs. Live UniProt entries store full precursors (e.g., 147 aa for P00698); use an example below for cleaved mature chains."
         )
         if st.button("Fetch from UniProt", type="primary", width="stretch"):
             with st.spinner(f"Fetching {uid_input} from UniProt..."):
@@ -1527,21 +1542,28 @@ with st.sidebar:
         ncbi_input = st.text_input(
             "NCBI Accession:",
             value="NP_990612.2",
-            help="Supports RefSeq protein precursors (e.g., NP_990612.2, 147 aa) or mRNA transcripts (e.g., NM_205281.2, 588 bp)."
+            help="Supports RefSeq & GenBank protein accessions (NP_990612.2, WP_000002298.1, QHD43416.1) and nucleotide/mRNA transcripts (NM_205281.2, M21110.1, BC004147, MN908947.3) with automatic 6-frame ORF translation."
         )
         if st.button("Fetch from NCBI", type="primary", width="stretch"):
             with st.spinner(f"Querying NCBI for {ncbi_input}..."):
                 try:
                     res = fetch_ncbi_by_id(ncbi_input)
+                    org_n = res.get("organism", "")
+                    pname_n = res["protein_name"]
+                    ncbi_display_name = (
+                        pname_n
+                        if not org_n or org_n in ("See Header", "Unknown Organism") or org_n.lower() in pname_n.lower()
+                        else f"{pname_n} ({org_n})"
+                    )
                     if set_new_sequence(
                         seq=res["sequence"],
-                        name=res["protein_name"],
+                        name=ncbi_display_name,
                         metadata=res
                     ):
-                        st.success(f"Loaded: {res['protein_name']} ({res['length']} aa)")
+                        st.success(f"Loaded: {pname_n} ({res['length']} aa)")
                 except Exception as e:
                     st.error(str(e))
-        st.caption("Try: `NP_990612.2` (Lysozyme) or `NM_205281.2` (mRNA)")
+        st.caption("Try: `NP_990612.2` (Lysozyme), `NM_205281.2` (mRNA), `QHD43416.1`")
 
     # 3. Direct Sequence / FASTA (Lysozyme default)
     elif input_method == "🔤 Paste Amino Acid / FASTA":
@@ -1555,10 +1577,22 @@ with st.sidebar:
         )
         if st.button("Load Sequence", type="primary", width="stretch"):
             _, parsed_hdr, _ = clean_amino_acid_sequence(pasted_text)
+            hdr_meta = extract_fasta_header_metadata(parsed_hdr)
+            fasta_meta = {"source": hdr_meta.get("source_format") or "Direct FASTA / Sequence Input"}
+            for _mk in ("uniprot_id", "accession", "gene_name", "organism", "protein_name", "biochem_annotations"):
+                if hdr_meta.get(_mk):
+                    fasta_meta[_mk] = hdr_meta[_mk]
+            display_pname = hdr_meta.get("protein_name") or parsed_hdr or "Custom FASTA Protein"
+            org_f = hdr_meta.get("organism")
+            fasta_display_name = (
+                f"{display_pname} ({org_f})"
+                if org_f and org_f not in ("Unknown Organism", "See Header") and org_f.lower() not in display_pname.lower()
+                else display_pname
+            )
             if set_new_sequence(
                 seq=pasted_text,
-                name=parsed_hdr or "Custom FASTA Protein",
-                metadata={"source": "Direct FASTA / Sequence Input"}
+                name=fasta_display_name,
+                metadata=fasta_meta,
             ):
                 st.success("Sequence loaded!")
 
@@ -1568,18 +1602,27 @@ with st.sidebar:
             "Coding DNA / RNA (Met + Mature Lysozyme Coding ORF, 130 aa):",
             value=DEFAULT_LYSOZYME_DNA,
             height=130,
-            help="Paste DNA (A, T, C, G) or mRNA (A, U, C, G). Default 393 bp ORF encodes Met + 129-aa mature Lysozyme (130 aa, 14.44 kDa)."
+            help="Paste raw DNA/RNA or a FASTA nucleotide sequence. Supports 6-frame ORF detection (+1..+3 forward & -1..-3 reverse complement) and preserves IUPAC N ambiguity codes without frameshifting."
         )
         trans_mode = st.radio("Reading Frame:", ["Find Longest Gene (ATG ➜ Stop)", "Translate Frame 1 Directly"])
         if st.button("Translate to Protein", type="primary", width="stretch"):
             if "Longest" in trans_mode:
                 orf_res = find_longest_orf(dna_input)
+                hdr_meta = extract_fasta_header_metadata(orf_res.get("header"))
+                base_label = hdr_meta.get("protein_name") or "Translated Gene"
+                strand_tag = f"Frame {orf_res['frame']} ({orf_res.get('strand', '+')} strand)"
+                nt_meta = {"source": "DNA/RNA Translation", **orf_res}
+                for _mk in ("uniprot_id", "accession", "gene_name", "organism", "protein_name", "biochem_annotations"):
+                    if hdr_meta.get(_mk):
+                        nt_meta[_mk] = hdr_meta[_mk]
                 if set_new_sequence(
                     seq=orf_res["sequence"],
-                    name=f"Translated Gene (Frame {orf_res['frame']}, {orf_res['orf_length_aa']} aa)",
-                    metadata={"source": "DNA/RNA Translation", **orf_res}
+                    name=f"{base_label} ({strand_tag}, {orf_res['orf_length_aa']} aa)",
+                    metadata=nt_meta,
                 ):
-                    st.success(f"Translated {orf_res['orf_length_aa']} amino acids!")
+                    for _w in (orf_res.get("warnings") or []):
+                        st.warning(_w)
+                    st.success(f"Translated {orf_res['orf_length_aa']} amino acids ({strand_tag})!")
             else:
                 seq = translate_nucleotide(dna_input, frame=1).split('*')[0]
                 if set_new_sequence(
@@ -1677,13 +1720,16 @@ clean_source = (
     raw_source.split("•")[0].replace(f"(UniProt {uid_badge_val})", "").strip()
     if (raw_source and uid_badge_val) else raw_source
 )
+is_ncbi_badge = raw_source.upper().startswith("NCBI") and not seq_meta.get("uniprot_id")
+id_prefix = "NCBI" if is_ncbi_badge else "UniProt"
 uid_pill_html = (
-    f'<span class="meta-pill meta-pill-indigo">UniProt {html.escape(str(uid_badge_val))}</span>'
+    f'<span class="meta-pill meta-pill-indigo">{id_prefix} {html.escape(str(uid_badge_val))}</span>'
     if uid_badge_val and uid_badge_val != "N/A" else ""
 )
+show_source_pill = bool(clean_source) and not (is_ncbi_badge and clean_source.upper() == "NCBI")
 source_pill_html = (
     f'<span class="meta-pill meta-pill-neutral">{html.escape(clean_source)}</span>'
-    if clean_source else ""
+    if show_source_pill else ""
 )
 biochem_pills_html = "".join(
     f'<span class="meta-pill {"meta-pill-crimson" if "🚫" in b else "meta-pill-amber"}">{html.escape(b)}</span>'

@@ -39,8 +39,17 @@ from modules.sequence_parser import (
     STANDARD_CLEAVAGE_SITES,
     CODON_TABLE,
     clean_amino_acid_sequence,
+    extract_fasta_header_metadata,
+    fetch_uniprot_by_id,
+    fetch_ncbi_by_id,
     find_longest_orf,
     translate_nucleotide,
+    reverse_complement,
+    _normalize_uniprot_input,
+    _normalize_ncbi_input,
+    _classify_ncbi_accession_db,
+    _parse_ncbi_fasta_header,
+    _extract_uniprot_biochem_annotations,
     parse_natural_language_prompt,
 )
 from modules.purification_metrics import (
@@ -2043,6 +2052,186 @@ def test_biochemical_protein_intelligence_and_metalloprotein_safety(root_dir: st
     assert not any("Metalloprotein–Imidazole Conflict" in w.value for w in at.warning)
 
 
+def test_all_5_input_methods_hardening_and_minimal_chrome(root_dir: str) -> None:
+    print("\n=== 13. Testing Hardening of All 5 Input Methods, ChEBI Normalization & Minimal Branding Chrome ===")
+    import time
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+
+    # 1. Zero author/creator branding and clean Streamlit minimal chrome config
+    cfg_path = os.path.join(root_dir, ".streamlit", "config.toml")
+    with open(cfg_path, "r", encoding="utf-8") as cf:
+        cfg_txt = cf.read()
+    assert 'toolbarMode = "minimal"' in cfg_txt
+
+    app_path = os.path.join(root_dir, "app.py")
+    with open(app_path, "r", encoding="utf-8") as af:
+        app_txt = af.read()
+    assert "menu_items={}" in app_txt
+    assert "viewerBadge" in app_txt and "#MainMenu" in app_txt
+
+    for folder, fnames in ((root_dir, ("app.py",)), (os.path.join(root_dir, "modules"), os.listdir(os.path.join(root_dir, "modules")))):
+        for fn in fnames:
+            if not fn.endswith(".py"):
+                continue
+            with open(os.path.join(folder, fn), "r", encoding="utf-8") as fobj:
+                content = fobj.read()
+            assert not re.search(r"prafful|created\s+by", content, flags=re.IGNORECASE), f"Branding text found in {fn}"
+    assert not re.search(r"prafful|created\s+by", cfg_txt, flags=re.IGNORECASE)
+
+    # 2. Method 1 (UniProt ID): URLs, FASTA pipes, isoforms, .1 versions, entry names, ChEBI normalization, mocked API paths
+    assert _normalize_uniprot_input("https://www.uniprot.org/uniprotkb/P00698/entry")["query"] == "P00698"
+    assert _normalize_uniprot_input("sp|P00698|LYSC_CHICK")["query"] == "P00698"
+    assert _normalize_uniprot_input("UniProt: P07374.1")["query"] == "P07374"
+    iso_norm = _normalize_uniprot_input("P04637-2")
+    assert iso_norm == {"query": "P04637-2", "base_accession": "P04637", "isoform_num": "2", "is_entry_name": False}
+    ename_norm = _normalize_uniprot_input("LYSC_CHICK")
+    assert ename_norm["query"] == "LYSC_CHICK" and ename_norm["is_entry_name"] is True
+    try:
+        _normalize_uniprot_input("   ")
+        raise AssertionError("Blank UniProt ID should raise ValueError")
+    except ValueError:
+        pass
+
+    # Live UniProt double-prefix ChEBI normalization ('ChEBI:CHEBI:49786' -> 'CHEBI:49786') & CHEBI:25516 Ni cation
+    ann_live_style = _extract_uniprot_biochem_annotations({
+        "comments": [{"commentType": "COFACTOR", "cofactors": [{"name": "Ni cation", "cofactorCrossReference": {"id": "CHEBI:25516"}}]}],
+        "features": [{"type": "Binding site", "ligand": {"name": "Ni(2+)", "id": "ChEBI:CHEBI:49786"}}],
+    })
+    assert "CHEBI:25516" in ann_live_style["cofactor_chebi_ids"]
+    assert "CHEBI:49786" in ann_live_style["metal_ligand_chebi_ids"]
+
+    class _MockResp:
+        def __init__(self, code: int, text: str = "", json_obj=None):
+            self.status_code = code
+            self.text = text
+            self._json = json_obj
+
+        def json(self):
+            return self._json
+
+    def _mock_m1_m2_get(url: str, **kwargs):
+        if "P04637-2.fasta" in url:
+            return _MockResp(200, text=">sp|P04637-2|P53_HUMAN Isoform 2 OS=Homo sapiens GN=TP53\n" + ("MEEPQSDPSV" * 20) + "\n")
+        if "P04637.json" in url:
+            return _MockResp(200, json_obj={
+                "primaryAccession": "P04637",
+                "proteinDescription": {"recommendedName": {"fullName": {"value": "Cellular tumor antigen p53"}}},
+                "organism": {"scientificName": "Homo sapiens"},
+                "genes": [{"geneName": {"value": "TP53"}}],
+                "sequence": {"value": "M" * 393, "length": 393},
+                "features": [{"type": "Metal binding", "ligand": {"name": "Zn(2+)", "id": "ChEBI:CHEBI:29105"}}],
+            })
+        if "OLD001.json" in url:
+            return _MockResp(200, json_obj={
+                "entryType": "Inactive",
+                "primaryAccession": "OLD001",
+                "inactiveReason": {"inactiveReasonType": "MERGED", "mergeDemergeTo": ["P00698"]},
+            })
+        if "P00698.json" in url:
+            return _MockResp(200, json_obj={
+                "primaryAccession": "P00698",
+                "proteinDescription": {"recommendedName": {"fullName": {"value": "Lysozyme C"}}},
+                "organism": {"scientificName": "Gallus gallus"},
+                "genes": [{"geneName": {"value": "LYZ"}}],
+                "sequence": {"value": "MRSLLILVLCFLPLAALG" + LYSOZYME_MATURE_SEQ, "length": 147},
+            })
+        if "search?query=id:TEST_ENAME" in url:
+            return _MockResp(200, json_obj={"results": [{
+                "primaryAccession": "P99901",
+                "proteinDescription": {"recommendedName": {"fullName": {"value": "Entry Name Search Protein"}}},
+                "organism": {"scientificName": "Escherichia coli"},
+                "genes": [{"geneName": {"value": "tesE"}}],
+                "sequence": {"value": "M" * 120, "length": 120},
+            }]})
+        if "db=protein" in url and "NP_990612.2" in url:
+            return _MockResp(200, text=">NP_990612.2 lysozyme C precursor [Gallus gallus]\nMRSLLILVLCFLPLAALG" + LYSOZYME_MATURE_SEQ + "\n")
+        if "db=protein" in url and "DUAL_TEST_1" in url:
+            return _MockResp(400, text="")
+        if "db=nuccore" in url and "DUAL_TEST_1" in url:
+            return _MockResp(200, text=">DUAL_TEST_1 Gallus gallus synthetic lysozyme mRNA\nCCCTAAATGGCTGCTCGTTAA\n")
+        return _MockResp(404, text="")
+
+    with patch("modules.sequence_parser.requests.get", side_effect=_mock_m1_m2_get):
+        r_iso = fetch_uniprot_by_id("P04637-2")
+        assert r_iso["accession"] == "P04637-2" and r_iso["length"] == 200
+        assert "CHEBI:29105" in r_iso["biochem_annotations"]["metal_ligand_chebi_ids"]
+
+        r_merge = fetch_uniprot_by_id("OLD001")
+        assert r_merge["accession"] == "P00698" and r_merge["length"] == 147
+
+        r_ename = fetch_uniprot_by_id("TEST_ENAME")
+        assert r_ename["accession"] == "P99901" and r_ename["length"] == 120
+
+        # 3. Method 2 (NCBI Accession): protein vs nuccore classification, nested [Organism], dual-DB fallback
+        for acc_p in ("NP_990612.2", "WP_000002298.1", "QHD43416.1", "AAA12345.1", "1LYZ_A"):
+            assert _classify_ncbi_accession_db(acc_p) == "protein", f"Expected protein for {acc_p}"
+        for acc_n in ("NM_205281.2", "M21110.1", "BC004147", "MN908947.3", "U00096.3", "NZ_CP012345.1"):
+            assert _classify_ncbi_accession_db(acc_n) == "nuccore", f"Expected nuccore for {acc_n}"
+        assert _normalize_ncbi_input("https://www.ncbi.nlm.nih.gov/nuccore/M21110.1") == "M21110.1"
+        assert _normalize_ncbi_input("ref|NP_990612.2|") == "NP_990612.2"
+        assert _normalize_ncbi_input("pdb|1LYZ|A") == "1LYZ_A"
+
+        pn_rot, org_rot = _parse_ncbi_fasta_header(
+            "NP_114261.1 RNA-directed RNA polymerase [Rotavirus A (strain RVA/SA11-Patton/G3P[X])]",
+            "NP_114261.1",
+        )
+        assert pn_rot == "RNA-directed RNA polymerase"
+        assert org_rot == "Rotavirus A (strain RVA/SA11-Patton/G3P[X])"
+
+        r_dual = fetch_ncbi_by_id("DUAL_TEST_1")
+        assert r_dual["sequence"] == "MAAR" and "Nucleotide ORF" in r_dual["source"]
+
+    # 4. Method 3 (Paste Amino Acid / FASTA): Multi-FASTA stop+warning & metadata extraction
+    ure_seq = CLASSROOM_PRESET_PROTEINS["urease_jack_bean"]["sequence"]
+    multi_fasta = (
+        f">sp|P07374|UREA_CANEN Urease OS=Canavalia ensiformis OX=3823 GN=UREA PE=1 SV=2\n{ure_seq}\n"
+        f">sp|P00698|LYSC_CHICK Lysozyme C OS=Gallus gallus GN=LYZ\n{LYSOZYME_MATURE_SEQ}\n"
+    )
+    cleaned_mf, hdr_mf, warns_mf = clean_amino_acid_sequence(multi_fasta)
+    assert cleaned_mf == ure_seq, "Multi-FASTA concatenated second sequence instead of stopping at 2nd '>'!"
+    assert any("Multiple FASTA entries" in w for w in warns_mf)
+    hdr_meta = extract_fasta_header_metadata(hdr_mf)
+    assert hdr_meta["uniprot_id"] == "P07374" and hdr_meta["gene_name"] == "UREA"
+    assert hdr_meta["organism"] == "Canavalia ensiformis" and "Ni(2+)" in hdr_meta["biochem_annotations"].get("cofactors", [])
+
+    # 5. Method 4 (Translate DNA / RNA): FASTA header strip, IUPAC N frame preservation, 6-frame minus strand, O(L) speed
+    fasta_nt = ">NM_205281.2 Gallus gallus lysozyme (AUG UAA test)\nATGGCTGCTTAA\n"
+    assert translate_nucleotide(fasta_nt, frame=1) == "MAA*"
+    assert translate_nucleotide("ATGNNNGCTTAA", frame=1) == "MXA*"
+    assert reverse_complement("ATGGCT") == "AGCCAT"
+    minus_dna = reverse_complement("CCCTTT" + "ATGGCTGCTAAAGGGTTTTAA" + "CCCTTT")
+    minus_orf = find_longest_orf(minus_dna)
+    assert minus_orf["sequence"] == "MAAKGF" and minus_orf["strand"] == "-" and minus_orf["frame"] in (-1, -2, -3)
+    assert translate_nucleotide(minus_dna[:-6], frame=-1).split("*")[0] == "MAAKGF"
+
+    t0 = time.perf_counter()
+    long_orf = find_longest_orf("ATG" + "GCT" * 10000)
+    assert long_orf["orf_length_aa"] == 10001 and (time.perf_counter() - t0) < 0.25
+
+    # 6. AppTest UI end-to-end checks for Method 2 (NCBI badge prefix) & Method 3 (Urease FASTA intelligence)
+    at = AppTest.from_file(app_path).run(timeout=30)
+    at.sidebar.radio[0].set_value("🔤 Paste Amino Acid / FASTA").run(timeout=30)
+    at.sidebar.text_area[0].set_value(multi_fasta).run(timeout=30)
+    at.sidebar.button[0].click().run(timeout=30)
+    assert len(at.exception) == 0, f"AppTest FASTA exception: {at.exception}"
+    assert at.session_state["active_sequence"] == ure_seq
+    assert len(at.warning) >= 1 and any("Multiple FASTA entries" in w.value for w in at.warning)
+    md_fasta = "\n".join(m.value for m in at.markdown if "<style>" not in m.value)
+    assert "Ni²⁺" in md_fasta and "UniProt P07374" in md_fasta
+
+    with patch("modules.sequence_parser.requests.get", side_effect=_mock_m1_m2_get):
+        at_ncbi = AppTest.from_file(app_path).run(timeout=30)
+        at_ncbi.sidebar.radio[0].set_value("🏛️ NCBI Accession").run(timeout=30)
+        at_ncbi.sidebar.text_input[0].set_value("NP_990612.2").run(timeout=30)
+        at_ncbi.sidebar.button[0].click().run(timeout=30)
+    assert len(at_ncbi.exception) == 0, f"AppTest NCBI exception: {at_ncbi.exception}"
+    md_ncbi = "\n".join(m.value for m in at_ncbi.markdown if "<style>" not in m.value)
+    assert "NCBI NP_990612.2" in md_ncbi
+    assert "UniProt NP_990612.2" not in md_ncbi
+    assert len(re.findall(r"font-size\s*:", md_ncbi, flags=re.IGNORECASE)) == 0
+
+
 def test_pipeline() -> None:
     root_dir = os.path.dirname(os.path.abspath(__file__))
     test_protparam_golden_reference_and_sequences(root_dir)
@@ -2057,7 +2246,8 @@ def test_pipeline() -> None:
     test_giant_multidomain_titin_and_ui(root_dir)
     test_interactive_sec_column_visualizer_and_intuitive_plots(root_dir)
     test_biochemical_protein_intelligence_and_metalloprotein_safety(root_dir)
-    print("\n=== ALL 12 GOLDEN PROTPARAM, STOICHIOMETRY, 7-METHOD, SEC, SDS-PAGE, NL PARSER, SECONDARY STRUCTURE, GIANT TITIN, INTERACTIVE SEC COLUMN & BIOCHEMICAL INTELLIGENCE TESTS PASSED! ===")
+    test_all_5_input_methods_hardening_and_minimal_chrome(root_dir)
+    print("\n=== ALL 13 GOLDEN PROTPARAM, STOICHIOMETRY, 7-METHOD, SEC, SDS-PAGE, NL PARSER, SECONDARY STRUCTURE, GIANT TITIN, INTERACTIVE SEC COLUMN, BIOCHEMICAL INTELLIGENCE & ALL-5-INPUT-METHOD TESTS PASSED! ===")
 
 
 if __name__ == "__main__":

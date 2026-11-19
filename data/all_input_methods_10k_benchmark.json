@@ -1,0 +1,663 @@
+{
+  "generated_at_utc": "2026-11-19T11:52:03Z",
+  "offline_suites": {
+    "method1_uniprot_id": {
+      "total_proteins": 14869,
+      "normalization_pass_count": 14869,
+      "fetch_pass_count": 14869,
+      "accuracy_pct": 100.0,
+      "by_domain": {
+        "Animals": {
+          "total": 3024,
+          "ok": 3024,
+          "pct": 100.0
+        },
+        "Archaea": {
+          "total": 1617,
+          "ok": 1617,
+          "pct": 100.0
+        },
+        "Bacteria": {
+          "total": 5212,
+          "ok": 5212,
+          "pct": 100.0
+        },
+        "Fungi": {
+          "total": 1647,
+          "ok": 1647,
+          "pct": 100.0
+        },
+        "Plants": {
+          "total": 1578,
+          "ok": 1578,
+          "pct": 100.0
+        },
+        "Protists": {
+          "total": 512,
+          "ok": 512,
+          "pct": 100.0
+        },
+        "Viruses": {
+          "total": 1279,
+          "ok": 1279,
+          "pct": 100.0
+        }
+      },
+      "edge_checks": {
+        "isoform_norm": true,
+        "isoform_10plus_norm": true,
+        "isoform_mock_fetch": true,
+        "merged_entry_autofollow": true,
+        "blank_rejects": true
+      },
+      "wall_time_s": 1.3,
+      "sample_failures": []
+    },
+    "method2_ncbi_accession": {
+      "total_proteins_and_accessions": 14869,
+      "classification_pass_count": 14869,
+      "header_parse_pass_count": 14869,
+      "classification_accuracy_pct": 100.0,
+      "header_parse_accuracy_pct": 100.0,
+      "by_domain": {
+        "Animals": {
+          "total": 3024,
+          "ok": 3024,
+          "pct": 100.0
+        },
+        "Archaea": {
+          "total": 1617,
+          "ok": 1617,
+          "pct": 100.0
+        },
+        "Bacteria": {
+          "total": 5212,
+          "ok": 5212,
+          "pct": 100.0
+        },
+        "Fungi": {
+          "total": 1647,
+          "ok": 1647,
+          "pct": 100.0
+        },
+        "Plants": {
+          "total": 1578,
+          "ok": 1578,
+          "pct": 100.0
+        },
+        "Protists": {
+          "total": 512,
+          "ok": 512,
+          "pct": 100.0
+        },
+        "Viruses": {
+          "total": 1279,
+          "ok": 1279,
+          "pct": 100.0
+        }
+      },
+      "edge_checks": {
+        "genbank_nt_m21110": true,
+        "dual_db_fallback": true,
+        "genbank_prot_url": true,
+        "invalid_rejects": true
+      },
+      "wall_time_s": 0.26,
+      "sample_failures": []
+    },
+    "method3_paste_fasta": {
+      "total_proteins": 14869,
+      "sequence_parse_pass_count": 14869,
+      "header_metadata_pass_count": 14869,
+      "downstream_biochem_pass_count": 14869,
+      "multifasta_guard_tested": 1487,
+      "multifasta_guard_pass_count": 1487,
+      "urease_fasta_cofactor_auto_attach": true,
+      "overall_accuracy_pct": 100.0,
+      "by_domain": {
+        "Animals": {
+          "total": 3024,
+          "ok": 3024,
+          "pct": 100.0
+        },
+        "Archaea": {
+          "total": 1617,
+          "ok": 1617,
+          "pct": 100.0
+        },
+        "Bacteria": {
+          "total": 5212,
+          "ok": 5212,
+          "pct": 100.0
+        },
+        "Fungi": {
+          "total": 1647,
+          "ok": 1647,
+          "pct": 100.0
+        },
+        "Plants": {
+          "total": 1578,
+          "ok": 1578,
+          "pct": 100.0
+        },
+        "Protists": {
+          "total": 512,
+          "ok": 512,
+          "pct": 100.0
+        },
+        "Viruses": {
+          "total": 1279,
+          "ok": 1279,
+          "pct": 100.0
+        }
+      },
+      "wall_time_s": 36.12,
+      "sample_failures": []
+    },
+    "method4_dna_rna_translation": {
+      "total_proteins": 14869,
+      "fasta_header_strip_exact_aa_count": 14869,
+      "rna_utr_orf_exact_aa_count": 14869,
+      "revcomp_frame_minus1_tested": 4957,
+      "revcomp_frame_minus1_exact_count": 4957,
+      "iupac_n_frame_preservation_tested": 2974,
+      "iupac_n_frame_preservation_exact_count": 2974,
+      "minus_strand_6frame_orf_discovery": true,
+      "stopless_30kb_speed_s": 0.0113,
+      "stopless_30kb_exact_and_fast": true,
+      "overall_accuracy_pct": 100.0,
+      "by_domain": {
+        "Animals": {
+          "total": 3024,
+          "ok": 3024,
+          "pct": 100.0
+        },
+        "Archaea": {
+          "total": 1617,
+          "ok": 1617,
+          "pct": 100.0
+        },
+        "Bacteria": {
+          "total": 5212,
+          "ok": 5212,
+          "pct": 100.0
+        },
+        "Fungi": {
+          "total": 1647,
+          "ok": 1647,
+          "pct": 100.0
+        },
+        "Plants": {
+          "total": 1578,
+          "ok": 1578,
+          "pct": 100.0
+        },
+        "Protists": {
+          "total": 512,
+          "ok": 512,
+          "pct": 100.0
+        },
+        "Viruses": {
+          "total": 1279,
+          "ok": 1279,
+          "pct": 100.0
+        }
+      },
+      "wall_time_s": 9.03,
+      "sample_failures": []
+    },
+    "method5_natural_language": {
+      "total_unique_corpus_proteins": 13403,
+      "unique_corpus_proteins_covered": 13403,
+      "corpus_coverage_pct": 100.0,
+      "total_prompts_evaluated": 15303,
+      "wall_time_seconds": 54.95,
+      "overall": {
+        "grammar_overall_accuracy_pct": 100.0,
+        "tag_accuracy_pct": 100.0,
+        "tag_position_accuracy_pct": 100.0,
+        "cleavage_accuracy_pct": 100.0,
+        "non_truncated_retrievable_query_pct": 100.0,
+        "strict_accession_match_pct": 97.5103,
+        "biological_identity_match_pct": 100.0,
+        "top3_strict_accession_pct": 98.9022,
+        "adversarial_decoy_trap_rate_pct": 0.0,
+        "grammar_error_count": 0,
+        "biological_identity_mismatch_count": 0
+      },
+      "by_domain_stratum": {
+        "Bacteria": {
+          "total_prompts": 4843,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 98.658,
+          "biological_identity_match_pct": 100.0,
+          "top3_strict_accession_pct": 99.938
+        },
+        "Archaea": {
+          "total_prompts": 2341,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 99.018,
+          "biological_identity_match_pct": 100.0,
+          "top3_strict_accession_pct": 100.0
+        },
+        "Eukaryota: Animals": {
+          "total_prompts": 2311,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 99.827,
+          "biological_identity_match_pct": 100.0,
+          "top3_strict_accession_pct": 99.957
+        },
+        "Eukaryota: Plants": {
+          "total_prompts": 1397,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 99.284,
+          "biological_identity_match_pct": 100.0,
+          "top3_strict_accession_pct": 99.785
+        },
+        "Eukaryota: Fungi": {
+          "total_prompts": 1237,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 99.596,
+          "biological_identity_match_pct": 100.0,
+          "top3_strict_accession_pct": 100.0
+        },
+        "Eukaryota: Protists": {
+          "total_prompts": 1290,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 97.209,
+          "biological_identity_match_pct": 100.0,
+          "top3_strict_accession_pct": 99.457
+        },
+        "Viruses & Phages": {
+          "total_prompts": 1884,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 87.367,
+          "biological_identity_match_pct": 100.0,
+          "top3_strict_accession_pct": 91.826
+        },
+        "Eukaryota (All Kingdoms Combined)": {
+          "total_prompts": 6235,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 99.118,
+          "biological_identity_match_pct": 100.0,
+          "top3_strict_accession_pct": 99.824
+        }
+      },
+      "by_prompt_family": {
+        "hard_collision_tagged": {
+          "total_prompts": 950,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 97.684,
+          "biological_identity_match_pct": 100.0,
+          "top3_strict_accession_pct": 99.053
+        },
+        "hard_collision_untagged": {
+          "total_prompts": 950,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 97.684,
+          "biological_identity_match_pct": 100.0,
+          "top3_strict_accession_pct": 99.053
+        },
+        "tagged_and_cleavage": {
+          "total_prompts": 4020,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 97.687,
+          "biological_identity_match_pct": 100.0,
+          "top3_strict_accession_pct": 98.955
+        },
+        "untagged_gene_and_combined": {
+          "total_prompts": 2413,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 97.638,
+          "biological_identity_match_pct": 100.0,
+          "top3_strict_accession_pct": 99.13
+        },
+        "untagged_org_protein_and_clauses": {
+          "total_prompts": 3617,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 97.346,
+          "biological_identity_match_pct": 100.0,
+          "top3_strict_accession_pct": 98.728
+        },
+        "untagged_protein_org": {
+          "total_prompts": 3353,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 97.286,
+          "biological_identity_match_pct": 100.0,
+          "top3_strict_accession_pct": 98.777
+        }
+      },
+      "by_collision_category": {
+        "3c_gene_or_protease": {
+          "total_prompts": 28,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 100.0,
+          "biological_identity_match_pct": 100.0
+        },
+        "flagellin_flag": {
+          "total_prompts": 137,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 97.81,
+          "biological_identity_match_pct": 100.0
+        },
+        "grammar_keyword_in_name": {
+          "total_prompts": 559,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 100.0,
+          "biological_identity_match_pct": 100.0
+        },
+        "gst_enzyme": {
+          "total_prompts": 669,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 97.608,
+          "biological_identity_match_pct": 100.0
+        },
+        "hemagglutinin_ha": {
+          "total_prompts": 374,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 83.69,
+          "biological_identity_match_pct": 100.0
+        },
+        "his_pathway_or_histidine": {
+          "total_prompts": 964,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 100.0,
+          "biological_identity_match_pct": 100.0
+        },
+        "mbp_collision": {
+          "total_prompts": 54,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 100.0,
+          "biological_identity_match_pct": 100.0
+        },
+        "myc_or_mycobacterium": {
+          "total_prompts": 667,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 98.351,
+          "biological_identity_match_pct": 100.0
+        },
+        "protease_collision": {
+          "total_prompts": 3,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 100.0,
+          "biological_identity_match_pct": 100.0
+        },
+        "streptavidin_or_streptomyces": {
+          "total_prompts": 645,
+          "grammar_accuracy_pct": 100.0,
+          "strict_accession_match_pct": 98.76,
+          "biological_identity_match_pct": 100.0
+        }
+      },
+      "sample_grammar_failures": [],
+      "sample_ranking_failures": [],
+      "semantic_candidate_guard_checked": 15303,
+      "semantic_candidate_guard_accepted": 15303,
+      "semantic_candidate_guard_accept_pct": 100.0,
+      "semantic_false_reject_samples": [],
+      "guard_checks": {
+        "spaced_tag:Urease with 6x His tag": true,
+        "spaced_tag:6x His tagged urease": true,
+        "spaced_tag:Urease + 6x His tag": true,
+        "human_urease_rejected": true
+      },
+      "semantic_wall_time_s": 73.23
+    }
+  },
+  "live_verification": {
+    "uniprot_live": {
+      "passed": 11,
+      "total": 11,
+      "invalid_rejected": true,
+      "cases": [
+        {
+          "label": "Animals",
+          "input": "P00698",
+          "ok": true,
+          "accession": "P00698",
+          "protein_name": "Lysozyme C",
+          "organism": "Gallus gallus",
+          "length": 147
+        },
+        {
+          "label": "Plants",
+          "input": "P07374",
+          "ok": true,
+          "accession": "P07374",
+          "protein_name": "Urease",
+          "organism": "Canavalia ensiformis",
+          "length": 840
+        },
+        {
+          "label": "Bacteria",
+          "input": "P0AEX9",
+          "ok": true,
+          "accession": "P0AEX9",
+          "protein_name": "Maltose/maltodextrin-binding periplasmic protein",
+          "organism": "Escherichia coli (strain K12)",
+          "length": 396
+        },
+        {
+          "label": "Archaea",
+          "input": "P10618",
+          "ok": true,
+          "accession": "P10618",
+          "protein_name": "Glyceraldehyde-3-phosphate dehydrogenase",
+          "organism": "Methanothermus fervidus",
+          "length": 337
+        },
+        {
+          "label": "Fungi",
+          "input": "A0A023I7E1",
+          "ok": true,
+          "accession": "A0A023I7E1",
+          "protein_name": "Glucan endo-1,3-beta-D-glucosidase 1",
+          "organism": "Rhizomucor miehei",
+          "length": 796
+        },
+        {
+          "label": "Protists",
+          "input": "P31173",
+          "ok": true,
+          "accession": "P31173",
+          "protein_name": "Photosystem I iron-sulfur center",
+          "organism": "Cyanophora paradoxa",
+          "length": 81
+        },
+        {
+          "label": "Viruses",
+          "input": "P04517",
+          "ok": true,
+          "accession": "P04517",
+          "protein_name": "Genome polyprotein",
+          "organism": "Tobacco etch virus",
+          "length": 3054
+        },
+        {
+          "label": "Isoform_p53_2",
+          "input": "P04637-2",
+          "ok": true,
+          "accession": "P04637-2",
+          "protein_name": "Cellular tumor antigen p53 (Isoform 2)",
+          "organism": "Homo sapiens",
+          "length": 341
+        },
+        {
+          "label": "EntryName_Chicken",
+          "input": "LYSC_CHICK",
+          "ok": true,
+          "accession": "P00698",
+          "protein_name": "Lysozyme C",
+          "organism": "Gallus gallus",
+          "length": 147
+        },
+        {
+          "label": "UniProt_URL",
+          "input": "https://www.uniprot.org/uniprotkb/P42212/entry",
+          "ok": true,
+          "accession": "P42212",
+          "protein_name": "Green fluorescent protein",
+          "organism": "Aequorea victoria",
+          "length": 238
+        },
+        {
+          "label": "FASTA_Pipe",
+          "input": "sp|P61626|LYSC_HUMAN",
+          "ok": true,
+          "accession": "P61626",
+          "protein_name": "Lysozyme C",
+          "organism": "Homo sapiens",
+          "length": 148
+        }
+      ]
+    },
+    "ncbi_live": {
+      "passed": 14,
+      "total": 14,
+      "invalid_rejected": true,
+      "cases": [
+        {
+          "label": "Animals_RefSeq_Protein",
+          "input": "NP_990612.2",
+          "ok": true,
+          "accession": "NP_990612.2",
+          "protein_name": "lysozyme C precursor",
+          "organism": "Gallus gallus",
+          "length": 147,
+          "source": "NCBI"
+        },
+        {
+          "label": "Animals_RefSeq_mRNA",
+          "input": "NM_205281.2",
+          "ok": true,
+          "accession": "NM_205281.2",
+          "protein_name": "Gallus gallus lysozyme (LYZ), mRNA",
+          "organism": "Gallus gallus",
+          "length": 147,
+          "source": "NCBI (Nucleotide ORF)"
+        },
+        {
+          "label": "Animals_GenBank_Nucleotide",
+          "input": "M21110.1",
+          "ok": true,
+          "accession": "M21110.1",
+          "protein_name": "Mouse interferon-induced Mx1 protein gene conferring selective resistance to influenza virus, exon 7",
+          "organism": "Influenza A virus",
+          "length": 56,
+          "source": "NCBI (Nucleotide ORF)"
+        },
+        {
+          "label": "Human_GenBank_cDNA",
+          "input": "BC004147",
+          "ok": true,
+          "accession": "BC004147",
+          "protein_name": "Homo sapiens lysozyme (renal amyloidosis), mRNA (cDNA clone MGC:2337 IMAGE:2959387), complete cds",
+          "organism": "Homo sapiens",
+          "length": 148,
+          "source": "NCBI (Nucleotide ORF)"
+        },
+        {
+          "label": "Bacteria_RefSeq_Protein",
+          "input": "NP_418458.1",
+          "ok": true,
+          "accession": "NP_418458.1",
+          "protein_name": "maltose ABC transporter periplasmic binding protein",
+          "organism": "Escherichia coli str. K-12 substr. MG1655",
+          "length": 396,
+          "source": "NCBI"
+        },
+        {
+          "label": "Archaea_RefSeq_Protein",
+          "input": "NP_247000.1",
+          "ok": true,
+          "accession": "NP_247000.1",
+          "protein_name": "hypothetical protein MJ_0037",
+          "organism": "Methanocaldococcus jannaschii DSM 2661",
+          "length": 238,
+          "source": "NCBI"
+        },
+        {
+          "label": "Fungi_RefSeq_Protein",
+          "input": "NP_011770.1",
+          "ok": true,
+          "accession": "NP_011770.1",
+          "protein_name": "Eno1p",
+          "organism": "Saccharomyces cerevisiae S288c",
+          "length": 437,
+          "source": "NCBI"
+        },
+        {
+          "label": "Plants_RefSeq_Protein",
+          "input": "NP_172186.1",
+          "ok": true,
+          "accession": "NP_172186.1",
+          "protein_name": "hypothetical protein",
+          "organism": "Arabidopsis thaliana",
+          "length": 198,
+          "source": "NCBI"
+        },
+        {
+          "label": "Protists_RefSeq_Protein",
+          "input": "XP_001349741.1",
+          "ok": true,
+          "accession": "XP_001349741.1",
+          "protein_name": "rifin",
+          "organism": "Plasmodium falciparum 3D7",
+          "length": 343,
+          "source": "NCBI"
+        },
+        {
+          "label": "PDB_Chain_ID",
+          "input": "1LYZ_A",
+          "ok": true,
+          "accession": "1LYZ_A",
+          "protein_name": "A Chain A, HEN EGG WHITE LYSOZYME",
+          "organism": "Gallus gallus",
+          "length": 129,
+          "source": "NCBI"
+        },
+        {
+          "label": "Virus_GenBank_Protein",
+          "input": "QHD43416.1",
+          "ok": true,
+          "accession": "QHD43416.1",
+          "protein_name": "surface glycoprotein",
+          "organism": "Severe acute respiratory syndrome coronavirus 2",
+          "length": 1273,
+          "source": "NCBI"
+        },
+        {
+          "label": "Virus_RefSeq_Protein",
+          "input": "YP_009724390.1",
+          "ok": true,
+          "accession": "YP_009724390.1",
+          "protein_name": "surface glycoprotein",
+          "organism": "Severe acute respiratory syndrome coronavirus 2",
+          "length": 1273,
+          "source": "NCBI"
+        },
+        {
+          "label": "Virus_GenBank_Genome_ORF",
+          "input": "MN908947.3",
+          "ok": true,
+          "accession": "MN908947.3",
+          "protein_name": "Severe acute respiratory syndrome coronavirus 2 isolate Wuhan-Hu-1, complete genome",
+          "organism": "Severe acute respiratory syndrome coronavirus 2",
+          "length": 4405,
+          "source": "NCBI (Nucleotide ORF)"
+        },
+        {
+          "label": "NCBI_URL_Protein",
+          "input": "https://www.ncbi.nlm.nih.gov/protein/NP_990612.2",
+          "ok": true,
+          "accession": "NP_990612.2",
+          "protein_name": "lysozyme C precursor",
+          "organism": "Gallus gallus",
+          "length": 147,
+          "source": "NCBI"
+        }
+      ]
+    },
+    "wall_time_s": 24.55
+  }
+}

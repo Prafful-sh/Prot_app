@@ -349,24 +349,163 @@ CODON_TABLE = {
 }
 
 
+def _parse_ncbi_fasta_header(header: Optional[str], fallback_id: str) -> Tuple[str, str]:
+    """
+    Parses an NCBI FASTA definition line into (clean_protein_name, organism).
+    Handles protein headers like 'NP_990612.2 lysozyme C precursor [Gallus gallus]',
+    pipe-delimited headers ('ref|NP_990612.2| ...'), and mRNA/nucleotide headers
+    like 'NM_205281.2 Gallus gallus lysozyme (LYZ), mRNA'.
+    """
+    hdr = (header or "").strip()
+    if not hdr:
+        return fallback_id, "Unknown Organism"
+
+    body = re.sub(
+        r"^(?:ref|gb|emb|dbj|tpg|tpe|tpd|pir|prf|pdb)\|[^|\s]+\|(?:\S+\|)?\s*",
+        "",
+        hdr,
+    )
+    if body == hdr:
+        if re.match(
+            r"^(?:[A-Z]{1,4}_\d+(?:\.\d+)?|[A-Za-z]{1,4}\d{5,10}(?:\.\d+)?|[0-9][A-Za-z0-9]{3}_[A-Za-z0-9]+)(?:\s+|$)",
+            hdr,
+        ):
+            body = re.sub(r"^\S+\s*", "", hdr, count=1)
+
+    organism = "Unknown Organism"
+    # Extract the outermost balanced [...] bracket group at/near the end of the definition line
+    # so organisms containing nested genotype brackets like [Rotavirus A (strain ... G3P[X])] stay intact.
+    top_brackets: List[Tuple[int, int, str]] = []
+    depth = 0
+    b_start = -1
+    for idx_ch, ch in enumerate(body):
+        if ch == "[":
+            if depth == 0:
+                b_start = idx_ch
+            depth += 1
+        elif ch == "]" and depth > 0:
+            depth -= 1
+            if depth == 0 and b_start >= 0:
+                top_brackets.append((b_start, idx_ch + 1, body[b_start + 1:idx_ch].strip()))
+                b_start = -1
+
+    chosen_bracket: Optional[Tuple[int, int, str]] = None
+    for b_s, b_e, b_txt in reversed(top_brackets):
+        if b_txt and re.search(r"[A-Za-z]", b_txt):
+            chosen_bracket = (b_s, b_e, b_txt)
+            break
+
+    if chosen_bracket is not None:
+        b_s, b_e, b_txt = chosen_bracket
+        organism = b_txt
+        body = (body[:b_s] + body[b_e:]).strip(" ,;")
+    else:
+        org_details = _extract_organism_details(body)
+        if org_details.get("organism_name"):
+            organism = org_details["organism_name"]
+        else:
+            organism = "See Header"
+
+    clean_name = re.sub(r"\s{2,}", " ", body).strip() or fallback_id
+    return clean_name, organism
+
+
+def extract_fasta_header_metadata(header: Optional[str]) -> Dict[str, Any]:
+    """
+    Extracts structured accession, gene name, organism, protein name, and curated offline
+    biochemical annotations from UniProt ('>sp|P07374|UREA_CANEN ... OS=... GN=...') or
+    NCBI ('>NP_990612.2 ... [Gallus gallus]') FASTA headers.
+    """
+    hdr = (header or "").strip()
+    if not hdr:
+        return {}
+
+    # 1. UniProtKB FASTA format: sp|P07374|UREA_CANEN Urease OS=Canavalia ensiformis OX=3823 GN=UREA PE=1 SV=2
+    m_up = re.match(r"^(?:sp|tr)\|([A-Za-z0-9\-]+)\|(\S+)(?:\s+(.*))?$", hdr)
+    if m_up:
+        uid_raw = m_up.group(1).strip().upper()
+        base_uid = uid_raw.split("-")[0]
+        entry_name = m_up.group(2).strip().upper()
+        rest = (m_up.group(3) or "").strip()
+
+        pname_match = re.split(r"\s+(?:OS|OX|GN|PE|SV)=", rest, maxsplit=1)
+        clean_pname = (pname_match[0].strip() if pname_match else "") or entry_name or uid_raw
+        m_os = re.search(r"(?:^|\s)OS=(.+?)(?=\s+(?:OX|GN|PE|SV)=|$)", rest)
+        m_gn = re.search(r"(?:^|\s)GN=(\S+)", rest)
+        org = m_os.group(1).strip() if m_os else "Unknown Organism"
+        gene = m_gn.group(1).strip() if m_gn else "N/A"
+
+        biochem_ann: Dict[str, Any] = {}
+        if base_uid in OFFLINE_UNIPROT_REFERENCES:
+            biochem_ann = dict(OFFLINE_UNIPROT_REFERENCES[base_uid].get("biochem_annotations", {}))
+        else:
+            for preset in CLASSROOM_PRESET_PROTEINS.values():
+                if preset.get("uniprot_id") == base_uid and preset.get("tag") == "None":
+                    biochem_ann = dict(preset.get("biochem_annotations", {}))
+                    break
+
+        return {
+            "source_format": "UniProt FASTA",
+            "uniprot_id": uid_raw,
+            "accession": uid_raw,
+            "entry_name": entry_name,
+            "protein_name": clean_pname,
+            "organism": org,
+            "gene_name": gene,
+            "biochem_annotations": biochem_ann,
+        }
+
+    # 2. NCBI FASTA format: NP_990612.2 lysozyme C precursor [Gallus gallus] / ref|...| / [Organism]
+    m_pipe = re.match(r"^(?:ref|gb|emb|dbj|tpg|tpe|tpd|pir|prf)\|([^|\s]+)\|", hdr)
+    m_acc = re.match(
+        r"^([A-Z]{1,4}_\d+(?:\.\d+)?|[A-Za-z]{1,4}\d{5,10}(?:\.\d+)?|[0-9][A-Za-z0-9]{3}_[A-Za-z0-9]+)(?:\s+|$)",
+        hdr,
+    )
+    has_org_bracket = bool(re.search(r"\[[^\[\]]+\]\s*$", hdr))
+    if m_pipe or m_acc or has_org_bracket:
+        acc_token = (m_pipe.group(1) if m_pipe else (m_acc.group(1) if m_acc else "")).strip()
+        clean_pname, org = _parse_ncbi_fasta_header(hdr, acc_token or hdr)
+        out: Dict[str, Any] = {
+            "source_format": "NCBI FASTA",
+            "protein_name": clean_pname,
+            "organism": org,
+        }
+        if acc_token:
+            out["accession"] = acc_token
+        return out
+
+    return {
+        "source_format": "Custom FASTA",
+        "protein_name": hdr,
+    }
+
+
 def clean_amino_acid_sequence(raw_text: str) -> Tuple[str, Optional[str], List[str]]:
     """
     Cleans raw text or FASTA format into a clean uppercase single-letter amino acid sequence.
+    When multiple FASTA entries are pasted together, stops at the second '>' header and warns
+    so adjacent proteins are never concatenated into a chimeric sequence.
     Returns: (cleaned_sequence, fasta_header, list_of_warnings)
     """
-    lines = raw_text.strip().splitlines()
+    lines = (raw_text or "").strip().splitlines()
     header = None
-    seq_lines = []
+    seq_lines: List[str] = []
+    additional_entries = 0
+    stop_reading = False
 
     for line in lines:
         line = line.strip()
         if not line:
             continue
         if line.startswith(">"):
-            if header is None:
+            if header is None and not seq_lines:
                 header = line[1:].strip()
+            else:
+                additional_entries += 1
+                stop_reading = True
             continue
-        seq_lines.append(line)
+        if not stop_reading:
+            seq_lines.append(line)
 
     full_str = "".join(seq_lines).upper()
     # Remove whitespace, tabs, numbers, gap/stop symbols
@@ -375,7 +514,15 @@ def clean_amino_acid_sequence(raw_text: str) -> Tuple[str, Optional[str], List[s
     # Check for invalid characters
     valid_aa = set("ACDEFGHIKLMNPQRSTVWY")
     non_standard = set(full_str) - valid_aa
-    warnings = []
+    warnings: List[str] = []
+    if additional_entries > 0:
+        entry_label = header or "Entry 1"
+        if len(entry_label) > 60:
+            entry_label = entry_label[:57] + "..."
+        warnings.append(
+            f"Multiple FASTA entries detected ({additional_entries + 1} total); loaded only the first entry "
+            f"('{entry_label}'). Paste one sequence at a time."
+        )
     if non_standard:
         warnings.append(
             f"Sequence contains non-standard amino acid characters: {', '.join(sorted(non_standard))}. "
@@ -466,6 +613,7 @@ _NON_COFACTOR_LIGAND_WORDS = {
 
 _KNOWN_COFACTOR_CHEBI_IDS = {
     "CHEBI:49786",  # Ni(2+)
+    "CHEBI:25516",  # Ni cation (UniProt COFACTOR notation)
     "CHEBI:29105",  # Zn(2+)
     "CHEBI:29033",  # Fe(2+)
     "CHEBI:29034",  # Fe(3+)
@@ -496,6 +644,14 @@ _KNOWN_COFACTOR_CHEBI_IDS = {
 }
 
 
+def _norm_chebi_id(raw_id: str) -> str:
+    """Normalizes UniProt ChEBI IDs (collapses 'ChEBI:CHEBI:49786' -> 'CHEBI:49786')."""
+    up = (raw_id or "").strip().upper()
+    if not up:
+        return ""
+    return re.sub(r"^(?:CHEBI:)+", "CHEBI:", up)
+
+
 def _extract_uniprot_biochem_annotations(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Extracts structured biochemical, cofactor (with ChEBI IDs), metal-ligand, redox, and membrane
@@ -515,7 +671,7 @@ def _extract_uniprot_biochem_annotations(data: Dict[str, Any]) -> Dict[str, Any]
                 cf_name = (cf.get("name") or "").strip()
                 if cf_name and cf_name not in cofactors:
                     cofactors.append(cf_name)
-                cf_chebi = ((cf.get("cofactorCrossReference") or {}).get("id") or "").strip().upper()
+                cf_chebi = _norm_chebi_id((cf.get("cofactorCrossReference") or {}).get("id") or "")
                 if cf_chebi and cf_chebi not in cofactor_chebi_ids:
                     cofactor_chebi_ids.append(cf_chebi)
             for nt in ((comm.get("note") or {}).get("texts") or []):
@@ -554,7 +710,7 @@ def _extract_uniprot_biochem_annotations(data: Dict[str, Any]) -> Dict[str, Any]
         elif ftype in ("Binding site", "Metal binding"):
             lig_obj = feat.get("ligand") or {}
             lig_name = (lig_obj.get("name") or feat.get("description") or "").strip()
-            lig_id = (lig_obj.get("id") or "").strip().upper()
+            lig_id = _norm_chebi_id(lig_obj.get("id") or "")
             feat_desc_low = str(feat.get("description") or "").lower()
             lig_low = lig_name.lower()
             # Skip inhibitors, non-physiological crystallization artifacts, and generic small-molecule substrates
@@ -604,14 +760,21 @@ def _extract_uniprot_biochem_annotations(data: Dict[str, Any]) -> Dict[str, Any]
 def _parse_uniprot_entry_dict(data: Dict[str, Any], fallback_uid: str = "") -> Dict[str, Any]:
     """Extracts standardized metadata, sequence, and biochemical annotations from a UniProtKB REST JSON entry."""
     accession = data.get("primaryAccession", fallback_uid)
-    protein_desc = data.get("proteinDescription", {})
-    sub_names = protein_desc.get("submissionNames") or [{}]
+    protein_desc = data.get("proteinDescription") or {}
+    rec_name_obj = protein_desc.get("recommendedName") or {}
+    sub_names = protein_desc.get("submissionNames") or []
+    alt_names = protein_desc.get("alternativeNames") or []
+    sub_first = sub_names[0] if (sub_names and isinstance(sub_names[0], dict)) else {}
+    alt_first = alt_names[0] if (alt_names and isinstance(alt_names[0], dict)) else {}
     recommended_name = (
-        protein_desc.get("recommendedName", {}).get("fullName", {}).get("value")
-        or sub_names[0].get("fullName", {}).get("value")
+        (rec_name_obj.get("fullName") or {}).get("value")
+        or (sub_first.get("fullName") or {}).get("value")
+        or (alt_first.get("fullName") or {}).get("value")
+        or data.get("uniProtkbId")
+        or fallback_uid
         or "Unknown Protein"
     )
-    organism_name = data.get("organism", {}).get("scientificName", "Unknown Organism")
+    organism_name = (data.get("organism") or {}).get("scientificName", "Unknown Organism")
     gene_list = data.get("genes") or []
     gene_name = "N/A"
     for g_obj in gene_list:
@@ -1244,179 +1407,575 @@ def _search_local_corpus_offline(comp: Dict[str, Any]) -> Optional[Dict[str, Any
     }
 
 
+_UNIPROT_OFFLINE_ENTRY_NAMES: Dict[str, str] = {
+    "LYSC_CHICK": "P00698",
+    "LYSC_HUMAN": "P61626",
+    "GFP_AEQVI": "P42212",
+    "MYG_EQUCA": "P68082",
+    "ALBU_BOVIN": "P02769",
+    "GSTP1_HUMAN": "P09211",
+    "CAH2_HUMAN": "P00918",
+    "UREA_CANEN": "P07374",
+    "DYST_HUMAN": "P11532",
+    "TITIN_HUMAN": "Q8WZ42",
+    "THIO_ECOLI": "P0AA25",
+    "SUMO1_HUMAN": "P63165",
+    "MBP_ECOLI": "P0AEX9",
+    "MALE_ECOLI": "P0AEX9",
+}
+
+
+def _normalize_uniprot_input(raw_id: str) -> Dict[str, Any]:
+    """
+    Normalizes user-supplied UniProt inputs across canonical accessions (P00698, A0A024RBG1),
+    isoforms (P04637-2), entry names (LYSC_CHICK), FASTA pipe tokens ('sp|P00698|LYSC_CHICK'),
+    label prefixes ('UniProt: P00698.1'), and full UniProtKB/Rest URLs.
+    """
+    s = (raw_id or "").strip()
+    if not s:
+        raise ValueError(
+            "Please enter a valid UniProt ID (e.g., P00698, P04637-2, or LYSC_CHICK)."
+        )
+
+    # Take first line / token if user pasted a FASTA header line
+    first_line = s.splitlines()[0].strip()
+    if first_line.startswith(">"):
+        first_line = first_line[1:].strip()
+
+    # Extract accession/entry name from UniProt URLs
+    m_url = re.search(
+        r"uniprot\.org/(?:uniprotkb|uniprot)/([A-Za-z0-9_.\-]+)",
+        first_line,
+        flags=re.IGNORECASE,
+    )
+    if m_url:
+        token = m_url.group(1)
+        token = re.sub(r"\.(?:json|fasta|xml|txt|rdf|gff)$", "", token, flags=re.IGNORECASE)
+    else:
+        token = re.sub(r"^(?:uniprotkb|uniprot|id|acc)\s*:\s*", "", first_line, flags=re.IGNORECASE)
+        m_pipe = re.match(r"^(?:sp|tr)\|([A-Za-z0-9\-]+)\|", token, flags=re.IGNORECASE)
+        if m_pipe:
+            token = m_pipe.group(1)
+        else:
+            token = token.split()[0]
+
+    # Strip file/version suffixes like P00698.1 (without harming isoforms like P04637-2)
+    token = re.sub(r"\.\d+$", "", token.strip().strip("|,;"))
+    uid = token.upper()
+
+    if not uid or not re.match(r"^[A-Z0-9][A-Z0-9_\-]{2,}$", uid):
+        raise ValueError(
+            f"Unrecognized UniProt ID format '{raw_id.strip()}'. Expected e.g. P00698, P04637-2, or LYSC_CHICK."
+        )
+
+    m_iso = re.match(
+        r"^((?:[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9](?:[A-Z][A-Z0-9]{2}[0-9]){1,2}))-(\d+)$",
+        uid,
+    )
+    if m_iso:
+        return {
+            "query": uid,
+            "base_accession": m_iso.group(1),
+            "isoform_num": m_iso.group(2),
+            "is_entry_name": False,
+        }
+
+    is_entry_name = bool(re.match(r"^[A-Z0-9]{1,10}_[A-Z0-9]{1,5}$", uid))
+    return {
+        "query": uid,
+        "base_accession": uid,
+        "isoform_num": None,
+        "is_entry_name": is_entry_name,
+    }
+
+
+def _fetch_uniprot_json_following_merge(
+    uid: str,
+    headers: Dict[str, str],
+    _depth: int = 0,
+) -> Optional[Dict[str, Any]]:
+    """Fetches a UniProtKB JSON entry and automatically resolves merged/inactive accessions."""
+    url = f"https://rest.uniprot.org/uniprotkb/{uid}.json"
+    response = _http_get(url, headers=headers, timeout=12)
+    if response.status_code != 200:
+        return None
+    data = response.json()
+    has_seq = bool((data.get("sequence") or {}).get("value"))
+    if data.get("entryType") == "Inactive" or not has_seq:
+        ir = data.get("inactiveReason") or {}
+        merge_targets = ir.get("mergeDemergeTo") or []
+        if merge_targets and _depth < 2:
+            target_acc = str(merge_targets[0]).strip().upper()
+            resolved = _fetch_uniprot_json_following_merge(target_acc, headers, _depth=_depth + 1)
+            if resolved is not None:
+                resolved["note"] = f"Merged UniProt accession '{uid}' resolved to '{resolved['accession']}'."
+                resolved["uniprot_id"] = resolved["accession"]
+                return resolved
+        raise ValueError(
+            f"UniProt entry '{uid}' is inactive/obsolete and has no active sequence."
+        )
+    parsed = _parse_uniprot_entry_dict(data, fallback_uid=uid)
+    parsed["uniprot_id"] = parsed["accession"]
+    return parsed
+
+
 def fetch_uniprot_by_id(uniprot_id: str) -> Dict[str, Any]:
     """
-    Fetches full metadata and sequence for a UniProt ID (e.g. P00698 for Lysozyme C, P42212 for GFP).
-    Falls back gracefully to built-in classroom & Swiss-Prot references if network access is unavailable.
+    Fetches full metadata and sequence for a UniProt ID, isoform (P04637-2), entry name (LYSC_CHICK),
+    FASTA token ('sp|P00698|LYSC_CHICK'), or UniProt URL. Follows merged inactive accessions
+    and falls back gracefully to offline Swiss-Prot & 14,869-protein corpus references.
     """
-    uid = uniprot_id.strip().upper()
-    url = f"https://rest.uniprot.org/uniprotkb/{uid}.json"
+    norm = _normalize_uniprot_input(uniprot_id)
+    uid = norm["query"]
+    base_acc = norm["base_accession"]
+    isoform_num = norm["isoform_num"]
+    is_entry_name = norm["is_entry_name"]
     headers = {"Accept": "application/json"}
 
     try:
-        response = _http_get(url, headers=headers, timeout=12)
-        if response.status_code == 200:
-            return _parse_uniprot_entry_dict(response.json(), fallback_uid=uid)
+        # 1. Explicit isoform fetch (REST JSON endpoint rejects '-N' isoforms; use .fasta + parent .json)
+        if isoform_num:
+            iso_url = f"https://rest.uniprot.org/uniprotkb/{uid}.fasta"
+            iso_resp = _http_get(iso_url, headers={"Accept": "text/plain"}, timeout=12)
+            if iso_resp.status_code == 200 and iso_resp.text.strip().startswith(">"):
+                iso_seq, iso_hdr, _ = clean_amino_acid_sequence(iso_resp.text)
+                if iso_seq:
+                    parent_meta: Optional[Dict[str, Any]] = None
+                    try:
+                        parent_meta = _fetch_uniprot_json_following_merge(base_acc, headers)
+                    except (requests.RequestException, ValueError):
+                        parent_meta = None
+                    if parent_meta:
+                        return {
+                            "source": "UniProt",
+                            "accession": uid,
+                            "uniprot_id": uid,
+                            "protein_name": f"{parent_meta['protein_name']} (Isoform {isoform_num})",
+                            "gene_name": parent_meta["gene_name"],
+                            "organism": parent_meta["organism"],
+                            "length": len(iso_seq),
+                            "sequence": iso_seq,
+                            "biochem_annotations": parent_meta.get("biochem_annotations", {}),
+                        }
+                    hdr_meta = extract_fasta_header_metadata(iso_hdr)
+                    return {
+                        "source": "UniProt",
+                        "accession": uid,
+                        "uniprot_id": uid,
+                        "protein_name": hdr_meta.get("protein_name") or f"{base_acc} (Isoform {isoform_num})",
+                        "gene_name": hdr_meta.get("gene_name", "N/A"),
+                        "organism": hdr_meta.get("organism", "Unknown Organism"),
+                        "length": len(iso_seq),
+                        "sequence": iso_seq,
+                        "biochem_annotations": hdr_meta.get("biochem_annotations", {}),
+                    }
+        else:
+            # 2. Direct JSON lookup (also follows inactive merged entries automatically)
+            direct_hit = _fetch_uniprot_json_following_merge(uid, headers)
+            if direct_hit is not None:
+                return direct_hit
+
+            # 3. Entry-name search fallback (e.g. LYSC_CHICK / UREA_CANEN)
+            if is_entry_name:
+                q_url = f"https://rest.uniprot.org/uniprotkb/search?query=id:{requests.utils.quote(uid)}&size=1&format=json"
+                q_resp = _http_get(q_url, headers=headers, timeout=12)
+                if q_resp.status_code == 200:
+                    q_results = q_resp.json().get("results") or []
+                    if q_results:
+                        parsed_hit = _parse_uniprot_entry_dict(q_results[0], fallback_uid=uid)
+                        if parsed_hit.get("sequence"):
+                            parsed_hit["uniprot_id"] = parsed_hit["accession"]
+                            return parsed_hit
     except requests.RequestException:
         pass
 
-    # Offline fallback for built-in classroom UniProt IDs
-    for preset in CLASSROOM_PRESET_PROTEINS.values():
-        if preset["uniprot_id"] == uid and preset["tag"] == "None":
+    # Offline fallback for built-in UniProt references & 14,869-protein corpus
+    lookup_candidates = [uid]
+    if base_acc not in lookup_candidates:
+        lookup_candidates.append(base_acc)
+    if is_entry_name and uid in _UNIPROT_OFFLINE_ENTRY_NAMES:
+        mapped_acc = _UNIPROT_OFFLINE_ENTRY_NAMES[uid]
+        if mapped_acc not in lookup_candidates:
+            lookup_candidates.append(mapped_acc)
+
+    for cand_acc in lookup_candidates:
+        curated_preset_ann: Dict[str, Any] = {}
+        for preset in CLASSROOM_PRESET_PROTEINS.values():
+            if preset["uniprot_id"] == cand_acc and preset["tag"] == "None":
+                curated_preset_ann = dict(preset.get("biochem_annotations", {}))
+                break
+
+        if cand_acc in OFFLINE_UNIPROT_REFERENCES:
+            ref = OFFLINE_UNIPROT_REFERENCES[cand_acc]
             return {
-                "source": "Built-in Classroom Reference (UniProt)",
-                "accession": uid,
-                "protein_name": preset["name"],
-                "gene_name": uid,
-                "organism": preset["organism"],
-                "length": len(preset["sequence"]),
-                "sequence": preset["sequence"],
-                "biochem_annotations": preset.get("biochem_annotations", {}),
+                "source": "Built-in Swiss-Prot Reference (UniProt)",
+                "accession": ref["accession"],
+                "uniprot_id": ref["accession"],
+                "protein_name": ref["protein_name"],
+                "gene_name": ref["gene_name"],
+                "organism": ref["organism"],
+                "length": len(ref["sequence"]),
+                "sequence": ref["sequence"],
+                "biochem_annotations": ref.get("biochem_annotations", {}) or curated_preset_ann,
             }
 
-    if uid in OFFLINE_UNIPROT_REFERENCES:
-        ref = OFFLINE_UNIPROT_REFERENCES[uid]
-        return {
-            "source": "Built-in Swiss-Prot Reference (UniProt)",
-            "accession": ref["accession"],
-            "protein_name": ref["protein_name"],
-            "gene_name": ref["gene_name"],
-            "organism": ref["organism"],
-            "length": len(ref["sequence"]),
-            "sequence": ref["sequence"],
-            "biochem_annotations": ref.get("biochem_annotations", {}),
-        }
+        _, by_acc = _ensure_local_corpus_loaded()
+        if cand_acc in by_acc:
+            r = by_acc[cand_acc]
+            return {
+                "source": "Built-in Local Reference Corpus (UniProt)",
+                "accession": r["accession"],
+                "uniprot_id": r["accession"],
+                "protein_name": r["protein_name"],
+                "gene_name": r["gene_name"],
+                "organism": r["organism"],
+                "length": r["length"],
+                "sequence": r["sequence"],
+                "biochem_annotations": curated_preset_ann,
+            }
 
-    _, by_acc = _ensure_local_corpus_loaded()
-    if uid in by_acc:
-        r = by_acc[uid]
-        return {
-            "source": "Built-in Local Reference Corpus (UniProt)",
-            "accession": r["accession"],
-            "protein_name": r["protein_name"],
-            "gene_name": r["gene_name"],
-            "organism": r["organism"],
-            "length": r["length"],
-            "sequence": r["sequence"],
-            "biochem_annotations": {},
-        }
+        for preset in CLASSROOM_PRESET_PROTEINS.values():
+            if preset["uniprot_id"] == cand_acc and preset["tag"] == "None":
+                return {
+                    "source": "UniProt (Offline Reference)",
+                    "accession": cand_acc,
+                    "uniprot_id": cand_acc,
+                    "protein_name": preset["name"],
+                    "gene_name": cand_acc,
+                    "organism": preset["organism"],
+                    "length": len(preset["sequence"]),
+                    "sequence": preset["sequence"],
+                    "biochem_annotations": preset.get("biochem_annotations", {}),
+                }
 
     raise ValueError(
-        f"Could not retrieve UniProt ID '{uid}'. Please verify the accession code (e.g., P00698 for Lysozyme) or check internet connectivity."
+        f"Could not retrieve UniProt ID '{uid}'. Please verify the accession code (e.g., P00698, P04637-2, or LYSC_CHICK) or check internet connectivity."
     )
+
+
+_NCBI_REFSEQ_PROTEIN_PREFIXES = ("NP_", "XP_", "WP_", "YP_", "AP_", "ZP_")
+_NCBI_REFSEQ_NUCCORE_PREFIXES = ("NM_", "XM_", "NC_", "NG_", "NR_", "XR_", "NT_", "NW_", "NZ_", "AC_")
+
+
+def _normalize_ncbi_input(raw_id: str) -> str:
+    """
+    Normalizes NCBI accession inputs across RefSeq (NP_990612.2, NM_205281.2, WP_...),
+    GenBank/EMBL/DDBJ protein (QHD43416.1, AAA12345.1) and nucleotide (M21110.1, BC004147,
+    MN908947.3), PDB chains (1LYZ_A), FASTA pipe IDs ('ref|NP_990612.2|'), and NCBI URLs.
+    """
+    s = (raw_id or "").strip()
+    if not s:
+        raise ValueError(
+            "Please enter a valid NCBI accession (e.g., NP_990612.2, NM_205281.2, or M21110.1)."
+        )
+
+    first_line = s.splitlines()[0].strip()
+    if first_line.startswith(">"):
+        first_line = first_line[1:].strip()
+
+    m_url = re.search(
+        r"ncbi\.nlm\.nih\.gov/(?:protein|nuccore|nucleotide|ipg)/([A-Za-z0-9_.\-]+)",
+        first_line,
+        flags=re.IGNORECASE,
+    )
+    if m_url:
+        token = m_url.group(1)
+    else:
+        token = re.sub(r"^(?:ncbi|refseq|genbank|id|acc)\s*:\s*", "", first_line, flags=re.IGNORECASE)
+        m_pdb = re.match(r"^pdb\|([0-9][A-Za-z0-9]{3})\|([A-Za-z0-9]+)", token, flags=re.IGNORECASE)
+        if m_pdb:
+            token = f"{m_pdb.group(1).upper()}_{m_pdb.group(2)}"
+        else:
+            m_pipe = re.match(
+                r"^(?:ref|gb|emb|dbj|tpg|tpe|tpd|pir|prf)\|([A-Za-z0-9_.\-]+)\|",
+                token,
+                flags=re.IGNORECASE,
+            )
+            if m_pipe:
+                token = m_pipe.group(1)
+            else:
+                token = token.split()[0]
+
+    clean_id = token.strip().strip("|,;/?#")
+    if not clean_id or not re.match(r"^[A-Za-z0-9][A-Za-z0-9_.\-]{3,}$", clean_id):
+        raise ValueError(
+            f"Unrecognized NCBI accession format '{raw_id.strip()}'. Expected e.g. NP_990612.2, NM_205281.2, or M21110.1."
+        )
+    return clean_id
+
+
+def _classify_ncbi_accession_db(clean_id: str) -> str:
+    """
+    Deterministically classifies an NCBI/INSDC accession into Entrez database 'protein' or 'nuccore'
+    according to NCBI RefSeq & INSDC accession prefix rules.
+    """
+    u = clean_id.strip().upper()
+    if u.startswith(_NCBI_REFSEQ_NUCCORE_PREFIXES):
+        return "nuccore"
+    if u.startswith(_NCBI_REFSEQ_PROTEIN_PREFIXES):
+        return "protein"
+    # PDB chain format (e.g. 1LYZ_A, 6VXX_B)
+    if re.match(r"^[0-9][A-Z0-9]{3}_[A-Z0-9]+$", u):
+        return "protein"
+    # INSDC / GenBank / EMBL / DDBJ protein: strictly 3 letters + 5 or 7 digits (+ optional .version)
+    if re.match(r"^[A-Z]{3}\d{5}(?:\.\d+)?$", u) or re.match(r"^[A-Z]{3}\d{7}(?:\.\d+)?$", u):
+        return "protein"
+    # INSDC nucleotide: 1 letter + 5 digits (M21110.1), 2 letters + 6 or 8 digits (BC004147, MN908947.3),
+    # or WGS/TSA nucleotide contigs (4-6 letters + 8-10 digits)
+    if (
+        re.match(r"^[A-Z]\d{5}(?:\.\d+)?$", u)
+        or re.match(r"^[A-Z]{2}\d{6}(?:\.\d+)?$", u)
+        or re.match(r"^[A-Z]{2}\d{8}(?:\.\d+)?$", u)
+        or re.match(r"^[A-Z]{4,6}\d{8,10}(?:\.\d+)?$", u)
+    ):
+        return "nuccore"
+    return "protein"
 
 
 def fetch_ncbi_by_id(ncbi_id: str) -> Dict[str, Any]:
     """
-    Fetches sequence from NCBI by accession using E-utilities.
-    Supports protein (e.g. NP_..., XP_..., AAA...) and nucleotide (NM_..., NC_...) with translation.
+    Fetches protein or nucleotide sequences from NCBI by accession using Entrez E-utilities.
+    Supports RefSeq (NP_/XP_/WP_/YP_ & NM_/XM_/NC_/NG_/NR_/NZ_), GenBank/EMBL/DDBJ
+    (e.g. QHD43416.1, M21110.1, BC004147, MN908947.3), PDB chains (1LYZ_A), FASTA pipe IDs,
+    and NCBI URLs — with automatic retry/backoff and dual-DB (protein <-> nuccore) fallback.
     """
-    clean_id = ncbi_id.strip()
+    clean_id = _normalize_ncbi_input(ncbi_id)
+    primary_db = _classify_ncbi_accession_db(clean_id)
+    alt_db = "nuccore" if primary_db == "protein" else "protein"
 
-    # Check if protein or nucleotide
-    is_nucleotide = clean_id.upper().startswith(("NM_", "XM_", "NC_", "NG_", "NR_", "XR_"))
-    db = "nuccore" if is_nucleotide else "protein"
+    fasta_text = ""
+    used_db = primary_db
+    last_exc: Optional[Exception] = None
+    for db in (primary_db, alt_db):
+        url = (
+            f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+            f"?db={db}&id={requests.utils.quote(clean_id)}&rettype=fasta&retmode=text&tool=ProPurifyStudio"
+        )
+        try:
+            response = _http_get(url, headers={"Accept": "text/plain"}, timeout=12)
+            body = (response.text or "").strip()
+            if response.status_code == 200 and body.startswith(">"):
+                fasta_text = response.text
+                used_db = db
+                break
+        except requests.RequestException as exc:
+            last_exc = exc
 
-    url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db={db}&id={clean_id}&rettype=fasta&retmode=text"
-    response = requests.get(url, timeout=12)
-    if response.status_code != 200 or not response.text.strip():
-        raise ValueError(f"Could not retrieve NCBI ID '{clean_id}'. Please verify the accession ID.")
+    if not fasta_text:
+        if last_exc is not None:
+            raise ValueError(
+                f"Could not connect to NCBI to retrieve '{clean_id}': {last_exc}"
+            ) from last_exc
+        raise ValueError(
+            f"Could not retrieve NCBI ID '{clean_id}'. Please verify the accession ID (e.g., NP_990612.2, NM_205281.2, M21110.1)."
+        )
 
-    fasta_text = response.text
-    seq, header, warnings = clean_amino_acid_sequence(fasta_text)
-
+    is_nucleotide = used_db == "nuccore"
     if is_nucleotide:
-        orf_result = find_longest_orf(seq)
+        orf_result = find_longest_orf(fasta_text)
         protein_seq = orf_result["sequence"]
-        extra_note = f"Translated from nucleotide (ORF length: {len(protein_seq)} aa)"
+        if not protein_seq:
+            raise ValueError(
+                f"Retrieved nucleotide entry '{clean_id}' from NCBI, but no translatable coding sequence was found."
+            )
+        raw_header = orf_result.get("header")
+        strand_label = "+" if orf_result.get("frame", 1) > 0 else "-"
+        extra_note = (
+            f"Translated from NCBI nucleotide (Frame {orf_result['frame']}, "
+            f"{strand_label} strand, ORF length: {len(protein_seq)} aa)"
+        )
+        source_label = "NCBI (Nucleotide ORF)"
     else:
-        protein_seq = seq
+        protein_seq, raw_header, _ = clean_amino_acid_sequence(fasta_text)
+        if not protein_seq:
+            raise ValueError(
+                f"Retrieved entry '{clean_id}' from NCBI, but it contained no valid amino acid sequence."
+            )
         extra_note = ""
+        source_label = "NCBI"
 
+    clean_name, organism = _parse_ncbi_fasta_header(raw_header, clean_id)
     return {
-        "source": "NCBI",
+        "source": source_label,
         "accession": clean_id,
-        "protein_name": header or clean_id,
+        "protein_name": clean_name,
         "gene_name": clean_id,
-        "organism": "See Header" if not header else header.split(",")[-1].strip(),
+        "organism": organism,
         "length": len(protein_seq),
         "sequence": protein_seq,
-        "note": extra_note
+        "note": extra_note,
+        "biochem_annotations": {},
     }
+
+
+_NT_COMPLEMENT_TRANS = str.maketrans(
+    "ATCGRYSWKMBDHVN",
+    "TAGCYRSWMKVHDBN",
+)
+
+
+def _clean_nucleotide_input(raw_text: str) -> Tuple[str, Optional[str], List[str]]:
+    """
+    Cleans raw DNA/RNA or FASTA input into an uppercase DNA string (U -> T):
+    - Properly skips '>' FASTA definition lines so header letters never leak into nucleotides
+      and frameshift codons.
+    - Stops at a second '>' FASTA header with a warning so multi-FASTA inputs never fuse.
+    - Preserves IUPAC ambiguity bases (N, R, Y, S, W, K, M, B, D, H, V) in place so
+      ambiguous codons translate to 'X' without causing downstream frameshifts.
+    """
+    lines = (raw_text or "").strip().splitlines()
+    header: Optional[str] = None
+    seq_lines: List[str] = []
+    additional_entries = 0
+    stop_reading = False
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith(">"):
+            if header is None and not seq_lines:
+                header = line[1:].strip()
+            else:
+                additional_entries += 1
+                stop_reading = True
+            continue
+        if not stop_reading:
+            seq_lines.append(line)
+
+    raw_seq = "".join(seq_lines).upper().replace("U", "T")
+    raw_seq = re.sub(r"[\s\d\.\-\*]", "", raw_seq)
+
+    iupac_nt = set("ATCGRYSWKMBDHVN")
+    invalid_chars = sorted(set(raw_seq) - iupac_nt)
+    clean_seq = re.sub(r"[^ATCGRYSWKMBDHVN]", "", raw_seq)
+
+    warnings: List[str] = []
+    if additional_entries > 0:
+        entry_label = header or "Entry 1"
+        if len(entry_label) > 60:
+            entry_label = entry_label[:57] + "..."
+        warnings.append(
+            f"Multiple FASTA entries detected ({additional_entries + 1} total); translated only the first entry "
+            f"('{entry_label}'). Paste one sequence at a time."
+        )
+    if invalid_chars:
+        warnings.append(
+            f"Ignored non-IUPAC nucleotide characters: {', '.join(invalid_chars)}."
+        )
+
+    return clean_seq, header, warnings
+
+
+def reverse_complement(dna_rna_seq: str) -> str:
+    """Returns the IUPAC-aware reverse complement of a DNA/RNA sequence (uppercase T alphabet)."""
+    if ">" in (dna_rna_seq or ""):
+        clean_nt, _, _ = _clean_nucleotide_input(dna_rna_seq)
+    else:
+        clean_nt = re.sub(r"[^ATCGRYSWKMBDHVN]", "", (dna_rna_seq or "").strip().upper().replace("U", "T"))
+    return clean_nt.translate(_NT_COMPLEMENT_TRANS)[::-1]
 
 
 def translate_nucleotide(dna_rna_seq: str, frame: int = 1) -> str:
     """
     Translates DNA or RNA sequence directly using the NCBI Standard Genetic Code (transl_table=1).
-    frame: 1, 2, or 3.
+    Supports 6 reading frames: +1, +2, +3 (forward strand) and -1, -2, -3 (reverse complement).
+    Strips FASTA headers cleanly and preserves IUPAC ambiguous bases (N -> 'X') without frameshifting.
     """
-    seq = dna_rna_seq.strip().upper().replace('U', 'T')
-    seq = re.sub(r'[^ATCG]', '', seq)
-    start_idx = frame - 1
-    protein = []
+    if frame not in (1, 2, 3, -1, -2, -3):
+        raise ValueError(f"Reading frame must be 1, 2, 3, -1, -2, or -3 (got {frame}).")
+    seq, _, _ = _clean_nucleotide_input(dna_rna_seq)
+    if frame < 0:
+        seq = seq.translate(_NT_COMPLEMENT_TRANS)[::-1]
+        start_idx = abs(frame) - 1
+    else:
+        start_idx = frame - 1
+    protein: List[str] = []
     for i in range(start_idx, len(seq) - 2, 3):
         codon = seq[i:i + 3]
-        amino_acid = CODON_TABLE.get(codon, 'X')
-        protein.append(amino_acid)
+        protein.append(CODON_TABLE.get(codon, "X"))
     return "".join(protein)
 
 
-def find_longest_orf(dna_rna_seq: str) -> Dict[str, Any]:
+def find_longest_orf(dna_rna_seq: str, search_reverse_strand: bool = True) -> Dict[str, Any]:
     """
-    Finds the longest Open Reading Frame (ATG to Stop codon) across all 3 forward frames.
+    Finds the longest Open Reading Frame (ATG to Stop codon) across all 6 reading frames
+    (+1, +2, +3 forward and -1, -2, -3 reverse complement, preferring forward strand on exact ties).
+    Properly strips FASTA headers and preserves IUPAC ambiguous bases (N -> 'X') without frameshifting.
     """
-    dna = dna_rna_seq.strip().upper().replace('U', 'T')
-    dna = re.sub(r'[^ATCG]', '', dna)
+    dna_fwd, header, warnings = _clean_nucleotide_input(dna_rna_seq)
+    seq_len = len(dna_fwd)
 
     best_orf = ""
     best_frame = 1
+    best_strand = "+"
     best_start = 0
     best_end = 0
 
-    for frame in [0, 1, 2]:
-        i = frame
-        while i < len(dna) - 2:
-            codon = dna[i:i + 3]
-            if codon == 'ATG':
-                orf_codons = []
-                j = i
-                found_stop = False
-                while j < len(dna) - 2:
-                    c = dna[j:j + 3]
-                    aa = CODON_TABLE.get(c, 'X')
-                    if aa == '*':
-                        found_stop = True
+    strands: List[Tuple[str, str]] = [("+", dna_fwd)]
+    if search_reverse_strand and dna_fwd:
+        strands.append(("-", dna_fwd.translate(_NT_COMPLEMENT_TRANS)[::-1]))
+
+    codon_get = CODON_TABLE.get
+    for strand_sign, seq_str in strands:
+        s_len = len(seq_str)
+        for frame_offset in (0, 1, 2):
+            i = frame_offset
+            while i < s_len - 2:
+                if seq_str[i:i + 3] == "ATG":
+                    orf_codons: List[str] = []
+                    j = i
+                    found_stop = False
+                    while j < s_len - 2:
+                        aa = codon_get(seq_str[j:j + 3], "X")
+                        if aa == "*":
+                            found_stop = True
+                            break
+                        orf_codons.append(aa)
+                        j += 3
+                    orf_protein = "".join(orf_codons)
+                    if len(orf_protein) > len(best_orf):
+                        best_orf = orf_protein
+                        best_strand = strand_sign
+                        best_frame = (frame_offset + 1) if strand_sign == "+" else -(frame_offset + 1)
+                        rc_end = (j + 3) if found_stop else j
+                        if strand_sign == "+":
+                            best_start = i + 1
+                            best_end = rc_end
+                        else:
+                            best_start = s_len - rc_end + 1
+                            best_end = s_len - i
+                    if found_stop:
+                        i = j + 3
+                    else:
                         break
-                    orf_codons.append(aa)
-                    j += 3
-                orf_protein = "".join(orf_codons)
-                if len(orf_protein) > len(best_orf):
-                    best_orf = orf_protein
-                    best_frame = frame + 1
-                    best_start = i + 1
-                    best_end = (j + 3) if found_stop else j
-                i = j + 3 if found_stop else i + 3
-            else:
-                i += 3
+                else:
+                    i += 3
 
     if not best_orf:
-        fallback = translate_nucleotide(dna, frame=1).split('*')[0]
+        fallback = translate_nucleotide(dna_fwd, frame=1).split("*")[0]
         return {
             "sequence": fallback,
             "frame": 1,
+            "strand": "+",
             "has_start_codon": False,
             "orf_length_aa": len(fallback),
-            "start_bp": 1,
-            "end_bp": len(dna)
+            "start_bp": 1 if seq_len > 0 else 0,
+            "end_bp": seq_len,
+            "header": header,
+            "warnings": warnings,
         }
 
     return {
         "sequence": best_orf,
         "frame": best_frame,
+        "strand": best_strand,
         "has_start_codon": True,
         "orf_length_aa": len(best_orf),
         "start_bp": best_start,
-        "end_bp": best_end
+        "end_bp": best_end,
+        "header": header,
+        "warnings": warnings,
     }
 
 

@@ -579,7 +579,7 @@ def infer_protein_biochemical_profile(
         and not is_urea_channel_or_mod_enz
         and (
             "nickel" in keywords_low
-            or "CHEBI:49786" in all_chebis
+            or bool({"CHEBI:49786", "CHEBI:25516"} & all_chebis)
             or bool(re.search(r"\bni\s*\(\s*2\+\s*\)|\bni\s+cation\b|\bni2\+|\bnickel\b|\[nife\]|\bf430\b", metal_blob))
             or "3.5.1.5" in ecs
         )
