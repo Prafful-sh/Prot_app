@@ -2915,6 +2915,144 @@ def test_gel_recipes_3d_viewer_feedback_and_ai_proteins(root_dir: str) -> None:
     assert hasattr(_sys.modules["modules.gel_recipe"], "calculate_sds_gel_recipe")
     assert hasattr(_sys.modules["modules.protein_3d"], "build_3d_biophysical_backbone_figure")
 
+    # 5g. De novo / AI-designed direct sequence in Plain English + RCSB PDB ID fetcher + Live 3D PDB button
+    from modules.sequence_parser import (
+        _normalize_pdb_input,
+        _extract_inline_sequence_from_prompt,
+        fetch_pdb_by_id,
+    )
+    import requests as _req_denovo
+
+    denovo_cc_seq = (
+        "MKQLEDKVEELASKNYHLENEVARLKKLVGERGSSGMEELKKKLEEELAKLKKELAEKLEKVGSSG"
+        "MKQLEDKVEELASKNYHLENEVARLKKLVGERGSSGMEELKKKLEEELAKLKKELAEKLEKVHHHHHH"
+    )
+    denovo_wrapped = (
+        "MKQLEDKVEELASKNYHLENEVARLKKLVGERGSSGMEELKKKLEEEL\n"
+        "AKLKKELAEKLEKVGSSGMKQLEDKVEELASKNYHLENEVARLKKLVGERGSSGMEELKKKLEEELAKLKKE\n"
+        "LAEKLEKVHHHHHH"
+    )
+    with patch("modules.sequence_parser.requests.get", side_effect=_req_denovo.ConnectionError("Simulated offline")):
+        for q_dn in (denovo_cc_seq, denovo_wrapped):
+            r_dn = parse_natural_language_prompt(q_dn)
+            assert r_dn["length"] == 134, f"Expected 134 aa, got {r_dn['length']}"
+            assert r_dn["is_direct_sequence"] is True and r_dn["is_de_novo"] is True
+            assert r_dn["tag_detected"] == "6xHis" and r_dn["tag_position"] == "C-terminal"
+            assert len(r_dn["canonical_sequence"]) == 128
+            assert r_dn["uniprot_id"] == "" and r_dn["full_construct_sequence"] == denovo_cc_seq
+            assert r_dn["full_construct_sequence"].endswith("KVHHHHHH")
+
+        r_dn_tev = parse_natural_language_prompt(
+            "MKQLEDKVEELASKNYHLENEVARLKKLVGERGSSGMEELKKKLEEELAKLKKELAEKLEKV with N-terminal 6xHis tag and TEV site"
+        )
+        assert r_dn_tev["length"] == 76
+        assert r_dn_tev["full_construct_sequence"].startswith("MHHHHHHENLYFQG")
+        assert r_dn_tev["tag_detected"] == "6xHis" and "TEV" in r_dn_tev["cleavage_detected"]
+
+        r_dn_fasta = parse_natural_language_prompt(
+            ">RFdiffusion_Binder_01\nMKQLEDKVEELASKNYHLENEVARLKKLVGER\nwith C-terminal Strep tag"
+        )
+        assert r_dn_fasta["identified_protein"] == "RFdiffusion_Binder_01"
+        assert r_dn_fasta["full_construct_sequence"].endswith("WSHPQFEK")
+        assert r_dn_fasta["length"] == 40
+
+    # False-positive & DNA guards for _extract_inline_sequence_from_prompt / fetch_uniprot_by_id / NL error text
+    for non_seq_prompt in (
+        "GST human",
+        "human methyltransferase",
+        "METHYLTRANSFERASE",
+        "ACETYLTRANSFERASE",
+        "peptidyltransferase",
+        "Chicken egg white lysozyme with N-terminal 6xHis tag and TEV site",
+    ):
+        assert _extract_inline_sequence_from_prompt(non_seq_prompt) is None, (
+            f"False-positive inline sequence detected on {non_seq_prompt!r}"
+        )
+
+    try:
+        parse_natural_language_prompt("ATGGCTAAGCTGAACGGCATCGTCAAGAAGCTCGAGTAAATGGCTAAGCTGAACGGCATCGT")
+        raise AssertionError("Pure 62-bp ACGT string should trigger DNA guard ValueError")
+    except ValueError as ve_dna:
+        assert "Translate DNA / RNA" in str(ve_dna)
+
+    try:
+        fetch_uniprot_by_id("MKQLEDKVEELASKNYHLENEVARLKKLVGERGSSGMEELKKKLEEELAK")
+        raise AssertionError("Raw amino acid sequence passed to fetch_uniprot_by_id should raise ValueError")
+    except ValueError as ve_raw_uid:
+        assert "Paste Amino Acid / FASTA" in str(ve_raw_uid)
+
+    with patch("modules.sequence_parser.requests.get", side_effect=_req_denovo.ConnectionError("Simulated offline")):
+        try:
+            parse_natural_language_prompt("xyzzynonexistentprotein999")
+            raise AssertionError("Nonexistent protein query should raise ValueError")
+        except ValueError as ve_nf:
+            assert "Classroom Example" not in str(ve_nf)
+            assert "RCSB PDB ID" in str(ve_nf)
+
+    # RCSB PDB normalizer & mocked fetch_pdb_by_id / parse_natural_language_prompt('PDB 1QYS ...')
+    assert _normalize_pdb_input("1QYS") == {"pdb_id": "1QYS", "requested_chain": None}
+    assert _normalize_pdb_input("PDB:6D0T_B") == {"pdb_id": "6D0T", "requested_chain": "B"}
+    assert _normalize_pdb_input("https://www.rcsb.org/structure/2KL8") == {"pdb_id": "2KL8", "requested_chain": None}
+
+    top7_seq_106 = "MGDIQVQVNIDDNGKNFDYTYTVTTESELQKVLNELMDYIKKQGAKRVRISITARTKKEAEKFAAILIKVFAELGYNDINVTFDGDTVTVEGQLEGGSLEHHHHHH"
+
+    def _mock_rcsb_1qys(url: str, **kwargs):
+        if "data.rcsb.org/rest/v1/core/entry/1QYS" in url:
+            return _Mock3DResp(200, json_obj={
+                "struct": {"title": "Crystal structure of Top7: A computationally designed protein with a novel fold"},
+                "struct_keywords": {"pdbx_keywords": "DE NOVO PROTEIN", "text": "alpha-beta, computationally designed, DE NOVO PROTEIN"},
+                "rcsb_entry_info": {"polymer_entity_count": 1},
+            })
+        if "data.rcsb.org/rest/v1/core/polymer_entity/1QYS/1" in url:
+            return _Mock3DResp(200, json_obj={
+                "entity_poly": {
+                    "type": "polypeptide(L)",
+                    "pdbx_seq_one_letter_code_can": top7_seq_106,
+                    "pdbx_strand_id": "A",
+                },
+                "rcsb_polymer_entity": {"pdbx_description": "TOP7"},
+                "rcsb_entity_source_organism": [None],
+                "rcsb_polymer_entity_container_identifiers": {"uniprot_ids": None},
+            })
+        return _Mock3DResp(404)
+
+    with patch("modules.sequence_parser.requests.get", side_effect=_mock_rcsb_1qys):
+        pdb_res = fetch_pdb_by_id("1QYS")
+        assert pdb_res["pdb_id"] == "1QYS" and pdb_res["chain_id"] == "A"
+        assert pdb_res["is_de_novo"] is True and pdb_res["uniprot_id"] == ""
+        assert pdb_res["length"] == 106
+
+        nl_pdb = parse_natural_language_prompt("PDB 1QYS with N-terminal 6xHis tag")
+        assert nl_pdb["pdb_id"] == "1QYS" and nl_pdb["is_de_novo"] is True
+        assert nl_pdb["full_construct_sequence"].startswith("MHHHHHH" + top7_seq_106[:10])
+
+    # End-to-end AppTest UI verification: (a) direct de novo paste in Plain English + (b) RCSB PDB ID 1QYS + Tab 4 3D button
+    with patch("modules.sequence_parser.requests.get", side_effect=_req_denovo.ConnectionError("Simulated offline")):
+        at_dn = AppTest.from_file(app_path).run(timeout=30)
+        at_dn.sidebar.radio[0].set_value("💬 Describe in Plain English").run(timeout=30)
+        at_dn.sidebar.text_area[0].set_value(denovo_wrapped).run(timeout=30)
+        at_dn.sidebar.button[0].click().run(timeout=30)
+    assert len(at_dn.exception) == 0
+    assert len(at_dn.session_state["active_sequence"]) == 134
+    md_dn = "\n".join(m.value for m in at_dn.markdown if "<style>" not in m.value)
+    assert "De Novo / Synthetic" in md_dn
+    assert "15.49" in md_dn
+    assert "UniProt </span>" not in md_dn and "UniProt <" not in md_dn
+    assert "Classroom Example" not in md_dn
+
+    with patch("modules.sequence_parser.requests.get", side_effect=_mock_rcsb_1qys):
+        at_pdb = AppTest.from_file(app_path).run(timeout=30)
+        at_pdb.sidebar.radio[0].set_value("🧊 RCSB PDB ID (De Novo / 3D)").run(timeout=30)
+        at_pdb.sidebar.text_input[0].set_value("1QYS").run(timeout=30)
+        at_pdb.sidebar.button[0].click().run(timeout=30)
+    assert len(at_pdb.exception) == 0
+    assert at_pdb.session_state["active_sequence"] == top7_seq_106
+    md_pdb = "\n".join(m.value for m in at_pdb.markdown if "<style>" not in m.value)
+    assert "PDB 1QYS" in md_pdb
+    assert "De Novo / Synthetic" in md_pdb
+    [r for r in at_pdb.radio if r.key == "viewer_3d_mode_radio"][0].set_value("🌐 Live AlphaFold / PDB 3D").run(timeout=30)
+    assert any(b.key == "btn_fetch_3d_structure_pdb" and "1QYS" in b.label for b in at_pdb.button)
+
 
 def test_pipeline() -> None:
     root_dir = os.path.dirname(os.path.abspath(__file__))

@@ -54,6 +54,7 @@ try:
         detect_sequence_terminal_tag,
         fetch_uniprot_by_id,
         fetch_ncbi_by_id,
+        fetch_pdb_by_id,
         find_longest_orf,
         translate_nucleotide,
         parse_natural_language_prompt,
@@ -105,6 +106,7 @@ try:
         SCHEMATIC_3D_DISCLAIMER,
         normalize_uniprot_accession,
         fetch_3d_structure_for_uniprot,
+        fetch_structure_by_pdb_id,
         parse_uploaded_structure_file,
         build_3dmol_viewer_html,
         build_3d_biophysical_backbone_figure,
@@ -126,6 +128,7 @@ except ImportError:
         detect_sequence_terminal_tag,
         fetch_uniprot_by_id,
         fetch_ncbi_by_id,
+        fetch_pdb_by_id,
         find_longest_orf,
         translate_nucleotide,
         parse_natural_language_prompt,
@@ -177,6 +180,7 @@ except ImportError:
         SCHEMATIC_3D_DISCLAIMER,
         normalize_uniprot_accession,
         fetch_3d_structure_for_uniprot,
+        fetch_structure_by_pdb_id,
         parse_uploaded_structure_file,
         build_3dmol_viewer_html,
         build_3d_biophysical_backbone_figure,
@@ -2175,6 +2179,7 @@ with st.sidebar:
         [
             "🔍 UniProt ID",
             "🏛️ NCBI Accession",
+            "🧊 RCSB PDB ID (De Novo / 3D)",
             "🔤 Paste Amino Acid / FASTA",
             "🧬 Translate DNA / RNA",
             "💬 Describe in Plain English"
@@ -2236,7 +2241,28 @@ with st.sidebar:
                     st.error(str(e))
         st.caption("Try: `NP_990612.2` (Lysozyme), `NM_205281.2` (mRNA), `QHD43416.1`")
 
-    # 3. Direct Sequence / FASTA (Lysozyme default)
+    # 3. RCSB PDB ID (Ideal for De Novo / AI-Designed & Experimental 3D Structures)
+    elif input_method == "🧊 RCSB PDB ID (De Novo / 3D)":
+        pdb_input = st.text_input(
+            "RCSB PDB ID:",
+            value="1QYS",
+            help="Supports 4-character PDB IDs (1QYS, 2KL8, 6D0T, 7B3A), chain selectors (6D0T_A), or RCSB URLs. Ideal for de novo / AI-designed proteins and experimental crystal/cryo-EM structures — also unlocks 1-click WebGL 3D viewing in Tab 4."
+        )
+        if st.button("Fetch from RCSB PDB", type="primary", width="stretch"):
+            with st.spinner(f"Fetching {pdb_input} from RCSB PDB..."):
+                try:
+                    res = fetch_pdb_by_id(pdb_input)
+                    if set_new_sequence(
+                        seq=res["sequence"],
+                        name=res["protein_name"],
+                        metadata=res
+                    ):
+                        st.success(f"Loaded: {res['protein_name']} [PDB {res['pdb_id']}] ({res['length']} aa)")
+                except Exception as e:
+                    st.error(str(e))
+        st.caption("Try: `1QYS` (Top7 de novo), `2KL8` (De novo ferredoxin), `6D0T` (De novo β-barrel), `2VB1` (Lysozyme)")
+
+    # 4. Direct Sequence / FASTA (Lysozyme default)
     elif input_method == "🔤 Paste Amino Acid / FASTA":
         pasted_text = st.text_area(
             "Paste Protein Sequence or FASTA:",
@@ -2266,8 +2292,9 @@ with st.sidebar:
                 metadata=fasta_meta,
             ):
                 st.success("Sequence loaded!")
+        st.caption("Works for any natural, synthetic, or de novo / AI-designed sequence (RFdiffusion, ProteinMPNN, ESMFold) and auto-detects terminal tags (6xHis, Strep, FLAG).")
 
-    # 4. DNA / RNA Sequence (Met + Mature Lysozyme coding ORF default, 130 aa)
+    # 5. DNA / RNA Sequence (Met + Mature Lysozyme coding ORF default, 130 aa)
     elif input_method == "🧬 Translate DNA / RNA":
         dna_input = st.text_area(
             "Coding DNA / RNA (Met + Mature Lysozyme Coding ORF, 130 aa):",
@@ -2303,10 +2330,10 @@ with st.sidebar:
                 ):
                     st.success(f"Translated {len(seq)} amino acids!")
 
-    # 5. Natural Language Prompt
+    # 6. Natural Language Prompt (also accepts pasted de novo sequences & RCSB PDB IDs)
     elif input_method == "💬 Describe in Plain English":
         nl_prompt = st.text_area(
-            "Describe Protein + Optional Tag:",
+            "Describe Protein, Paste De Novo Sequence, or Enter PDB ID (+ Optional Tag):",
             value="Chicken egg white lysozyme with N-terminal 6xHis tag and TEV site",
             height=85
         )
@@ -2314,31 +2341,49 @@ with st.sidebar:
             with st.spinner("Finding sequence & building construct..."):
                 try:
                     res = parse_natural_language_prompt(nl_prompt)
+                    parts = res.get("construct_parts") or []
                     has_engineered_parts = (
                         res.get("tag_detected", "None") != "None"
                         or res.get("cleavage_detected", "None") != "None"
+                        or len(parts) > 1
                     )
-                    source_label = (
-                        f"Natural Language Construct Builder • UniProt {res['uniprot_id']}"
-                        if has_engineered_parts
-                        else f"Natural Language Lookup • UniProt {res['uniprot_id']}"
-                    )
+                    if res.get("is_direct_sequence"):
+                        source_label = "Direct De Novo / Custom Construct" if has_engineered_parts else "Direct De Novo / Custom Sequence"
+                    elif res.get("pdb_id"):
+                        chain_suffix = f" (Chain {res['chain_id']})" if res.get("chain_id") else ""
+                        source_label = f"RCSB PDB {res['pdb_id']}{chain_suffix}"
+                    elif res.get("uniprot_id"):
+                        source_label = (
+                            f"Natural Language Construct Builder • UniProt {res['uniprot_id']}"
+                            if has_engineered_parts
+                            else f"Natural Language Lookup • UniProt {res['uniprot_id']}"
+                        )
+                    else:
+                        source_label = "Natural Language Construct Builder"
+
                     org_sci_prefix = " ".join(res["identified_organism"].split()[:2]).lower()
                     prot_low = res["identified_protein"].lower()
-                    display_name = (
-                        res["identified_protein"]
-                        if (
-                            res["identified_organism"].lower() in prot_low
-                            or (org_sci_prefix and org_sci_prefix in prot_low)
+                    if res.get("is_direct_sequence") or res.get("is_de_novo"):
+                        display_name = res["identified_protein"]
+                    else:
+                        display_name = (
+                            res["identified_protein"]
+                            if (
+                                res["identified_organism"].lower() in prot_low
+                                or (org_sci_prefix and org_sci_prefix in prot_low)
+                            )
+                            else f"{res['identified_protein']} ({res['identified_organism']})"
                         )
-                        else f"{res['identified_protein']} ({res['identified_organism']})"
-                    )
                     if set_new_sequence(
                         seq=res["full_construct_sequence"],
                         name=display_name,
                         metadata={
                             "source": source_label,
-                            "uniprot_id": res["uniprot_id"],
+                            "uniprot_id": res.get("uniprot_id", ""),
+                            "accession": res.get("accession") or res.get("uniprot_id") or res.get("pdb_id") or "",
+                            "pdb_id": res.get("pdb_id", ""),
+                            "chain_id": res.get("chain_id", ""),
+                            "is_de_novo": bool(res.get("is_de_novo", False)),
                             "gene_name": res.get("gene_name", "N/A"),
                             "protein_name": res["identified_protein"],
                             "biochem_annotations": res.get("biochem_annotations", {}),
@@ -2347,15 +2392,20 @@ with st.sidebar:
                             "cleavage": res["cleavage_detected"],
                             "canonical_len": len(res["canonical_sequence"])
                         },
-                        construct_parts=res["construct_parts"] if has_engineered_parts else None
+                        construct_parts=parts if has_engineered_parts else None
                     ):
                         if has_engineered_parts:
                             st.success(f"Construct ready: {res['identified_protein']} ({res['length']} aa)!")
                         else:
-                            st.success(f"Loaded: {res['identified_protein']} [{res['uniprot_id']}] ({res['length']} aa)!")
+                            id_tag = (
+                                f" [{res['uniprot_id']}]"
+                                if res.get("uniprot_id")
+                                else (f" [PDB {res['pdb_id']}]" if res.get("pdb_id") else "")
+                            )
+                            st.success(f"Loaded: {res['identified_protein']}{id_tag} ({res['length']} aa)!")
                 except Exception as e:
                     st.error(f"Could not build construct: {e}")
-        st.caption("Try: `GST human`, `Urease with 6x His tag`, `GFP with C-terminal Strep tag`")
+        st.caption("Try: `GST human`, `Urease with 6x His tag`, `Top7 with N-terminal 6xHis tag`, or paste any de novo sequence (optionally + `with TEV site`)")
 
     st.markdown("---")
     st.markdown("### 🧪 Try an Example")
@@ -2405,19 +2455,41 @@ protein_profile = infer_protein_biochemical_profile(
 
 
 # --- ACTIVE PROTEIN & CONSTRUCT RIBBON (Zero-indentation HTML avoids CommonMark code-block traps) ---
-uid_badge_val = seq_meta.get("uniprot_id") or seq_meta.get("accession") or ""
+pdb_badge_val = str(seq_meta.get("pdb_id") or "").strip().upper()
+chain_badge_val = str(seq_meta.get("chain_id") or "").strip()
+uid_raw_val = str(seq_meta.get("uniprot_id") or "").strip()
+acc_raw_val = str(seq_meta.get("accession") or "").strip()
 raw_source = (seq_meta.get("source") or "").strip()
+is_ncbi_badge = raw_source.upper().startswith("NCBI") and not uid_raw_val
+is_pdb_badge = bool(pdb_badge_val) and (not uid_raw_val or uid_raw_val == "N/A") and not is_ncbi_badge
+
+if is_pdb_badge:
+    uid_badge_val = f"{pdb_badge_val} (Chain {chain_badge_val})" if chain_badge_val else pdb_badge_val
+    id_prefix = "PDB"
+elif is_ncbi_badge:
+    uid_badge_val = acc_raw_val
+    id_prefix = "NCBI"
+else:
+    uid_badge_val = uid_raw_val or ("" if seq_meta.get("is_de_novo") else acc_raw_val)
+    id_prefix = "UniProt"
+
 clean_source = (
     raw_source.split("•")[0].replace(f"(UniProt {uid_badge_val})", "").strip()
     if (raw_source and uid_badge_val) else raw_source
 )
-is_ncbi_badge = raw_source.upper().startswith("NCBI") and not seq_meta.get("uniprot_id")
-id_prefix = "NCBI" if is_ncbi_badge else "UniProt"
 uid_pill_html = (
     f'<span class="meta-pill meta-pill-indigo">{id_prefix} {html.escape(str(uid_badge_val))}</span>'
     if uid_badge_val and uid_badge_val != "N/A" else ""
 )
-show_source_pill = bool(clean_source) and not (is_ncbi_badge and clean_source.upper() == "NCBI")
+de_novo_pill_html = (
+    '<span class="meta-pill meta-pill-teal">De Novo / Synthetic</span>'
+    if seq_meta.get("is_de_novo") else ""
+)
+show_source_pill = (
+    bool(clean_source)
+    and not (is_ncbi_badge and clean_source.upper() == "NCBI")
+    and not (is_pdb_badge and clean_source.upper().startswith("RCSB PDB"))
+)
 source_pill_html = (
     f'<span class="meta-pill meta-pill-neutral">{html.escape(clean_source)}</span>'
     if show_source_pill else ""
@@ -2452,7 +2524,7 @@ seq_name_safe = html.escape(str(st.session_state.sequence_name))
 pill_group_html = (
     f'<div class="ribbon-pill-group">'
     f'<span class="meta-pill meta-pill-teal">{metrics["length"]} aa</span>'
-    f'{uid_pill_html}{biochem_pills_html}{source_pill_html}'
+    f'{uid_pill_html}{de_novo_pill_html}{biochem_pills_html}{source_pill_html}'
     f'</div>'
 )
 if has_multipart_construct:
@@ -4466,14 +4538,49 @@ with tab_details:
     elif viewer_3d_mode == "🌐 Live AlphaFold / PDB 3D":
         raw_uid_3d = str(seq_meta.get("uniprot_id") or "").strip()
         norm_uid_3d = normalize_uniprot_accession(raw_uid_3d) if raw_uid_3d else ""
-        if not norm_uid_3d:
+        raw_pdb_3d = str(seq_meta.get("pdb_id") or "").strip().upper()
+        if not norm_uid_3d and not raw_pdb_3d:
             raw_acc_3d = str(seq_meta.get("accession") or "").strip()
             norm_uid_3d = normalize_uniprot_accession(raw_acc_3d) if raw_acc_3d else ""
 
-        if not norm_uid_3d:
+        if not norm_uid_3d and raw_pdb_3d:
+            fetch_pdb_3d_clicked = st.button(
+                f"🧊 Fetch Atomic 3D Structure from RCSB PDB ({raw_pdb_3d})",
+                key="btn_fetch_3d_structure_pdb",
+                type="primary",
+                width="stretch",
+            )
+            cache_key_pdb_3d = ("pdb", raw_pdb_3d)
+            if fetch_pdb_3d_clicked:
+                with st.spinner(f"Fetching atomic 3D structure for PDB {raw_pdb_3d}..."):
+                    fetched_pdb_3d = fetch_structure_by_pdb_id(
+                        raw_pdb_3d,
+                        timeout=10.0,
+                        accession=raw_pdb_3d,
+                    )
+                st.session_state.structure_3d_cache[cache_key_pdb_3d] = fetched_pdb_3d
+                if fetched_pdb_3d is None:
+                    st.warning(
+                        f"Could not retrieve a 3D structure (≤ 4 MB) for RCSB PDB **{raw_pdb_3d}** right now "
+                        "(entry may exceed the 4 MB WebGL cap or network access may be offline). "
+                        "Try uploading a local `.pdb` / `.cif` file or exploring the **Instant 3D Fold Schematic (Offline)**."
+                    )
+
+            cached_pdb_3d = st.session_state.structure_3d_cache.get(cache_key_pdb_3d)
+            if isinstance(cached_pdb_3d, dict) and cached_pdb_3d.get("data"):
+                _render_3dmol_metadata_and_viewer(
+                    cached_pdb_3d,
+                    key_prefix=f"live3d_pdb_{raw_pdb_3d}",
+                )
+            elif cache_key_pdb_3d not in st.session_state.structure_3d_cache:
+                st.caption(
+                    f"Click **🧊 Fetch Atomic 3D Structure from RCSB PDB ({raw_pdb_3d})** above to inspect "
+                    f"**{st.session_state.sequence_name}** interactively in WebGL."
+                )
+        elif not norm_uid_3d:
             st.info(
-                "🧬 **No UniProt Accession Linked to This Sequence:** Custom pasted sequences, translated ORFs, "
-                "or de novo AI-designed proteins do not have a deposited UniProt entry.\n\n"
+                "🧬 **No UniProt or RCSB PDB Accession Linked to This Sequence:** Custom pasted sequences, translated ORFs, "
+                "or unpublished de novo AI-designed proteins do not have a deposited entry.\n\n"
                 "- Switch to **📂 Upload AI / Custom .pdb / .cif** above to inspect your AlphaFold3, Boltz, RFdiffusion, "
                 "or ESMFold model interactively in WebGL.\n"
                 "- Or switch to **🧬 Instant 3D Fold Schematic (Offline)** for an immediate sequence-derived 3D view!"

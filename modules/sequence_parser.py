@@ -10,6 +10,7 @@ Handles:
 """
 
 import base64
+import json
 import re
 import threading
 import zlib
@@ -1533,6 +1534,16 @@ def _normalize_uniprot_input(raw_id: str) -> Dict[str, Any]:
     token = re.sub(r"\.\d+$", "", token.strip().strip("|,;"))
     uid = token.upper()
 
+    raw_seq_cand = re.sub(r"[\s*]+", "", (raw_id or "").strip())
+    if (
+        len(raw_seq_cand) >= 20
+        and re.fullmatch(r"[ACDEFGHIKLMNPQRSTVWY]+", raw_seq_cand, flags=re.IGNORECASE)
+    ):
+        raise ValueError(
+            "This looks like a raw amino acid sequence rather than a UniProt ID. "
+            "Paste it in '🔤 Paste Amino Acid / FASTA' or '💬 Describe in Plain English' instead."
+        )
+
     if not uid or not re.match(r"^[A-Z0-9][A-Z0-9_\-]{2,}$", uid):
         raise ValueError(
             f"Unrecognized UniProt ID format '{raw_id.strip()}'. Expected e.g. P00698, P04637-2, or LYSC_CHICK."
@@ -1734,9 +1745,216 @@ def fetch_uniprot_by_id(uniprot_id: str) -> Dict[str, Any]:
                     "biochem_annotations": preset.get("biochem_annotations", {}),
                 }
 
+    if re.fullmatch(r"[1-9][A-Z0-9]{3}(?:_[A-Z0-9])?", uid):
+        raise ValueError(
+            f"Could not retrieve UniProt ID '{uid}'. Tip: '{uid}' looks like an RCSB PDB ID "
+            "(common for de novo & structural proteins) — switch to '🧊 RCSB PDB ID (De Novo / 3D)' "
+            "or '💬 Describe in Plain English'."
+        )
+
     raise ValueError(
         f"Could not retrieve UniProt ID '{uid}'. Please verify the accession code (e.g., P00698, P04637-2, or LYSC_CHICK) or check internet connectivity."
     )
+
+
+_DE_NOVO_PDB_KEYWORDS = (
+    "de novo",
+    "computationally designed",
+    "designed protein",
+    "synthetic construct",
+    "rfdiffusion",
+    "proteinmpnn",
+    "top7",
+    "hallucinat",
+    "artificial protein",
+    "in silico design",
+)
+
+
+def _normalize_pdb_input(raw_id: str) -> Dict[str, Any]:
+    """
+    Normalizes user-supplied RCSB PDB inputs across 4-char IDs ('1QYS', '2KL8', '6D0T'),
+    prefixed strings ('PDB:1QYS', 'PDB 2KL8', 'rcsb:6D0T'), chain selectors ('1QYS_A', '6D0T:B',
+    '7B3A.A', '6D0T chain B'), FASTA headers ('>1QYS_A|Chain A|TOP7'), and RCSB URLs.
+    """
+    s = (raw_id or "").strip()
+    if not s:
+        raise ValueError(
+            "Please enter a valid 4-character RCSB PDB ID (e.g., 1QYS, 2KL8, 6D0T, or 2VB1)."
+        )
+
+    first_line = s.splitlines()[0].strip()
+    if first_line.startswith(">"):
+        first_line = first_line[1:].strip()
+
+    m_url = re.search(
+        r"rcsb\.org/(?:structure|download|pdb/explore\.do\?structureId=)/?([1-9][A-Za-z0-9]{3})(?:[._]([A-Za-z0-9]{1,2}))?",
+        first_line,
+        flags=re.IGNORECASE,
+    )
+    if m_url:
+        pdb_code = m_url.group(1).upper()
+        req_chain = m_url.group(2).upper() if m_url.group(2) else None
+        return {"pdb_id": pdb_code, "requested_chain": req_chain}
+
+    work = re.sub(r"^(?:rcsb\s+)?pdb\s*(?:id)?\s*[:\-\s]+", "", first_line, flags=re.IGNORECASE).strip()
+    work = re.sub(r"\.(?:pdb|cif|mmcif|ent)(?:\.gz)?\b", "", work, flags=re.IGNORECASE)
+
+    m_pdb = re.match(
+        r"^([1-9][A-Za-z0-9]{3})(?:(?:\s*[_:.\-|]\s*|\s+chain\s+)([A-Za-z0-9]{1,2}))?(?:\s|\||$)",
+        work,
+        flags=re.IGNORECASE,
+    )
+    if not m_pdb:
+        raise ValueError(
+            f"Unrecognized RCSB PDB ID format '{raw_id.strip()}'. "
+            "Expected a 4-character PDB ID starting with 1–9 (e.g., 1QYS, 2KL8, 6D0T, or 6D0T_A)."
+        )
+
+    pdb_code = m_pdb.group(1).upper()
+    req_chain = m_pdb.group(2).upper() if m_pdb.group(2) else None
+    return {"pdb_id": pdb_code, "requested_chain": req_chain}
+
+
+def fetch_pdb_by_id(pdb_id: str) -> Dict[str, Any]:
+    """
+    Fetches polypeptide sequence and structural metadata from RCSB PDB REST Data API v1
+    given a 4-character PDB ID (with optional chain selector), supporting de novo / AI-designed
+    entries (Top7 1QYS, 2KL8, 6D0T) as well as natural experimental structures (2VB1).
+    """
+    norm = _normalize_pdb_input(pdb_id)
+    clean_pdb = norm["pdb_id"]
+    requested_chain = norm["requested_chain"]
+    headers = {"Accept": "application/json"}
+
+    try:
+        entry_url = f"https://data.rcsb.org/rest/v1/core/entry/{clean_pdb}"
+        entry_resp = _http_get(entry_url, headers=headers, timeout=12.0)
+        if entry_resp.status_code != 200:
+            raise ValueError(
+                f"RCSB PDB entry '{clean_pdb}' was not found (HTTP {entry_resp.status_code}). "
+                "Verify the 4-character PDB ID (e.g., 1QYS, 2KL8, 6D0T)."
+            )
+        entry_data = entry_resp.json() or {}
+        title = str(((entry_data.get("struct") or {}).get("title")) or "").strip()
+        kw_obj = entry_data.get("struct_keywords") or {}
+        kw_str = " ".join(
+            str(kw_obj.get(k) or "") for k in ("pdbx_keywords", "text")
+        ).strip()
+        poly_count = int(((entry_data.get("rcsb_entry_info") or {}).get("polymer_entity_count")) or 1)
+        poly_count = max(1, min(poly_count, 8))
+
+        candidates: List[Dict[str, Any]] = []
+        all_chains: List[str] = []
+        for ent_id in range(1, poly_count + 1):
+            ent_url = f"https://data.rcsb.org/rest/v1/core/polymer_entity/{clean_pdb}/{ent_id}"
+            ent_resp = _http_get(ent_url, headers=headers, timeout=12.0)
+            if ent_resp.status_code != 200:
+                continue
+            ent = ent_resp.json() or {}
+            epoly = ent.get("entity_poly") or {}
+            poly_type = str(epoly.get("type") or "").lower()
+            raw_seq = str(epoly.get("pdbx_seq_one_letter_code_can") or epoly.get("pdbx_seq_one_letter_code") or "").strip()
+            if "polypeptide" not in poly_type or not raw_seq:
+                continue
+            clean_seq, _, _ = clean_amino_acid_sequence(raw_seq)
+            if not clean_seq:
+                continue
+
+            strand_str = str(epoly.get("pdbx_strand_id") or "")
+            chains = [c.strip().upper() for c in re.split(r"[\s,;]+", strand_str) if c.strip()]
+            for ch in chains:
+                if ch not in all_chains:
+                    all_chains.append(ch)
+            candidates.append({
+                "entity_id": ent_id,
+                "ent": ent,
+                "clean_seq": clean_seq,
+                "chains": chains,
+            })
+    except ValueError:
+        raise
+    except requests.RequestException as exc:
+        raise ValueError(
+            f"Could not contact RCSB PDB for '{clean_pdb}' ({exc}). "
+            "Check internet connectivity or paste the sequence in '🔤 Paste Amino Acid / FASTA'."
+        ) from exc
+
+    if not candidates:
+        raise ValueError(
+            f"RCSB PDB entry '{clean_pdb}' contains no polypeptide protein chains (it may be nucleic-acid or non-polymer only)."
+        )
+
+    chosen = None
+    if requested_chain:
+        for cand in candidates:
+            if requested_chain in cand["chains"]:
+                chosen = cand
+                break
+        if chosen is None:
+            raise ValueError(
+                f"Chain '{requested_chain}' was not found in polypeptide chains of PDB '{clean_pdb}' "
+                f"(available: {', '.join(all_chains) or 'None'})."
+            )
+    else:
+        chosen = candidates[0]
+        if len(chosen["clean_seq"]) < 15:
+            for cand in candidates[1:]:
+                if len(cand["clean_seq"]) >= 15:
+                    chosen = cand
+                    break
+
+    ent = chosen["ent"]
+    clean_seq = chosen["clean_seq"]
+    chains = chosen["chains"]
+    selected_chain = requested_chain or (chains[0] if chains else "A")
+
+    desc = str(((ent.get("rcsb_polymer_entity") or {}).get("pdbx_description")) or "").strip()
+    if desc:
+        if len(desc) <= 12 and title:
+            short_title = title.split(":")[0].strip() if ":" in title and len(title.split(":")[0].strip()) >= 8 else title
+            if len(short_title) > 75:
+                short_title = short_title[:75].rstrip() + "…"
+            protein_name = f"{desc} — {short_title}"
+        else:
+            protein_name = desc
+    elif title:
+        protein_name = title[:80].strip() + ("…" if len(title) > 80 else "")
+    else:
+        protein_name = f"PDB {clean_pdb} Chain {selected_chain}"
+
+    orgs = [
+        str(o.get("ncbi_scientific_name") or "").strip()
+        for o in (ent.get("rcsb_entity_source_organism") or [])
+        if o and str(o.get("ncbi_scientific_name") or "").strip()
+    ]
+    ctx_lower = f"{title} {kw_str} {desc}".lower()
+    is_de_novo = (
+        len(orgs) == 0
+        or any(any(tok in o.lower() for tok in ("synthetic", "unidentified", "artificial")) for o in orgs)
+        or any(kw in ctx_lower for kw in _DE_NOVO_PDB_KEYWORDS)
+    )
+    organism = "De Novo / Synthetic Construct" if is_de_novo else orgs[0]
+
+    uids = (ent.get("rcsb_polymer_entity_container_identifiers") or {}).get("uniprot_ids") or []
+    linked_uid = str(uids[0]).strip().upper() if (uids and str(uids[0]).strip() and not is_de_novo) else ""
+
+    return {
+        "source": f"RCSB PDB {clean_pdb}" + (f" (Chain {selected_chain})" if selected_chain else ""),
+        "accession": f"{clean_pdb}_{selected_chain}" if requested_chain else clean_pdb,
+        "pdb_id": clean_pdb,
+        "chain_id": selected_chain,
+        "chains": chains,
+        "uniprot_id": linked_uid,
+        "protein_name": protein_name,
+        "title": title,
+        "gene_name": "Synthetic / De Novo" if is_de_novo else "N/A",
+        "organism": organism,
+        "length": len(clean_seq),
+        "sequence": clean_seq,
+        "is_de_novo": is_de_novo,
+        "biochem_annotations": {},
+    }
 
 
 _NCBI_REFSEQ_PROTEIN_PREFIXES = ("NP_", "XP_", "WP_", "YP_", "AP_", "ZP_")
@@ -4904,17 +5122,422 @@ def _candidate_matches_requested_protein(hit: Dict[str, Any], comp: Dict[str, An
     return False
 
 
+_ENGLISH_PROTEIN_SUFFIXES = (
+    "TRANSFERASE", "SYNTHETASE", "HYDROLASE", "PHOSPHATASE", "REDUCTASE",
+    "DEHYDROGENASE", "POLYMERASE", "ISOMERASE", "CARBOXYLASE", "ESTERASE",
+    "PEPTIDASE", "PROTEASE", "KINASE", "LIGASE", "LYASE", "SYNTHASE",
+    "CYCLASE", "HELICASE", "NUCLEASE", "TRANSCRIPTASE", "INTEGRASE",
+    "TRANSPOSASE", "RECOMBINASE", "PERMEASE", "TRANSPORTER", "RECEPTOR",
+    "INHIBITOR", "ACTIVATOR", "REGULATOR", "PROTEIN", "PEPTIDE", "ENZYME",
+    "ANTIBODY", "ANTIGEN", "DOMAIN", "SUBUNIT", "PRECURSOR", "ISOFORM",
+    "LYSOZYME", "ALBUMIN", "MYOGLOBIN", "HEMOGLOBIN", "INSULIN", "COLLAGEN",
+    "KERATIN", "FERRITIN", "CATALASE", "UREASE", "AMYLASE", "LIPASE",
+    "TRYPSIN", "PEPSIN", "THROMBIN", "UBIQUITIN", "CALMODULIN", "CYTOCHROME",
+    "FERREDOXIN", "THIOREDOXIN", "GLYCERALDEHYDE", "METALLOTHIONEIN",
+    "COLLAGENASE", "DYSTROPHIN",
+)
+
+_INLINE_PROSE_STOPWORDS = frozenset({
+    "with", "from", "and", "for", "the", "plus", "add", "without", "carrying", "having", "bearing",
+    "tag", "tags", "tagged", "site", "sites", "cleavage", "terminal", "terminus", "fused", "fusion",
+    "his", "strep", "flag", "myc", "gst", "mbp", "sumo", "tev", "hrv", "prescission", "thrombin",
+    "enterokinase", "human", "chicken", "mouse", "yeast", "coli", "ecoli", "rat", "bovine",
+    "protein", "peptide", "enzyme", "chain", "strand", "designed", "novo", "synthetic",
+    "serine", "threonine", "tyrosine", "methyl", "acetyl", "phosphoryl",
+})
+
+
+def _is_likely_english_word_not_aa(token_upper: str) -> bool:
+    """Returns True if an alphabetic token matches common English biochemistry suffixes."""
+    t = (token_upper or "").strip().upper()
+    if not t:
+        return False
+    return any(t.endswith(sfx) for sfx in _ENGLISH_PROTEIN_SUFFIXES)
+
+
+def _check_inline_dna_guard(letters_upper: str) -> None:
+    """Raises a helpful ValueError if an inline sequence is purely canonical A/C/G/T DNA (>= 30 nt)."""
+    if len(letters_upper) >= 30 and set(letters_upper) <= {"A", "C", "G", "T"}:
+        raise ValueError(
+            "This looks like a DNA sequence (only A/C/G/T bases). "
+            "Switch to '🧬 Translate DNA / RNA' to translate it into protein."
+        )
+
+
+def _is_sequence_like_line(line: str, allow_lowercase_single_token: bool = True) -> Tuple[bool, str]:
+    """Checks whether a line contains valid amino acid sequence characters rather than English prose."""
+    s = (line or "").strip()
+    if not s or not re.fullmatch(r"[ACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwy0-9 \t*-]+", s):
+        return False, ""
+    words = [w for w in re.split(r"\s+", s) if not re.fullmatch(r"\d+", w)]
+    if not words:
+        return False, ""
+    for w in words:
+        w_alpha = re.sub(r"[^A-Za-z]", "", w)
+        if not w_alpha:
+            continue
+        if w_alpha.lower() in _INLINE_PROSE_STOPWORDS or _is_likely_english_word_not_aa(w_alpha):
+            return False, ""
+    has_lower = any(ch.islower() for ch in s)
+    letters = re.sub(r"[^A-Za-z]", "", s)
+    if len(letters) < 5:
+        return False, ""
+    if has_lower:
+        if not allow_lowercase_single_token or len(words) > 1 or len(letters) < 20:
+            return False, ""
+    return True, letters.upper()
+
+
+def _extract_inline_sequence_from_prompt(prompt: str) -> Optional[Dict[str, Any]]:
+    """
+    Detects raw FASTA, multi-line wrapped, or inline de novo / custom amino acid sequences
+    inside the plain-English construct box (optionally paired with N-/C-terminal tag/cleavage instructions).
+    Returns None for normal English protein queries.
+    """
+    raw = (prompt or "").strip()
+    if not raw:
+        return None
+
+    lines = raw.splitlines()
+
+    # Path A: FASTA header line ('>...')
+    header_idx = next((idx for idx, ln in enumerate(lines) if ln.lstrip().startswith(">")), None)
+    if header_idx is not None:
+        header_raw = lines[header_idx].lstrip()[1:].strip()
+        seq_parts: List[str] = []
+        modifier_lines: List[str] = []
+        if header_idx > 0:
+            modifier_lines.extend(lines[:header_idx])
+        reading_seq = True
+        for ln in lines[header_idx + 1:]:
+            if not ln.strip():
+                if seq_parts:
+                    reading_seq = False
+                continue
+            if ln.lstrip().startswith(">"):
+                reading_seq = False
+                continue
+            is_seq_ln, seq_chunk = _is_sequence_like_line(ln, allow_lowercase_single_token=True)
+            if reading_seq and is_seq_ln:
+                seq_parts.append(seq_chunk)
+            else:
+                reading_seq = False
+                modifier_lines.append(ln.strip())
+
+        seq_letters = "".join(seq_parts)
+        if len(seq_letters) >= 10 and re.fullmatch(r"[ACDEFGHIKLMNPQRSTVWY]+", seq_letters):
+            _check_inline_dna_guard(seq_letters)
+            return {
+                "sequence": seq_letters,
+                "header": header_raw or None,
+                "modifier_prose": " ".join(x for x in modifier_lines if x.strip()).strip(),
+            }
+
+    # Path B: Whole prompt is pure amino acid letters (single-line or wrapped)
+    letters_only = re.sub(r"[\s0-9*\-]+", "", raw)
+    if letters_only and re.fullmatch(r"[ACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwy]+", letters_only):
+        upper_seq = letters_only.upper()
+        words = [re.sub(r"[^A-Za-z]", "", w) for w in re.split(r"\s+", raw) if re.sub(r"[^A-Za-z]", "", w)]
+        has_lower = any(ch.islower() for ch in letters_only)
+        has_prose_word = any(
+            w.lower() in _INLINE_PROSE_STOPWORDS or _is_likely_english_word_not_aa(w)
+            for w in words
+        )
+        if not has_prose_word and words:
+            if not has_lower:
+                uniform_blocks = (
+                    len(words) >= 3
+                    and len({len(w) for w in words[:-1]}) == 1
+                    and len(words[0]) >= 5
+                )
+                multiword_ok = len(words) == 1 or max(len(w) for w in words) >= 10 or (len(upper_seq) >= 25 and uniform_blocks)
+                if len(upper_seq) >= 15 and multiword_ok:
+                    _check_inline_dna_guard(upper_seq)
+                    return {"sequence": upper_seq, "header": None, "modifier_prose": ""}
+            else:
+                if len(upper_seq) >= 25 and (len(words) == 1 or max(len(w) for w in words) >= 15):
+                    _check_inline_dna_guard(upper_seq)
+                    return {"sequence": upper_seq, "header": None, "modifier_prose": ""}
+
+    # Path C: Mixed prompt containing an inline sequence + English modifier prose
+    # C1: Multi-line contiguous wrapped sequence block + modifier lines
+    if len(lines) > 1:
+        best_run: Optional[Tuple[int, int, str]] = None
+        i = 0
+        while i < len(lines):
+            ok_ln, chunk = _is_sequence_like_line(lines[i], allow_lowercase_single_token=True)
+            if ok_ln:
+                j = i + 1
+                chunks = [chunk]
+                while j < len(lines):
+                    ok_next, chunk_next = _is_sequence_like_line(lines[j], allow_lowercase_single_token=True)
+                    if not ok_next:
+                        break
+                    chunks.append(chunk_next)
+                    j += 1
+                joined = "".join(chunks)
+                if len(joined) >= 20 and (best_run is None or len(joined) > len(best_run[2])):
+                    best_run = (i, j, joined)
+                i = j
+            else:
+                i += 1
+
+        if best_run is not None:
+            s_idx, e_idx, seq_upper = best_run
+            _check_inline_dna_guard(seq_upper)
+            leftover = [lines[k].strip() for k in range(len(lines)) if not (s_idx <= k < e_idx) and lines[k].strip()]
+            return {
+                "sequence": seq_upper,
+                "header": None,
+                "modifier_prose": " ".join(leftover).strip(),
+            }
+
+    # C2: Single-line / inline uppercase AA run (>=15 aa) or unbroken lowercase AA run (>=20 aa)
+    inline_candidates: List[re.Match] = []
+    for m_up in re.finditer(r"(?<![A-Za-z])[ACDEFGHIKLMNPQRSTVWY]{15,}(?![A-Za-z])", raw):
+        if not _is_likely_english_word_not_aa(m_up.group(0)):
+            inline_candidates.append(m_up)
+    if not inline_candidates:
+        for m_any in re.finditer(r"(?<![A-Za-z])[ACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwy]{20,}(?![A-Za-z])", raw):
+            tok_up = m_any.group(0).upper()
+            if tok_up.lower() not in _INLINE_PROSE_STOPWORDS and not _is_likely_english_word_not_aa(tok_up):
+                inline_candidates.append(m_any)
+
+    if inline_candidates:
+        best_m = max(inline_candidates, key=lambda m: len(m.group(0)))
+        seq_upper = best_m.group(0).upper()
+        _check_inline_dna_guard(seq_upper)
+        prose = (raw[:best_m.start()] + " " + raw[best_m.end():]).strip()
+        prose = " ".join(prose.split())
+        return {
+            "sequence": seq_upper,
+            "header": None,
+            "modifier_prose": prose,
+        }
+
+    return None
+
+
+def _search_rcsb_pdb_for_prompt(protein_query: str) -> Optional[Dict[str, Any]]:
+    """
+    Searches RCSB PDB full-text index for protein structures (especially de novo / designed
+    entries absent from UniProt) and validates token overlap before returning the best hit.
+    """
+    clean_q = (protein_query or "").strip()
+    if not clean_q:
+        return None
+
+    payload = {
+        "query": {
+            "type": "group",
+            "logical_operator": "and",
+            "nodes": [
+                {"type": "terminal", "service": "full_text", "parameters": {"value": clean_q}},
+                {
+                    "type": "terminal",
+                    "service": "text",
+                    "parameters": {
+                        "attribute": "entity_poly.rcsb_entity_polymer_type",
+                        "operator": "exact_match",
+                        "value": "Protein",
+                    },
+                },
+            ],
+        },
+        "request_options": {"paginate": {"start": 0, "rows": 5}},
+        "return_type": "entry",
+    }
+    search_url = "https://search.rcsb.org/rcsbsearch/v2/query?json=" + requests.utils.quote(json.dumps(payload))
+    try:
+        resp = _http_get(search_url, headers={"Accept": "application/json"}, timeout=8.0)
+        if resp.status_code != 200:
+            return None
+        rset = (resp.json() or {}).get("result_set") or []
+    except Exception:
+        return None
+
+    if not rset:
+        return None
+
+    pdb_stopwords = {
+        "the", "of", "and", "for", "with", "from", "protein", "peptide",
+        "chain", "structure", "crystal", "nmr", "cryo", "em", "de", "novo",
+    }
+    sig_tokens = [t for t in re.findall(r"[a-z0-9]{2,}", clean_q.lower()) if t not in pdb_stopwords]
+    q_low = clean_q.lower()
+
+    best_cand: Optional[Dict[str, Any]] = None
+    best_score = -1.0
+    for item in rset[:4]:
+        cand_id = str(item.get("identifier") or "").strip().upper()
+        if not cand_id:
+            continue
+        try:
+            cand = fetch_pdb_by_id(cand_id)
+        except Exception:
+            continue
+
+        short_desc = cand["protein_name"].split(" — ")[0].strip().lower()
+        hay = f"{cand['protein_name']} {cand.get('title', '')}".lower()
+
+        if sig_tokens:
+            matched_toks = sum(1 for t in sig_tokens if re.search(rf"\b{re.escape(t)}\b", hay) or (len(t) >= 4 and t in hay))
+            if matched_toks == 0:
+                continue
+            if len(sig_tokens) >= 2 and matched_toks < max(1, (len(sig_tokens) + 1) // 2):
+                continue
+        else:
+            if not any(w in hay for w in ("de novo", "synthetic", "designed")):
+                continue
+            matched_toks = 1
+
+        score = 20.0 * matched_toks
+        if short_desc == q_low or cand["protein_name"].lower() == q_low:
+            score += 100.0
+        if cand.get("is_de_novo"):
+            score += 10.0
+
+        if score > best_score:
+            best_score = score
+            best_cand = cand
+
+    return best_cand
+
+
+def _assemble_tagged_construct(
+    canonical_seq: str,
+    detected_tag: Optional[Dict[str, str]],
+    tag_position: str,
+    detected_cleavage: Optional[Dict[str, Any]],
+    target_label: str = "Target Protein",
+) -> Tuple[List[Tuple[str, str]], str]:
+    """Assembles ordered (label, sequence) construct parts and concatenated full sequence."""
+    tag_seq = ""
+    cleavage_seq = detected_cleavage["seq"] if detected_cleavage else ""
+    if detected_tag:
+        if tag_position == "N-terminal":
+            tag_seq = detected_tag.get("n_term_short", detected_tag.get("n_term", ""))
+        else:
+            tag_seq = detected_tag.get("c_term_short", detected_tag.get("c_term", ""))
+
+    construct_parts: List[Tuple[str, str]] = []
+    if tag_position == "N-terminal" or not detected_tag:
+        if tag_seq:
+            construct_parts.append((f"Tag ({detected_tag['name']})", tag_seq))
+        if cleavage_seq:
+            construct_parts.append((f"Cleavage ({detected_cleavage['name']})", cleavage_seq))
+        construct_parts.append((target_label, canonical_seq))
+    else:
+        construct_parts.append((target_label, canonical_seq))
+        if cleavage_seq:
+            construct_parts.append((f"Cleavage ({detected_cleavage['name']})", cleavage_seq))
+        if tag_seq:
+            construct_parts.append((f"Tag ({detected_tag['name']})", tag_seq))
+
+    return construct_parts, "".join(part[1] for part in construct_parts)
+
+
 def parse_natural_language_prompt(prompt: str) -> Dict[str, Any]:
     """
-    Parses any plain-language protein or recombinant construct description across all domains of life:
+    Parses any plain-language protein, PDB ID, or direct de novo / custom sequence prompt across
+    all domains of life and synthetic biology:
     - "GST human" -> Untagged Human Glutathione S-transferase P (P09211)
-    - "Human GST with N-terminal 6xHis tag" -> 6xHis-tagged Human GST (P09211)
     - "Chicken egg white lysozyme with N-terminal 6xHis tag and TEV site" -> 6xHis-TEV-Lysozyme (143 aa)
-    - "Pyrococcus furiosus Triosephosphate isomerase with C-terminal Twin-Strep tag" -> Pfu TPI construct
-
-    Uses extract_nl_query_components + single-roundtrip UniProtKB JSON search (size=15, persistent Session with
-    429/5xx exponential backoff) + deterministic rank_uniprot_candidates tie-breaking.
+    - "PDB 1QYS with N-terminal 6xHis tag" or "Top7" -> De novo Top7 construct from RCSB PDB
+    - Direct pasted de novo amino acid sequences (optionally + "with N-terminal 6xHis tag and TEV site")
     """
+    inline = _extract_inline_sequence_from_prompt(prompt)
+    if inline is not None:
+        raw_seq = inline["sequence"]
+        modifier_prose = inline["modifier_prose"]
+        header_raw = inline["header"]
+
+        leftover_title = ""
+        detected_tag: Optional[Dict[str, str]] = None
+        tag_position = "N/A"
+        detected_cleavage: Optional[Dict[str, Any]] = None
+        force_untagged = False
+
+        if modifier_prose:
+            t_raw, m_raw, force_untagged = _split_target_and_modifiers(f"DeNovoTarget {modifier_prose}")
+            if not force_untagged and m_raw:
+                _, detected_tag, tag_position, _, detected_cleavage = _detect_tag_and_cleavage_keys(m_raw)
+            if not detected_tag and not detected_cleavage and not force_untagged:
+                # Fallback in case tag keywords appear in modifier_prose directly
+                _, detected_tag, tag_position, _, detected_cleavage = _detect_tag_and_cleavage_keys(modifier_prose)
+            rem = re.sub(r"^DeNovoTarget\b\s*", "", t_raw, flags=re.IGNORECASE).strip(" ,;-+&:")
+            rem_words = [w.lower() for w in re.findall(r"[A-Za-z]+", rem)]
+            noise_words = {"with", "plus", "and", "or", "at", "the", "a", "an", "add", "having", "carrying", "bearing", "to"}
+            if rem and not _is_pure_modifier_phrase(rem) and not all(w in noise_words for w in rem_words):
+                leftover_title = rem
+
+        if header_raw:
+            hdr_meta = extract_fasta_header_metadata(header_raw)
+            protein_name = hdr_meta.get("protein_name") or header_raw
+        elif leftover_title:
+            protein_name = leftover_title if any(ch.isupper() for ch in leftover_title) else leftover_title.title()
+        else:
+            protein_name = "De Novo / Custom Sequence"
+
+        if (detected_tag or detected_cleavage) and not force_untagged:
+            canonical_seq = raw_seq
+            construct_parts, full_construct_seq = _assemble_tagged_construct(
+                canonical_seq,
+                detected_tag,
+                tag_position,
+                detected_cleavage,
+                target_label="Target Sequence (De Novo / Custom)",
+            )
+            tag_name = detected_tag["name"] if detected_tag else "None"
+            final_tag_pos = tag_position if detected_tag else "N/A"
+            cleavage_name = detected_cleavage["name"] if detected_cleavage else "None"
+        else:
+            full_construct_seq = raw_seq
+            term_tag = detect_sequence_terminal_tag(raw_seq) if not force_untagged else {"tag_detected": "None", "tag_position": "N/A", "core_sequence": raw_seq}
+            cleavage_name = "None"
+            if term_tag["tag_detected"] != "None" and len(term_tag["core_sequence"]) < len(raw_seq):
+                canonical_seq = term_tag["core_sequence"]
+                tag_name = term_tag["tag_detected"]
+                final_tag_pos = term_tag["tag_position"]
+                if final_tag_pos == "N-terminal":
+                    tag_slice = raw_seq[:len(raw_seq) - len(canonical_seq)]
+                    construct_parts = [
+                        (f"Detected Tag ({tag_name})", tag_slice),
+                        ("Target Sequence (De Novo / Custom)", canonical_seq),
+                    ]
+                else:
+                    tag_slice = raw_seq[len(canonical_seq):]
+                    construct_parts = [
+                        ("Target Sequence (De Novo / Custom)", canonical_seq),
+                        (f"Detected Tag ({tag_name})", tag_slice),
+                    ]
+            else:
+                canonical_seq = raw_seq
+                tag_name = "None"
+                final_tag_pos = "N/A"
+                construct_parts = [("Target Sequence (De Novo / Custom)", canonical_seq)]
+
+        return {
+            "prompt": prompt,
+            "identified_organism": "De Novo / Synthetic Construct",
+            "identified_protein": protein_name,
+            "uniprot_id": "",
+            "accession": "",
+            "pdb_id": "",
+            "chain_id": "",
+            "is_de_novo": True,
+            "is_direct_sequence": True,
+            "gene_name": "Synthetic / De Novo",
+            "biochem_annotations": {},
+            "tag_detected": tag_name,
+            "tag_position": final_tag_pos,
+            "cleavage_detected": cleavage_name,
+            "construct_parts": construct_parts,
+            "canonical_sequence": canonical_seq,
+            "full_construct_sequence": full_construct_seq,
+            "length": len(full_construct_seq),
+        }
+
     comp = extract_nl_query_components(prompt)
     protein_query = comp["protein_query"]
     organism_taxid = comp["organism_taxid"]
@@ -4927,10 +5550,22 @@ def parse_natural_language_prompt(prompt: str) -> Dict[str, Any]:
     if not protein_query:
         raise ValueError(
             f"Could not identify a target protein name in '{prompt}'. "
-            "Please include a protein or gene name (e.g., 'GST human' or 'Human p53 with N-terminal GST tag')."
+            "Please include a protein/gene name (e.g., 'GST human' or 'Top7'), an RCSB PDB ID ('PDB 1QYS'), "
+            "or paste your amino acid sequence directly."
         )
 
     target_data: Optional[Dict[str, Any]] = None
+
+    # Direct explicit RCSB PDB ID inside plain English ('PDB 1QYS with N-terminal 6xHis tag', 'rcsb 6D0T_A')
+    m_explicit_pdb = re.match(
+        r"^(?:rcsb\s+)?pdb[\s:_\-]+([1-9][a-z0-9]{3})(?:[\s:_.\-]+(?:chain\s+)?([a-z0-9]{1,2}))?$",
+        protein_query.strip(),
+        flags=re.IGNORECASE,
+    )
+    if m_explicit_pdb:
+        pdb_q = m_explicit_pdb.group(1).upper() + (f"_{m_explicit_pdb.group(2).upper()}" if m_explicit_pdb.group(2) else "")
+        target_data = fetch_pdb_by_id(pdb_q)
+
     offline_match = _match_offline_classroom_target(
         protein_query,
         organism_taxid=organism_taxid,
@@ -4952,7 +5587,7 @@ def parse_natural_language_prompt(prompt: str) -> Dict[str, Any]:
         )
         and organism_taxid in (None, 12227)
     )
-    if is_mature_chicken_lysozyme or is_mature_tev_protease:
+    if target_data is None and (is_mature_chicken_lysozyme or is_mature_tev_protease):
         target_data = offline_match
 
     live_uniprot_reachable = False
@@ -4992,51 +5627,55 @@ def parse_natural_language_prompt(prompt: str) -> Dict[str, Any]:
     if target_data is None and not live_uniprot_reachable:
         target_data = _search_local_corpus_offline(comp)
 
+    # RCSB PDB fallback for bare 4-char PDB IDs or de novo / designed proteins not indexed in UniProt
+    if target_data is None and re.fullmatch(r"[1-9][A-Za-z0-9]{3}(?:[_:.][A-Za-z0-9]{1,2})?", protein_query.strip()):
+        try:
+            target_data = fetch_pdb_by_id(protein_query.strip())
+        except ValueError:
+            target_data = None
+
+    if target_data is None and (
+        organism_name is None
+        or any(kw in prompt.lower() for kw in ("de novo", "synthetic", "designed", "artificial", "rfdiffusion", "proteinmpnn"))
+    ):
+        target_data = _search_rcsb_pdb_for_prompt(protein_query)
+
     if target_data is None:
         if organism_name:
             raise ValueError(
                 f"No matching '{protein_query}' protein was found in {organism_name} on UniProt. "
-                f"(Note: {organism_name} may not encode this enzyme—try another species or omit the organism name!)"
+                f"(Note: {organism_name} may not encode this enzyme—try another species, omit the organism name, "
+                "or paste the amino acid sequence directly!)"
             )
         raise ValueError(
             f"Could not find a matching protein sequence on UniProt for query: '{clean_query}'. "
-            "Please check the organism/protein spelling or choose a Classroom Example / UniProt ID directly."
+            "Please check the spelling, enter a UniProt or RCSB PDB ID (e.g., 1QYS, 6D0T), or paste the amino acid sequence directly."
         )
 
-    uniprot_id = target_data["accession"]
+    pdb_id = target_data.get("pdb_id", "")
+    chain_id = target_data.get("chain_id", "")
+    is_de_novo = bool(target_data.get("is_de_novo", False))
+    uniprot_id = str(target_data.get("uniprot_id", target_data["accession"] if not pdb_id else "") or "")
     canonical_seq = target_data["sequence"]
 
-    tag_seq = ""
-    cleavage_seq = detected_cleavage["seq"] if detected_cleavage else ""
-
-    if detected_tag:
-        if tag_position == "N-terminal":
-            tag_seq = detected_tag.get("n_term_short", detected_tag.get("n_term", ""))
-        else:
-            tag_seq = detected_tag.get("c_term_short", detected_tag.get("c_term", ""))
-
-    construct_parts = []
-    if tag_position == "N-terminal" or not detected_tag:
-        if tag_seq:
-            construct_parts.append((f"Tag ({detected_tag['name']})", tag_seq))
-        if cleavage_seq:
-            construct_parts.append((f"Cleavage ({detected_cleavage['name']})", cleavage_seq))
-        construct_parts.append(("Target Protein", canonical_seq))
-    else:
-        construct_parts.append(("Target Protein", canonical_seq))
-        if cleavage_seq:
-            construct_parts.append((f"Cleavage ({detected_cleavage['name']})", cleavage_seq))
-        if tag_seq:
-            construct_parts.append((f"Tag ({detected_tag['name']})", tag_seq))
-
-    full_construct_seq = "".join([part[1] for part in construct_parts])
+    construct_parts, full_construct_seq = _assemble_tagged_construct(
+        canonical_seq,
+        detected_tag,
+        tag_position,
+        detected_cleavage,
+        target_label="Target Protein",
+    )
 
     return {
         "prompt": prompt,
         "identified_organism": target_data["organism"],
         "identified_protein": target_data["protein_name"],
         "uniprot_id": uniprot_id,
-        "accession": uniprot_id,
+        "accession": target_data.get("accession") or uniprot_id,
+        "pdb_id": pdb_id,
+        "chain_id": chain_id,
+        "is_de_novo": is_de_novo,
+        "is_direct_sequence": False,
         "gene_name": target_data.get("gene_name") or "N/A",
         "biochem_annotations": target_data.get("biochem_annotations", {}),
         "tag_detected": detected_tag["name"] if detected_tag else "None",
