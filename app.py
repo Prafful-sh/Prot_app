@@ -31,22 +31,31 @@ import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
 
-from modules.sequence_parser import (
-    LYSOZYME_MATURE_SEQ,
-    CLASSROOM_PRESET_PROTEINS,
-    clean_amino_acid_sequence,
-    detect_sequence_terminal_tag,
-    fetch_uniprot_by_id,
-    fetch_ncbi_by_id,
-    find_longest_orf,
-    translate_nucleotide,
-    parse_natural_language_prompt
+_SUBMODULES_IN_ORDER = (
+    "modules.sequence_parser",
+    "modules.purification_metrics",
+    "modules.sec_simulator",
+    "modules.buffer_advisor",
+    "modules.sds_page_simulator",
+    "modules.secondary_structure",
 )
-from modules.purification_metrics import (
-    analyze_all_parameters,
-    calculate_net_charge_at_ph
-)
+
 try:
+    from modules.sequence_parser import (
+        LYSOZYME_MATURE_SEQ,
+        CLASSROOM_PRESET_PROTEINS,
+        clean_amino_acid_sequence,
+        detect_sequence_terminal_tag,
+        fetch_uniprot_by_id,
+        fetch_ncbi_by_id,
+        find_longest_orf,
+        translate_nucleotide,
+        parse_natural_language_prompt,
+    )
+    from modules.purification_metrics import (
+        analyze_all_parameters,
+        calculate_net_charge_at_ph,
+    )
     from modules.sec_simulator import (
         SEC_COLUMNS,
         CONFORMATION_PROFILES,
@@ -55,13 +64,49 @@ try:
         simulate_chromatogram_peaks,
         simulate_standard_mixture_chromatogram,
         compute_column_snapshot,
+    )
+    from modules.buffer_advisor import (
+        COMMON_LAB_REAGENTS,
+        REAGENT_LOOKUP,
+        PRESET_RECIPE_TEMPLATES,
+        infer_protein_biochemical_profile,
+        recommend_full_purification_workflow,
+        audit_buffer_compatibility_for_protein,
+        compute_custom_buffer_recipe,
+        convert_weight_and_molarity,
+    )
+    from modules.sds_page_simulator import (
+        generate_sds_page_figure,
+    )
+    from modules.secondary_structure import (
+        predict_secondary_structure,
+        generate_secondary_structure_figure,
+        format_ss_sequence_blocks,
     )
 except ImportError:
-    # Handle hot-reloading when container has stale in-memory cached module
-    if "modules.sec_simulator" in sys.modules:
-        importlib.reload(sys.modules["modules.sec_simulator"])
-    else:
-        import modules.sec_simulator
+    # Handle Streamlit Cloud hot-reloading when container has stale in-memory cached modules in sys.modules
+    if "modules" in sys.modules:
+        importlib.reload(sys.modules["modules"])
+    for _mod_name in _SUBMODULES_IN_ORDER:
+        if _mod_name in sys.modules:
+            importlib.reload(sys.modules[_mod_name])
+        else:
+            importlib.import_module(_mod_name)
+    from modules.sequence_parser import (
+        LYSOZYME_MATURE_SEQ,
+        CLASSROOM_PRESET_PROTEINS,
+        clean_amino_acid_sequence,
+        detect_sequence_terminal_tag,
+        fetch_uniprot_by_id,
+        fetch_ncbi_by_id,
+        find_longest_orf,
+        translate_nucleotide,
+        parse_natural_language_prompt,
+    )
+    from modules.purification_metrics import (
+        analyze_all_parameters,
+        calculate_net_charge_at_ph,
+    )
     from modules.sec_simulator import (
         SEC_COLUMNS,
         CONFORMATION_PROFILES,
@@ -71,25 +116,24 @@ except ImportError:
         simulate_standard_mixture_chromatogram,
         compute_column_snapshot,
     )
-
-from modules.buffer_advisor import (
-    COMMON_LAB_REAGENTS,
-    REAGENT_LOOKUP,
-    PRESET_RECIPE_TEMPLATES,
-    infer_protein_biochemical_profile,
-    recommend_full_purification_workflow,
-    audit_buffer_compatibility_for_protein,
-    compute_custom_buffer_recipe,
-    convert_weight_and_molarity
-)
-from modules.sds_page_simulator import (
-    generate_sds_page_figure
-)
-from modules.secondary_structure import (
-    predict_secondary_structure,
-    generate_secondary_structure_figure,
-    format_ss_sequence_blocks,
-)
+    from modules.buffer_advisor import (
+        COMMON_LAB_REAGENTS,
+        REAGENT_LOOKUP,
+        PRESET_RECIPE_TEMPLATES,
+        infer_protein_biochemical_profile,
+        recommend_full_purification_workflow,
+        audit_buffer_compatibility_for_protein,
+        compute_custom_buffer_recipe,
+        convert_weight_and_molarity,
+    )
+    from modules.sds_page_simulator import (
+        generate_sds_page_figure,
+    )
+    from modules.secondary_structure import (
+        predict_secondary_structure,
+        generate_secondary_structure_figure,
+        format_ss_sequence_blocks,
+    )
 
 # Page configuration
 st.set_page_config(

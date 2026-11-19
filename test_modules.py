@@ -1843,8 +1843,18 @@ def test_biochemical_protein_intelligence_and_metalloprotein_safety(root_dir: st
     )
     assert len(ure_safe_warns) == 0
 
-    # 4. Headless Streamlit AppTest end-to-end verification of "Urease with 6x His tag"
+    # 4. Simulate Streamlit Cloud hot-reload with stale sys.modules missing newly added functions
+    import sys as _sys
+    delattr(_sys.modules["modules.sequence_parser"], "detect_sequence_terminal_tag")
+    delattr(_sys.modules["modules.buffer_advisor"], "infer_protein_biochemical_profile")
+
+    # 5. Headless Streamlit AppTest end-to-end verification of "Urease with 6x His tag"
     app_path = os.path.join(root_dir, "app.py")
+    at_reload = AppTest.from_file(app_path).run(timeout=30)
+    assert len(at_reload.exception) == 0, f"Hot-reload recovery failed: {at_reload.exception}"
+    assert hasattr(_sys.modules["modules.sequence_parser"], "detect_sequence_terminal_tag")
+    assert hasattr(_sys.modules["modules.buffer_advisor"], "infer_protein_biochemical_profile")
+
     with patch("modules.sequence_parser.requests.get", side_effect=_requests.ConnectionError("Simulated offline")):
         at = AppTest.from_file(app_path).run(timeout=30)
         at.sidebar.radio[0].set_value("💬 Describe in Plain English").run(timeout=30)
