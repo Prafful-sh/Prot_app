@@ -1518,10 +1518,66 @@ st.markdown("""
         margin-bottom: 4px;
     }
 
-    /* Minimize Streamlit chrome & viewer-badge branding inside the app viewport */
+    /* Keep the header & toolbar transparent and click-through so the sidebar expand toggle
+       ([data-testid="stExpandSidebarButton"], mounted inside stToolbar in Streamlit 1.38+)
+       always remains visible and clickable after hiding the sidebar or on mobile */
+    [data-testid="stHeader"],
+    [data-testid="stToolbar"] {
+        background: transparent !important;
+        pointer-events: none !important;
+    }
+    [data-testid="stExpandSidebarButton"],
+    [data-testid="collapsedControl"],
+    [data-testid="stStatusWidget"] {
+        pointer-events: auto !important;
+    }
+    [data-testid="stExpandSidebarButton"],
+    [data-testid="collapsedControl"] button {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: var(--bg-surface) !important;
+        border: 1.5px solid var(--teal-strong) !important;
+        border-radius: 10px !important;
+        padding: 4px 12px 4px 8px !important;
+        color: var(--teal-strong) !important;
+        box-shadow: 0 2px 8px rgba(11, 34, 28, 0.12) !important;
+    }
+    [data-testid="stExpandSidebarButton"]:hover,
+    [data-testid="collapsedControl"] button:hover {
+        background: var(--teal-tint) !important;
+        border-color: var(--teal-deep) !important;
+        color: var(--teal-deep) !important;
+    }
+    [data-testid="stExpandSidebarButton"] [data-testid="stIconMaterial"],
+    [data-testid="stExpandSidebarButton"] svg,
+    [data-testid="collapsedControl"] [data-testid="stIconMaterial"],
+    [data-testid="collapsedControl"] svg {
+        color: var(--teal-strong) !important;
+        fill: var(--teal-strong) !important;
+    }
+    [data-testid="stExpandSidebarButton"]::after,
+    [data-testid="collapsedControl"] button::after {
+        content: "Load / Search Protein";
+        font-family: var(--font-sans);
+        font-size: var(--fs-label);
+        font-weight: 700;
+        color: var(--teal-strong);
+        white-space: nowrap;
+    }
+    [data-testid="stExpandSidebarButton"]:hover::after,
+    [data-testid="collapsedControl"] button:hover::after {
+        color: var(--teal-deep);
+    }
+
+    /* Minimize Streamlit chrome & viewer-badge branding inside the app viewport
+       (Never hide stHeader / stToolbar — stExpandSidebarButton lives inside stToolbar!) */
     #MainMenu,
     footer,
-    [data-testid="stToolbar"],
+    [data-testid="stMainMenu"],
+    [data-testid="stToolbarActions"],
+    [data-testid="stAppDeployButton"],
     [data-testid="stDecoration"],
     [class*="viewerBadge"],
     [class*="_profileContainer"],

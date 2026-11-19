@@ -2070,6 +2070,31 @@ def test_all_5_input_methods_hardening_and_minimal_chrome(root_dir: str) -> None
     assert "menu_items={}" in app_txt
     assert "viewerBadge" in app_txt and "#MainMenu" in app_txt
 
+    # Ensure sidebar expand toggle inside stToolbar/stHeader is never hidden by display: none
+    style_match = re.search(r"<style>(.*?)</style>", app_txt, flags=re.S | re.I)
+    assert style_match is not None, "Missing <style> block in app.py"
+    style_css = re.sub(r"/\*.*?\*/", "", style_match.group(1), flags=re.S)
+    css_rules = re.findall(r"([^{}]+)\{([^{}]*)\}", style_css, flags=re.S)
+    hidden_selectors = []
+    for sel_raw, body_raw in css_rules:
+        if re.search(r"display\s*:\s*none", body_raw, flags=re.I):
+            for sel_item in sel_raw.split(","):
+                hidden_selectors.append(sel_item.strip())
+    assert not any('[data-testid="stToolbar"]' == s or s.endswith('[data-testid="stToolbar"]') for s in hidden_selectors), (
+        "CSS rule hides [data-testid=\"stToolbar\"], which breaks [data-testid=\"stExpandSidebarButton\"]"
+    )
+    assert not any('[data-testid="stHeader"]' == s or s.endswith('[data-testid="stHeader"]') for s in hidden_selectors), (
+        "CSS rule hides [data-testid=\"stHeader\"], which breaks sidebar expand toggle"
+    )
+    hidden_joined = "\n".join(hidden_selectors)
+    assert '[data-testid="stToolbarActions"]' in hidden_joined
+    assert '[data-testid="stMainMenu"]' in hidden_joined
+    assert '[data-testid="stAppDeployButton"]' in hidden_joined
+    assert any(
+        '[data-testid="stExpandSidebarButton"]' in sel_raw and re.search(r"pointer-events\s*:\s*auto", body_raw, flags=re.I)
+        for sel_raw, body_raw in css_rules
+    ), "Sidebar expand button must explicitly enable pointer-events: auto"
+
     for folder, fnames in ((root_dir, ("app.py",)), (os.path.join(root_dir, "modules"), os.listdir(os.path.join(root_dir, "modules")))):
         for fn in fnames:
             if not fn.endswith(".py"):
