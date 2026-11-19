@@ -2231,6 +2231,67 @@ def test_all_5_input_methods_hardening_and_minimal_chrome(root_dir: str) -> None
     assert "UniProt NP_990612.2" not in md_ncbi
     assert len(re.findall(r"font-size\s*:", md_ncbi, flags=re.IGNORECASE)) == 0
 
+    # 7. Scientific precision & caveat checks (disulfide-oxidized pI, resin-specific EDTA/Ni-NTA warning, heuristic solubility, benchmark transparency)
+    from modules.buffer_advisor import build_compatibility_matrix, audit_buffer_compatibility_for_protein, infer_protein_biochemical_profile
+
+    lyso_m = analyze_all_parameters(LYSOZYME_MATURE_SEQ)
+    assert abs(lyso_m["pi"] - 9.32) <= 0.01
+    assert abs(lyso_m["pi_oxidized"] - 10.46) <= 0.02
+    assert "Heuristic" in lyso_m["solubility"]["solubility_class"]
+    assert "87.5%" not in lyso_m["solubility"]["description"] and "81 proteins" in lyso_m["solubility"]["description"]
+
+    # Resin-specific EDTA warnings for untagged & His-tagged non-metalloproteins
+    lyso_prof_untagged = infer_protein_biochemical_profile(
+        sequence=LYSOZYME_MATURE_SEQ,
+        protein_name="Lysozyme C",
+        metadata={"uniprot_id": "P00698"},
+        metrics=lyso_m,
+        tag_detected="None",
+    )
+    wf_lyso_untagged = recommend_full_purification_workflow(
+        lyso_m, 7.4, calculate_net_charge_at_ph(LYSOZYME_MATURE_SEQ, 7.4),
+        tag_detected="None", sequence=LYSOZYME_MATURE_SEQ, protein_name="Lysozyme C", protein_profile=lyso_prof_untagged,
+    )
+    chel_tile_untagged = [t for t in build_compatibility_matrix(lyso_m, 7.4, 7.38, wf_lyso_untagged) if "EDTA" in t["title"]][0]
+    assert "Ni-NTA" in chel_tile_untagged["reason"] and "strips resin Ni²⁺" in chel_tile_untagged["reason"]
+
+    lyso_prof_his = infer_protein_biochemical_profile(
+        sequence="MHHHHHH" + LYSOZYME_MATURE_SEQ,
+        protein_name="Lysozyme C",
+        metadata={"uniprot_id": "P00698"},
+        metrics=lyso_m,
+        tag_detected="6xHis",
+    )
+    wf_lyso_his = recommend_full_purification_workflow(
+        lyso_m, 7.4, calculate_net_charge_at_ph(LYSOZYME_MATURE_SEQ, 7.4),
+        tag_detected="6xHis", sequence="MHHHHHH" + LYSOZYME_MATURE_SEQ, protein_name="Lysozyme C", protein_profile=lyso_prof_his,
+    )
+    chel_tile_his = [t for t in build_compatibility_matrix(lyso_m, 7.4, 7.38, wf_lyso_his) if "EDTA" in t["title"]][0]
+    assert chel_tile_his["status"] == "warn" and "Omit for Ni-NTA" in chel_tile_his["badge"]
+
+    imac_edta_warns = audit_buffer_compatibility_for_protein(
+        [
+            {"Reagent": "Tris-Base", "Value": 50.0, "Unit": "mM"},
+            {"Reagent": "Imidazole (His-Tag Eluant)", "Value": 20.0, "Unit": "mM"},
+            {"Reagent": "EDTA Disodium·2H2O", "Value": 1.0, "Unit": "mM"},
+        ],
+        8.0,
+        lyso_prof_his,
+        "Lysozyme C",
+    )
+    assert any("IMAC Resin Stripping Hazard" in w for w in imac_edta_warns)
+
+    # Default Lysozyme page shows oxidized S-S pI estimate & removes undefined '~99% volume accuracy' claim
+    assert "~99% volume accuracy" not in app_txt
+    assert "Benchmark Methodology, Data Splits & Practical Scope" in app_txt
+    at_def = AppTest.from_file(app_path).run(timeout=30)
+    assert len(at_def.exception) == 0
+    md_def = "\n".join(m.value for m in at_def.markdown if "<style>" not in m.value)
+    cap_def = "\n".join(c.value for c in at_def.caption)
+    assert "S–S oxidized: ~10.46" in md_def
+    assert "Bjellqvist" in cap_def and "10.46" in cap_def
+    assert len(re.findall(r"font-size\s*:", md_def, flags=re.IGNORECASE)) == 0
+
 
 def test_pipeline() -> None:
     root_dir = os.path.dirname(os.path.abspath(__file__))

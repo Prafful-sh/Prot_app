@@ -1696,6 +1696,9 @@ with st.sidebar:
         key="classroom_preset_select",
         on_change=_apply_classroom_preset
     )
+    st.caption(
+        "Educational simulator & workflow planner — treat outputs as starting hypotheses and verify against experimental data & resin manuals."
+    )
 
 
 # --- COMPUTE ALL PHYSICOCHEMICAL PARAMETERS & BIOCHEMICAL PROTEIN INTELLIGENCE ---
@@ -1794,11 +1797,17 @@ instab_badge_cls = "kpi-status-ok" if instab_ok else "kpi-status-warn"
 instab_badge_txt = "✅ Stable (< 40)" if instab_ok else "⚠️ Unstable (≥ 40, keep on ice)"
 
 if metrics["pi"] > 7.3:
-    pi_hint = "Basic (+ charge at pH 7.0)"
+    pi_hint = "Basic (+ at pH 7.0)"
 elif metrics["pi"] < 6.7:
-    pi_hint = "Acidic (– charge at pH 7.0)"
+    pi_hint = "Acidic (– at pH 7.0)"
 else:
     pi_hint = "Near-neutral (~0 at pH 7.0)"
+
+pi_ox = float(metrics.get("pi_oxidized", metrics["pi"]))
+if protein_profile.get("avoid_reducing_agents") and abs(pi_ox - metrics["pi"]) >= 0.15:
+    pi_sub_txt = f"{pi_hint} • S–S oxidized: ~{pi_ox:.2f}"
+else:
+    pi_sub_txt = f"{pi_hint} • ExPASy / Bjellqvist"
 
 if metrics["gravy"] < -0.55:
     gravy_hint = "Very water-loving (Polar)"
@@ -1827,9 +1836,9 @@ st.markdown(f"""
         <div class="kpi-sub">{metrics['mw_da']:,.2f} Da • Monomer chain</div>
     </div>
     <div class="card-kpi bar-amber">
-        <div class="kpi-title">Isoelectric Point</div>
+        <div class="kpi-title">Theoretical pI</div>
         <div class="kpi-value">pI {metrics['pi']:.2f}</div>
-        <div class="kpi-sub">{pi_hint}</div>
+        <div class="kpi-sub">{pi_sub_txt}</div>
     </div>
     <div class="card-kpi bar-emerald">
         <div class="kpi-title">Extinction (A280)</div>
@@ -3270,6 +3279,18 @@ with tab_strategy:
             margin=dict(l=38, r=25, t=48, b=38)
         )
         st.plotly_chart(fig_charge, width="stretch")
+        pi_ox_tab2 = float(metrics.get("pi_oxidized", pi_val))
+        if protein_profile.get("avoid_reducing_agents") and abs(pi_ox_tab2 - pi_val) >= 0.15:
+            st.caption(
+                f"Model assumption: Curve uses the ExPASy ProtParam / Bjellqvist (1993–94) denatured sequence model "
+                f"(treats all Cys as free –SH; ignores 3D pKa shifts & PTMs). With structural S–S disulfides oxidized, "
+                f"estimated pI shifts from **{pi_val:.2f} ➜ ~{pi_ox_tab2:.2f}** (native folded experimental pI can shift further, e.g., ~10.7–11.3 for native hen lysozyme)."
+            )
+        else:
+            st.caption(
+                "Model assumption: Theoretical pI & net charge use the ExPASy ProtParam / Bjellqvist (1993–94) denatured sequence model "
+                "(treats all Cys as free –SH; excludes 3D folded microenvironments, ionic strength, and PTMs)."
+            )
 
         iex_badge_cls = "kpi-status-warn" if "AVOID" in iex["recommended_column"].upper() else "method-badge-teal"
         st.markdown(f"""
@@ -3867,12 +3888,12 @@ with tab_details:
 
         sol = metrics["solubility"]
         sol_cls_low = sol["solubility_class"].lower()
-        if "high" in sol_cls_low or "good" in sol_cls_low or ("soluble" in sol_cls_low and "insoluble" not in sol_cls_low and "low" not in sol_cls_low):
-            sol_card_cls = "result-card-teal"
-            sol_badge_cls = "kpi-status-ok"
-        elif "low" in sol_cls_low or "insoluble" in sol_cls_low or "inclusion" in sol_cls_low:
+        if "low" in sol_cls_low or "insoluble" in sol_cls_low or "inclusion" in sol_cls_low or "elevated" in sol_cls_low:
             sol_card_cls = "result-card-crimson"
             sol_badge_cls = "kpi-status-warn"
+        elif "high" in sol_cls_low or "good" in sol_cls_low or "favorable" in sol_cls_low:
+            sol_card_cls = "result-card-teal"
+            sol_badge_cls = "kpi-status-ok"
         else:
             sol_card_cls = "result-card-amber"
             sol_badge_cls = "method-badge-amber"
@@ -3898,7 +3919,7 @@ with tab_details:
         </div>
         <div class="result-callout-card {sol_card_cls}">
             <div class="method-card-header">
-                <span class="method-card-title">🧫 Predicted Solubility in <i>E. coli</i></span>
+                <span class="method-card-title">🧫 <i>E. coli</i> Solubility Heuristic (37°C Cytoplasm)</span>
                 <span class="{sol_badge_cls}">{sol['solubility_class']}</span>
             </div>
             <div class="ui-body">{sol['description']}</div>
@@ -3961,28 +3982,30 @@ with tab_examples:
     else:
         bsum = bench_data["summary"]
 
-        # 3 Friendly Non-Technical Summary Cards
+        n_lit_cases = len(bench_data.get("literature_cases", []))
+        n_lit_peaks = sum(len(c.get("species", [])) for c in bench_data.get("literature_cases", []))
+        # 3 Transparent Summary Cards
         st.markdown(f"""
         <div class="roadmap-grid">
             <div class="roadmap-card" style="border-top: 4px solid #0D9488;">
-                <div class="roadmap-step-tag">🧬 Tested Across Sizes</div>
-                <div class="kpi-value">{bsum['total_pdb_biomolecules']:,} Real Proteins</div>
+                <div class="roadmap-step-tag">🧬 Hydrodynamic Calibration Sweep</div>
+                <div class="kpi-value">{bsum['total_pdb_biomolecules']:,} PDB Assemblies</div>
                 <div class="roadmap-body">
-                    From tiny <b>3 kDa</b> peptides up to giant <b>3,000 kDa (3 MDa)</b> multi-subunit complexes from the Protein Data Bank.
+                    Hydrodynamic radius (Rh) &amp; column-range sweep across <b>3 kDa – 3 MDa</b> PDB structures ({bsum.get('sec_experimentally_supported_pdb_assemblies', 809):,} with SEC-supported assembly metadata).
                 </div>
             </div>
             <div class="roadmap-card" style="border-top: 4px solid #059669;">
-                <div class="roadmap-step-tag">🎯 Peak Accuracy</div>
-                <div class="kpi-value">Mean Error: {bsum['literature_complex_mae_ml']:.2f} mL</div>
+                <div class="roadmap-step-tag">🎯 Case-Study Peak MAE</div>
+                <div class="kpi-value">MAE: {bsum['literature_complex_mae_ml']:.2f} mL (n = {n_lit_peaks})</div>
                 <div class="roadmap-body">
-                    Mean absolute error (MAE) across published complex peaks (~99% volume accuracy on a 24 mL column!).
+                    Mean absolute error across <b>{n_lit_peaks} peaks</b> in {n_lit_cases} published 24 mL SEC case studies (<b>{bsum.get('analytical_24ml_mean_mae_ml', 0.22):.2f} mL</b> MAE across {bsum.get('total_standard_calibration_points', 55)} Cytiva globular calibration standards).
                 </div>
             </div>
             <div class="roadmap-card" style="border-top: 4px solid #D97706;">
-                <div class="roadmap-step-tag roadmap-step-amber">📖 Open-Access Papers</div>
-                <div class="kpi-value">Proteins + DNA &amp; RNA</div>
+                <div class="roadmap-step-tag roadmap-step-amber">📖 Open-Access Case Studies</div>
+                <div class="kpi-value">{n_lit_cases} Published Papers</div>
                 <div class="roadmap-body">
-                    Verified on single enzymes, flexible proteins, histone–DNA spools, and CRISPR-Cas9 guide-RNA gene editors.
+                    Illustrative checks across single enzymes, flexible proteins, histone–DNA nucleosomes, and CRISPR-Cas9 ribonucleoproteins.
                 </div>
             </div>
         </div>
@@ -4352,3 +4375,15 @@ with tab_examples:
                     mime="text/csv",
                     width="stretch"
                 )
+
+    with st.expander("📋 Benchmark Methodology, Data Splits & Practical Scope", expanded=False):
+        sec_eq = bench_data["summary"].get("hydrodynamic_law", "ln(Rh_A) = 1.92534 + 0.38101*ln(MW_kDa) - 0.00167*[ln(MW_kDa)]^2") if bench_data else ""
+        ss_train_n = int(ss_bench_tab5.get("train_count", 3751)) if ss_bench_tab5 else 3751
+        ss_train_res = int(ss_bench_tab5.get("train_residues", 1449487)) if ss_bench_tab5 else 1449487
+        ss_test_n = int(ss_bench_tab5.get("test_count", 11118)) if ss_bench_tab5 else 11118
+        ss_test_res = int(ss_bench_tab5.get("total_test_residues", 4066153)) if ss_bench_tab5 else 4066153
+        st.markdown(
+            f"- **SEC Simulator & Case-Study Validation:** Uses empirical hydrodynamic radius scaling (`{sec_eq}`, globular standard fit `R² = 0.995`) mapped onto Cytiva column pore calibration curves (`55` calibration standard points, `0.22 mL` MAE on 24 mL columns). The reported **`0.17 mL` MAE** is strictly measured over the **20 peaks across 7 published open-access case studies**; the **1,254 PDB assemblies** represent a molecular-weight/hydrodynamic-radius calibration sweep (not 1,254 independent experimental chromatograms). Actual elution shifts with non-globular shape, glycosylation, detergent micelles, and resin–analyte interactions.\n"
+            f"- **Secondary Structure Benchmark Splits & Curation:** Trained strictly on **`{ss_train_n:,}` PDB/DSSP chains** (`{ss_train_res:,}` residues; internal 76% Stage-1 / 14% Stage-2 / 10% calibration split with 5-fold out-of-fold GOR IV features) and evaluated on **`{ss_test_n:,}` held-out proteins** (`{ss_test_res:,}` residues) across all 7 taxonomic strata with **`<30%` 5-mer similarity filtering**, **`0` accession/sequence overlap**, and **`0` preset proteins in training**. Because it predicts from a *single sequence* without evolutionary MSAs, consult PDB / AlphaFold DB / MSA servers for research-grade structural modeling.\n"
+            "- **Physicochemical Models & Practical Scope:** Theoretical pI/charge uses ExPASy ProtParam / Bjellqvist (1993–94) denatured pKa sets (plus an optional oxidized-disulfide S–S estimate when structural disulfides are present); solubility uses the coarse 81-protein Wilkinson–Harrison (1991) / Davis (1999) 37 °C *E. coli* cytoplasmic heuristic. **Treat all outputs as educational simulations and starting hypotheses**—confirm critical protocols against experimental measurements and manufacturer resin manuals."
+        )

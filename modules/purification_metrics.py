@@ -119,10 +119,13 @@ def calculate_molecular_weight(sequence: str) -> float:
     return round(mass, 2)
 
 
-def calculate_net_charge_at_ph(sequence: str, ph: float) -> float:
+def calculate_net_charge_at_ph(sequence: str, ph: float, cystines_oxidized: bool = False) -> float:
     """
     Calculates net electrical charge of the polypeptide at a specific pH using
-    Bjellqvist et al. (1993, 1994) side-chain and residue-specific terminal pKa values.
+    Bjellqvist et al. (1993, 1994) side-chain and residue-specific terminal pKa values
+    (the ExPASy ProtParam sequence-based model).
+    When `cystines_oxidized=True`, Cys side chains locked in structural S-S disulfide bonds
+    are treated as non-ionizable (omitting thiol deprotonation above pH ~9).
     """
     seq = sequence.strip().upper()
     if not seq:
@@ -143,14 +146,14 @@ def calculate_net_charge_at_ph(sequence: str, ph: float) -> float:
     c_term_neg = 1.0 / (1.0 + 10.0 ** (c_pka - ph))
     d_neg = counts['D'] / (1.0 + 10.0 ** (BJELLQVIST_PKA['D'] - ph))
     e_neg = counts['E'] / (1.0 + 10.0 ** (BJELLQVIST_PKA['E'] - ph))
-    c_neg = counts['C'] / (1.0 + 10.0 ** (BJELLQVIST_PKA['C'] - ph))
+    c_neg = 0.0 if cystines_oxidized else (counts['C'] / (1.0 + 10.0 ** (BJELLQVIST_PKA['C'] - ph)))
     y_neg = counts['Y'] / (1.0 + 10.0 ** (BJELLQVIST_PKA['Y'] - ph))
     total_neg = c_term_neg + d_neg + e_neg + c_neg + y_neg
 
     return total_pos - total_neg
 
 
-def calculate_isoelectric_point(sequence: str) -> float:
+def calculate_isoelectric_point(sequence: str, cystines_oxidized: bool = False) -> float:
     """Finds theoretical pI where net charge equals 0 using high-precision binary bisection."""
     seq = sequence.strip().upper()
     if not seq:
@@ -159,7 +162,7 @@ def calculate_isoelectric_point(sequence: str) -> float:
     high_ph = 14.0
     for _ in range(50):
         mid_ph = (low_ph + high_ph) / 2.0
-        charge = calculate_net_charge_at_ph(seq, mid_ph)
+        charge = calculate_net_charge_at_ph(seq, mid_ph, cystines_oxidized=cystines_oxidized)
         if charge > 0.0:
             low_ph = mid_ph
         else:
@@ -295,24 +298,29 @@ def calculate_solubility_heuristic(sequence: str) -> Dict[str, Any]:
     sol_pct = round(sol_prob * 100.0, 1)
     insol_pct = round((1.0 - sol_prob) * 100.0, 1)
 
+    sol_pct_coarse = int(round(sol_pct / 5.0) * 5)
+    insol_pct_coarse = int(round(insol_pct / 5.0) * 5)
+
     if cv_diff <= -0.35:
-        sol_class = f"High Solubility Propensity ({sol_pct:.0f}% soluble at 37°C)"
+        sol_class = "High Solubility Propensity (Heuristic)"
         desc = (
-            f"Revised Wilkinson–Harrison / Davis (1999) canonical variable CV = {cv:.2f} < 1.71 "
-            f"(~{sol_pct:.1f}% probability of soluble cytoplasmic expression in E. coli at 37°C)."
+            f"Coarse sequence heuristic (Wilkinson–Harrison 1991 / Davis 1999, trained on 81 proteins in E. coli cytoplasm at 37°C): "
+            f"CV = {cv:.2f} < 1.71 (model score ≈{sol_pct_coarse}% soluble). Treat as a rough screening cue, not a measured probability—"
+            "actual soluble yield depends strongly on temperature, promoter, host strain, and construct design."
         )
     elif cv_diff <= 0.35:
-        sol_class = f"Moderate / Borderline Solubility ({sol_pct:.0f}% soluble at 37°C)"
+        sol_class = "Borderline Solubility (Heuristic)"
         desc = (
-            f"Revised Wilkinson–Harrison / Davis (1999) CV = {cv:.2f} sits near the 1.71 threshold "
-            f"(~{sol_pct:.1f}% soluble probability at 37°C); inducing at 16–20°C strongly boosts soluble yield."
+            f"Coarse sequence heuristic (Wilkinson–Harrison 1991 / Davis 1999, trained on 81 proteins in E. coli cytoplasm at 37°C): "
+            f"CV = {cv:.2f} sits near the 1.71 cutoff (model score ≈{sol_pct_coarse}% soluble). Treat as an approximate indicator—"
+            "actual solubility depends strongly on expression temperature (16–20°C), host strain, and fusion tags."
         )
     else:
-        sol_class = f"Inclusion Body Propensity ({insol_pct:.0f}% insoluble in 37°C cytoplasm)"
+        sol_class = "Elevated Inclusion-Body Risk (Heuristic)"
         desc = (
-            f"Revised Wilkinson–Harrison / Davis (1999) CV = {cv:.2f} > 1.71 (~{insol_pct:.1f}% inclusion-body propensity "
-            "when overexpressed in reducing E. coli cytoplasm at 37°C). Express at 16–18°C, export to periplasm "
-            "(for disulfide-bonded proteins), fuse to MBP/SUMO/GST, or refold."
+            f"Coarse sequence heuristic (Wilkinson–Harrison 1991 / Davis 1999, trained on 81 proteins in E. coli cytoplasm at 37°C): "
+            f"CV = {cv:.2f} > 1.71 (model score ≈{insol_pct_coarse}% insoluble). This is an empirical model estimate, not a measured outcome—"
+            "actual solubility varies widely with low-temperature induction (16–18°C), oxidizing strains (SHuffle/Origami) or periplasmic export for disulfides, and MBP/SUMO tags."
         )
 
     return {
@@ -332,7 +340,8 @@ def analyze_all_parameters(sequence: str) -> Dict[str, Any]:
     seq = sequence.strip().upper()
     mw_da = calculate_molecular_weight(seq)
     mw_kda = round(mw_da / 1000.0, 2)
-    pi = calculate_isoelectric_point(seq)
+    pi = calculate_isoelectric_point(seq, cystines_oxidized=False)
+    pi_oxidized = calculate_isoelectric_point(seq, cystines_oxidized=True)
     ph_curve, charge_curve = generate_charge_ph_profile(seq)
     ext_coeffs = calculate_extinction_coefficient(seq, mw_da)
     instability, instab_class = calculate_instability_index(seq)
@@ -357,6 +366,7 @@ def analyze_all_parameters(sequence: str) -> Dict[str, Any]:
         "mw_da": mw_da,
         "mw_kda": mw_kda,
         "pi": pi,
+        "pi_oxidized": pi_oxidized,
         "ph_values": ph_curve,
         "charge_values": charge_curve,
         "extinction": ext_coeffs,

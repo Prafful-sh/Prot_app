@@ -250,7 +250,7 @@ PRESET_RECIPE_TEMPLATES: Dict[str, Dict[str, Any]] = {
     "his_lysis": {
         "label": "🏷️ His-Tag (Ni-NTA) — Lysis / Binding Buffer",
         "target_ph": 8.0,
-        "notes": "Low imidazole (20 mM) + 300 mM NaCl prevents non-specific host background binding onto Ni2+ beads (omit TCEP if purifying disulfide-bonded proteins).",
+        "notes": "Low imidazole (20 mM) + 300 mM NaCl prevents non-specific host background binding onto Ni2+ beads. Keep EDTA-free (EDTA strips Ni2+ from standard Ni-NTA resin) and omit TCEP if purifying disulfide-bonded proteins.",
         "rows": [
             {"Reagent": "Tris-Base", "MW (g/mol)": 121.14, "Value": 50.0, "Unit": "mM"},
             {"Reagent": "NaCl (Sodium Chloride)", "MW (g/mol)": 58.44, "Value": 300.0, "Unit": "mM"},
@@ -1305,7 +1305,7 @@ def recommend_full_purification_workflow(
         elif "his" in tag_low:
             step1_title = f"Affinity Capture: Ni-NTA / HisTrap HP ({effective_tag})"
             step1_detail = (
-                f"Bind clarified lysate in `50 mM {base_buf_chem}`, `300–500 mM NaCl`, `20 mM Imidazole` (pH 7.4–8.0); "
+                f"Bind clarified lysate in `50 mM {base_buf_chem}`, `300–500 mM NaCl`, `20 mM Imidazole`, **`0 mM EDTA`** (pH 7.4–8.0 — omit or remove EDTA before Ni-NTA so resin Ni²⁺ is not stripped); "
                 f"wash at `40–50 mM Imidazole`; elute at `250–300 mM Imidazole`.{imac_reductant_note}{det_clause}{na_wash_clause}"
             )
         elif "strep" in tag_low:
@@ -1760,7 +1760,8 @@ def build_compatibility_matrix(
             "reason": "Compatible with 6xHis IMAC (no catalytic metal/heme conflict)." if has_his else "No metal/heme conflict if you clone a 6xHis tag.",
         }
 
-    # 2. Chelators (EDTA / EGTA / Citrate)
+    # 2. Chelators (EDTA / EGTA / Citrate) — protein-specific AND resin-specific (Ni-NTA strips Ni2+!)
+    has_his_tag = "his" in str(prof.get("effective_tag") or "").lower()
     if prof.get("is_chelator_sensitive"):
         chel_tile = {
             "title": "🧪 EDTA / Citrate",
@@ -1768,12 +1769,19 @@ def build_compatibility_matrix(
             "badge": "🚫 Omit (0 mM)",
             "reason": f"Chelators strip essential {msum} into inactive apoprotein!",
         }
+    elif has_his_tag:
+        chel_tile = {
+            "title": "🧪 EDTA / Citrate",
+            "status": "warn",
+            "badge": "⚠️ Omit for Ni-NTA",
+            "reason": "Safe for the protein itself, but omit/remove EDTA before Ni-NTA IMAC (EDTA strips Ni²⁺ off standard resin; use EDTA-free protease inhibitors).",
+        }
     else:
         chel_tile = {
             "title": "🧪 EDTA / Citrate",
             "status": "good",
-            "badge": "✅ Safe (1 mM)",
-            "reason": "Safe to add 1 mM EDTA in lysis (blocks host metalloproteases).",
+            "badge": "✅ Non-IMAC (1 mM)",
+            "reason": "1 mM EDTA is safe for this protein in IEX/HIC/SEC lysis, but omit or remove EDTA before any Ni-NTA/IMAC step (EDTA strips resin Ni²⁺).",
         }
 
     # 3. Reducing Agents (DTT / TCEP)
@@ -2119,11 +2127,17 @@ def audit_buffer_compatibility_for_protein(
             "`Ca3(PO4)2` / `Zn3(PO4)2` crystals that clog 0.22 µm filters and FPLC columns! Switch buffer to `HEPES` or `Tris-HCl`."
         )
 
-    # 6. DTT + Imidazole (Ni-NTA resin reduction)
+    # 6. DTT + Imidazole (Ni-NTA resin reduction) & EDTA/Chelator + Imidazole (Ni-NTA resin stripping)
     if has_imidazole and has_dtt:
         warnings.append(
             "⚠️ **IMAC Resin Reduction Warning:** `DTT` reduces immobilized Ni²⁺ beads to brown/black metallic Ni⁰ (stripping the column)! "
             "Replace `DTT` with `0.5 mM TCEP-HCl` (or `≤ 5 mM 2-Mercaptoethanol`) if IMAC is used on a non-metalloprotein."
+        )
+    if has_imidazole and chelators_found and not prof.get("is_chelator_sensitive"):
+        ch_list = ", ".join(f"`{c}`" for c in chelators_found)
+        warnings.append(
+            f"🛑 **IMAC Resin Stripping Hazard (Chelator + Imidazole):** {ch_list} chelates and strips immobilized `Ni²⁺`/`Co²⁺` off standard Ni-NTA / TALON resin "
+            "(turning blue beads white and preventing His-tag binding)! Omit EDTA before IMAC (use EDTA-free protease inhibitors), desalt it out prior to loading, or switch to an EDTA-resistant resin (e.g., HisTrap Excel)."
         )
 
     # 7. Active Serine Protease vs PMSF
