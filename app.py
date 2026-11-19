@@ -624,21 +624,6 @@ st.markdown("""
         color: var(--teal-deep);
         border: 1px solid var(--teal-border);
     }
-    .spotlight-strip {
-        margin-top: 10px;
-        background: var(--amber-tint);
-        border: 1px solid #FDE68A;
-        border-left: 3.5px solid var(--amber-accent);
-        padding: 9px 14px;
-        border-radius: 9px;
-        font-size: var(--fs-body);
-        color: var(--ink-body);
-        line-height: 1.5;
-    }
-    .spotlight-label {
-        color: var(--amber-deep);
-        font-weight: 700;
-    }
 
     /* 6-Card Parameter KPI Grid */
     .metric-grid {
@@ -1429,10 +1414,9 @@ if "active_sequence" not in st.session_state:
     st.session_state.active_sequence = default_preset["sequence"]
     st.session_state.sequence_name = default_preset["name"]
     st.session_state.sequence_metadata = {
-        "source": "Classroom Preset (UniProt P00698)",
+        "source": "",
         "uniprot_id": default_preset["uniprot_id"],
         "tag": default_preset["tag"],
-        "student_story": default_preset["student_story"]
     }
     st.session_state.construct_parts = default_preset["construct_parts"]
 
@@ -1478,10 +1462,9 @@ def _apply_classroom_preset():
         seq=p["sequence"],
         name=p["name"],
         metadata={
-            "source": f"Classroom Example • UniProt {p['uniprot_id']}",
+            "source": "",
             "uniprot_id": p["uniprot_id"],
             "tag": p["tag"],
-            "student_story": p["student_story"],
             "biochem_annotations": p.get("biochem_annotations", {}),
         },
         construct_parts=p["construct_parts"]
@@ -1504,12 +1487,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# --- SIDEBAR: CLASSROOM EXAMPLES + MULTI-MODAL SEQUENCE INPUT ---
+# --- SIDEBAR: LOAD YOUR OWN PROTEIN (EXAMPLE PICKER + ID/SEQUENCE/NL SEARCH) ---
 with st.sidebar:
-    st.markdown("### 🎓 1-Click Classroom Proteins")
-    st.caption("Instant examples for students & teachers:")
+    st.markdown("### 📥 Load Your Own Protein")
     st.selectbox(
-        "Choose a Textbook Protein:",
+        "Choose an Example:",
         options=list(CLASSROOM_PRESET_PROTEINS.keys()),
         format_func=lambda k: CLASSROOM_PRESET_PROTEINS[k]["label"],
         index=0,
@@ -1518,9 +1500,8 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    st.markdown("### 📥 Or Load Your Own Protein")
     input_method = st.radio(
-        "How would you like to enter it?",
+        "Search by ID, Sequence, or Plain English:",
         [
             "🔍 UniProt ID",
             "🏛️ NCBI Accession",
@@ -1592,7 +1573,7 @@ with st.sidebar:
         st.caption(
             "Examples: `P00698` (Chicken Lysozyme C), `P61626` (Human Lysozyme C), `P42212` (GFP). "
             "*(Note: live UniProt entries store full precursors including any signal peptide, e.g., 147 aa for `P00698`; "
-            "use Classroom Presets above for the cleaved 129-aa mature egg-white enzyme.)*"
+            "or pick an example protein above for the cleaved 129-aa mature enzyme.)*"
         )
         uid_input = st.text_input("UniProt Accession ID:", value="P00698")
         if st.button("Fetch from UniProt", type="primary", width="stretch"):
@@ -1693,23 +1674,19 @@ protein_profile = infer_protein_biochemical_profile(
 )
 
 
-# --- ACTIVE PROTEIN & CLASSROOM SPOTLIGHT RIBBON ---
-student_story = seq_meta.get("student_story", "")
-story_html = (
-    f'<div class="spotlight-strip">'
-    f'<span class="spotlight-label">💡 Classroom Spotlight:</span> {student_story}</div>'
-    if student_story else ""
-)
-
+# --- ACTIVE PROTEIN & CONSTRUCT RIBBON (Zero-indentation HTML avoids CommonMark code-block traps) ---
 uid_badge_val = seq_meta.get("uniprot_id") or seq_meta.get("accession") or ""
-raw_source = seq_meta.get("source", "User Sequence")
-clean_source = raw_source.split("•")[0].replace(f"(UniProt {uid_badge_val})", "").strip() if uid_badge_val else raw_source
+raw_source = (seq_meta.get("source") or "").strip()
+clean_source = (
+    raw_source.split("•")[0].replace(f"(UniProt {uid_badge_val})", "").strip()
+    if (raw_source and uid_badge_val) else raw_source
+)
 uid_pill_html = (
-    f'<span class="meta-pill meta-pill-indigo">UniProt {uid_badge_val}</span>'
+    f'<span class="meta-pill meta-pill-indigo">UniProt {html.escape(str(uid_badge_val))}</span>'
     if uid_badge_val and uid_badge_val != "N/A" else ""
 )
 source_pill_html = (
-    f'<span class="meta-pill meta-pill-neutral">{clean_source}</span>'
+    f'<span class="meta-pill meta-pill-neutral">{html.escape(clean_source)}</span>'
     if clean_source else ""
 )
 biochem_pills_html = "".join(
@@ -1738,45 +1715,35 @@ has_multipart_construct = bool(
         )
     )
 )
+seq_name_safe = html.escape(str(st.session_state.sequence_name))
+pill_group_html = (
+    f'<div class="ribbon-pill-group">'
+    f'<span class="meta-pill meta-pill-teal">{metrics["length"]} aa</span>'
+    f'{uid_pill_html}{biochem_pills_html}{source_pill_html}'
+    f'</div>'
+)
 if has_multipart_construct:
-    parts_html = "".join([
-        f'<span class="construct-pill ' +
-        ('pill-tag' if "tag" in p[0].lower() else ('pill-cleavage' if "cleavage" in p[0].lower() else 'pill-target')) +
-        f'"><b>{p[0]}:</b> {len(p[1])} aa</span>'
+    parts_html = "".join(
+        f'<span class="construct-pill '
+        + ('pill-tag' if "tag" in p[0].lower() else ('pill-cleavage' if "cleavage" in p[0].lower() else 'pill-target'))
+        + f'"><b>{html.escape(str(p[0]))}:</b> {len(p[1])} aa</span>'
         for p in st.session_state.construct_parts
-    ])
-    st.markdown(f"""
-    <div class="protein-ribbon">
-        <div class="ribbon-top-row">
-            <div class="ribbon-title">🧬 Active Construct: {st.session_state.sequence_name}</div>
-            <div class="ribbon-pill-group">
-                <span class="meta-pill meta-pill-teal">{metrics['length']} aa</span>
-                {uid_pill_html}
-                {biochem_pills_html}
-                {source_pill_html}
-            </div>
-        </div>
-        <div class="construct-parts-row">{parts_html}</div>
-        {conflict_html}
-        {story_html}
-    </div>
-    """, unsafe_allow_html=True)
+    )
+    ribbon_html = (
+        f'<div class="protein-ribbon">'
+        f'<div class="ribbon-top-row"><div class="ribbon-title">🧬 Active Construct: {seq_name_safe}</div>{pill_group_html}</div>'
+        f'<div class="construct-parts-row">{parts_html}</div>'
+        f'{conflict_html}'
+        f'</div>'
+    )
 else:
-    st.markdown(f"""
-    <div class="protein-ribbon">
-        <div class="ribbon-top-row">
-            <div class="ribbon-title">🧬 Active Protein: {st.session_state.sequence_name}</div>
-            <div class="ribbon-pill-group">
-                <span class="meta-pill meta-pill-teal">{metrics['length']} aa</span>
-                {uid_pill_html}
-                {biochem_pills_html}
-                {source_pill_html}
-            </div>
-        </div>
-        {conflict_html}
-        {story_html}
-    </div>
-    """, unsafe_allow_html=True)
+    ribbon_html = (
+        f'<div class="protein-ribbon">'
+        f'<div class="ribbon-top-row"><div class="ribbon-title">🧬 Active Protein: {seq_name_safe}</div>{pill_group_html}</div>'
+        f'{conflict_html}'
+        f'</div>'
+    )
+st.markdown(ribbon_html, unsafe_allow_html=True)
 
 
 # --- 6-PARAMETER KPI CARDS (ALL 6 SET PARAMETERS PRESERVED + EXACT PROTPARAM PRECISION) ---

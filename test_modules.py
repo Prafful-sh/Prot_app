@@ -1640,10 +1640,42 @@ def test_interactive_sec_column_visualizer_and_intuitive_plots(root_dir: str) ->
     # Parse SVG with XML ElementTree to guarantee 100% well-formed XML (no unescaped > or &!)
     svg_root = ET.fromstring(svg_match.group(1))
 
-    # Verify sidebar "Or Load Your Own Protein" has Plain English last & UniProt first
+    # Verify sidebar ordering: "Load Your Own Protein" -> "Choose an Example:" -> ID / Sequence / Plain English search
+    sidebar_md_vals = [m.value for m in at.sidebar.markdown]
+    assert sidebar_md_vals[0] == "### 📥 Load Your Own Protein", f"Expected 'Load Your Own Protein' first in sidebar, got {sidebar_md_vals[0]!r}"
+    assert at.sidebar.selectbox[0].label == "Choose an Example:", f"Unexpected example selectbox label: {at.sidebar.selectbox[0].label!r}"
+    assert at.sidebar.radio[0].label == "Search by ID, Sequence, or Plain English:"
+    # Verify exact vertical sequence inside sidebar element tree
+    sidebar_elem_types = [getattr(el, "type", type(el).__name__) for el in at.sidebar]
+    idx_sb_hdr = next(i for i, el in enumerate(at.sidebar) if getattr(el, "type", "") == "markdown" and "Load Your Own Protein" in el.value)
+    idx_sb_ex = next(i for i, el in enumerate(at.sidebar) if getattr(el, "type", "") == "selectbox" and el.label == "Choose an Example:")
+    idx_sb_rad = next(i for i, el in enumerate(at.sidebar) if getattr(el, "type", "") == "radio" and el.label == "Search by ID, Sequence, or Plain English:")
+    assert idx_sb_hdr < idx_sb_ex < idx_sb_rad, f"Unexpected sidebar ordering: hdr={idx_sb_hdr}, ex={idx_sb_ex}, rad={idx_sb_rad} ({sidebar_elem_types})"
     sidebar_opts = list(at.sidebar.radio[0].options)
     assert sidebar_opts[0] == "🔍 UniProt ID", f"Expected UniProt ID first, got {sidebar_opts}"
     assert sidebar_opts[-1] == "💬 Describe in Plain English", f"Expected Plain English last, got {sidebar_opts}"
+
+    # Verify removed Classroom labels & spotlight/preset text do NOT appear anywhere in UI, and zero raw <div> leaks as code blocks
+    all_rendered_ui = "\n".join(
+        [m.value for m in at.markdown if "<style>" not in m.value]
+        + [m.value for m in at.sidebar.markdown]
+        + [c.value for c in at.sidebar.caption]
+    )
+    for forbidden_txt in (
+        "1-Click Classroom Proteins",
+        "Instant examples for students",
+        "Classroom Spotlight",
+        "Classroom Preset",
+        "Classroom Example",
+    ):
+        assert forbidden_txt not in all_rendered_ui, f"Removed UI text {forbidden_txt!r} still rendered!"
+    assert not any("<div" in c.value for c in at.code), "Raw HTML <div> rendered in code block!"
+    for _md_el in at.markdown:
+        if "<style>" in _md_el.value:
+            continue
+        _md_s = _md_el.value.strip()
+        assert not re.match(r"^[ \t]{4,}<", _md_s), f"Indented opening HTML tag risk: {_md_s[:120]!r}"
+        assert not re.search(r"\n[ \t]*\n[ \t]{4,}<", _md_s), f"Blank-line + indented HTML tag CommonMark trap: {_md_s[:240]!r}"
 
     # Verify every line inside Panel 3 cheat-sheet box (x="746") fits comfortably (<= 55 chars)
     p3_texts = ["".join(el.itertext()) for el in svg_root.iter("{http://www.w3.org/2000/svg}text") if el.attrib.get("x") == "746"]
