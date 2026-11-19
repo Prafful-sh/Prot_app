@@ -2290,7 +2290,59 @@ def test_all_5_input_methods_hardening_and_minimal_chrome(root_dir: str) -> None
     cap_def = "\n".join(c.value for c in at_def.caption)
     assert "S–S oxidized: ~10.46" in md_def
     assert "Bjellqvist" in cap_def and "10.46" in cap_def
+    assert "500 mL (500 mL" not in md_def and "Exact Weigh-Out Sheet for **500 mL** (Target pH" in md_def
+    assert 'initial_sidebar_state="auto"' in app_txt
     assert len(re.findall(r"font-size\s*:", md_def, flags=re.IGNORECASE)) == 0
+
+    # 8. Superdex 75 prep vs analytical Kav consistency, CEX Tris-free buffer tile, low-MW peptide gel & UniProt mature-chain toggle
+    s75_anal = SEC_COLUMNS["s75_increase_10_300"]
+    s75_prep = SEC_COLUMNS["hiload_16_600_s75"]
+    for std_mw in (75.0, 44.0, 29.0, 14.31, 13.7, 6.5, 1.355):
+        _, kav_a, _ = calculate_retention_volume(std_mw, s75_anal)
+        _, kav_p, _ = calculate_retention_volume(std_mw, s75_prep)
+        assert abs(kav_a - kav_p) <= 0.005, f"S75 Kav mismatch at {std_mw} kDa: anal={kav_a:.4f}, prep={kav_p:.4f}"
+
+    # CEX buffer tile must NOT recommend Tris when routing Lysozyme to SP Sepharose
+    buf_tile_lyso = [t for t in build_compatibility_matrix(lyso_m, 7.4, 7.38, wf_lyso_untagged) if "Buffer Family" in t["title"]][0]
+    assert "Tris" not in buf_tile_lyso["badge"] and "omit cationic Tris" in buf_tile_lyso["reason"]
+
+    # UniProt live-style 'Signal' + 'Chain' feature extraction & 1-click Mature Chain toggle in UI
+    from modules.sequence_parser import _parse_uniprot_entry_dict
+    parsed_p00698 = _parse_uniprot_entry_dict({
+        "primaryAccession": "P00698",
+        "proteinDescription": {"recommendedName": {"fullName": {"value": "Lysozyme C"}}},
+        "organism": {"scientificName": "Gallus gallus"},
+        "genes": [{"geneName": {"value": "LYZ"}}],
+        "sequence": {"value": "MRSLLILVLCFLPLAALG" + LYSOZYME_MATURE_SEQ, "length": 147},
+        "features": [
+            {"type": "Signal", "location": {"start": {"value": 1}, "end": {"value": 18}}},
+            {"type": "Chain", "location": {"start": {"value": 19}, "end": {"value": 147}}, "description": "Lysozyme C"},
+        ],
+    })
+    assert parsed_p00698["biochem_annotations"]["has_signal_peptide"] is True
+    assert parsed_p00698["mature_chain"]["sequence"] == LYSOZYME_MATURE_SEQ
+    assert parsed_p00698["mature_chain"]["length"] == 129
+
+    # Test 1-click Mature Chain toggle in AppTest (fetching offline P00698 precursor -> toggle to 129 aa mature chain)
+    import requests as _req_mod
+    with patch("modules.sequence_parser.requests.get", side_effect=_req_mod.ConnectionError("Offline")):
+        at_mat = AppTest.from_file(app_path).run(timeout=30)
+        at_mat.sidebar.button[0].click().run(timeout=30)  # Fetch P00698 (147 aa precursor)
+    assert len(at_mat.exception) == 0 and len(at_mat.session_state["active_sequence"]) == 147
+    mat_btns = [b for b in at_mat.button if "Use Mature Chain (129 aa)" in b.label]
+    assert len(mat_btns) == 1, f"Expected Mature Chain toggle button, found {[b.label for b in at_mat.button]}"
+    mat_btns[0].click().run(timeout=30)
+    assert len(at_mat.exception) == 0 and at_mat.session_state["active_sequence"] == LYSOZYME_MATURE_SEQ
+
+    # Test 3.2 kDa peptide gel advisory (never green-checks Laemmli; recommends Tricine / Bis-Tris MES!)
+    at_pep = AppTest.from_file(app_path).run(timeout=30)
+    at_pep.sidebar.radio[0].set_value("🔤 Paste Amino Acid / FASTA").run(timeout=30)
+    at_pep.sidebar.text_area[0].set_value(">Tiny_Peptide_3kDa\nACDEFGHIKLMNPQRSTVWYACDEFGHIKL\n").run(timeout=30)
+    at_pep.sidebar.button[0].click().run(timeout=30)
+    assert len(at_pep.exception) == 0
+    pep_info_warn = "\n".join([i.value for i in at_pep.info] + [w.value for w in at_pep.warning])
+    assert "Tricine" in pep_info_warn and "Bis-Tris" in pep_info_warn
+    assert not any("gives crisp band separation" in s.value for s in at_pep.success)
 
 
 def test_pipeline() -> None:

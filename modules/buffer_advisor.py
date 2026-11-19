@@ -964,13 +964,17 @@ def infer_protein_biochemical_profile(
                 ),
             }
         else:
+            tight_zn_note = (
+                " *(Note: ultra-tight buried Zn²⁺ sites such as Carbonic Anhydrase II, Kd ~10⁻¹² M, can occasionally tolerate rapid IMAC with low-imidazole washes and immediate desalting—verify metal occupancy & activity if attempted.)*"
+                if "zn_metalloenzyme" in categories and "cu_mn_co_mo_metalloenzyme" not in categories else ""
+            )
             tag_conflict = {
                 "severity": "critical",
                 "headline": f"🛑 Metalloprotein–IMAC Conflict: Avoid Ni-NTA & Imidazole for {effective_tag}-Tagged {metal_summary} Protein!",
                 "explanation": (
                     f"This protein coordinates **{metal_summary}**. On **Ni-NTA**, leached Ni²⁺ substitutes into native metal sites via the "
                     "Irving–Williams series (**mismetallation**, permanently killing enzymatic activity) or protein sites strip metal from the column, "
-                    f"while **20–500 mM Imidazole** competes with and extracts bound **{metal_summary}** into inactive apoprotein!"
+                    f"while **20–500 mM Imidazole** competes with and extracts bound **{metal_summary}** into inactive apoprotein!{tight_zn_note}"
                 ),
                 "better_strategy": (
                     "Bypass Ni-NTA & Imidazole! Purify via **EDTA-free Ion-Exchange + HIC + SEC** in non-chelating `HEPES`/`MOPS` buffer, "
@@ -1854,20 +1858,30 @@ def build_compatibility_matrix(
             "reason": f"Very polar surface (GRAVY {float(metrics.get('gravy', 0.0)):+.2f}); try IEX before Octyl HIC.",
         }
 
-    # 6. Ideal Buffer Family
+    # 6. Ideal Buffer Family (strictly consistent with Method A IEX counterion polarity!)
+    iex_is_cex = (abs(working_ph - pi) >= 0.6 and net_charge >= 1.8)
+    iex_is_aex = (abs(working_ph - pi) >= 0.6 and net_charge <= -1.8)
     if prof.get("avoid_tris_buffer"):
         buf_tile = {
             "title": "🧫 Buffer Family",
             "status": "good",
-            "badge": "⭐ HEPES / PO₄",
-            "reason": "Avoid Tris (forms Schiff-base adduct with PLP cofactor)!",
+            "badge": "⭐ HEPES / Bis-Tris" if iex_is_aex else "⭐ HEPES / PO₄",
+            "reason": (
+                "Avoid Tris (forms Schiff-base adduct with PLP) & avoid Phosphate on AEX Q!"
+                if iex_is_aex
+                else "Avoid Tris (forms Schiff-base adduct with PLP cofactor)!"
+            ),
         }
     elif prof.get("avoid_phosphate_buffer"):
         buf_tile = {
             "title": "🧫 Buffer Family",
             "status": "good",
-            "badge": "⭐ HEPES / Tris",
-            "reason": "Avoid Phosphate (precipitates insoluble Ca²⁺/Mn²⁺ phosphate chalk)!",
+            "badge": "⭐ HEPES / MOPS" if iex_is_cex else "⭐ HEPES / Tris",
+            "reason": (
+                "Avoid Phosphate (precipitates Ca²⁺/Mn²⁺) & omit Tris on CEX SP (cationic Tris⁺ competes)."
+                if iex_is_cex
+                else "Avoid Phosphate (precipitates insoluble Ca²⁺/Mn²⁺ phosphate chalk)!"
+            ),
         }
     elif prof.get("is_chelator_sensitive"):
         buf_tile = {
@@ -1883,12 +1897,26 @@ def build_compatibility_matrix(
             "badge": "⭐ HEPES + DDM",
             "reason": "Keep 0.03% DDM (or LMNG/CHS) above CMC in every column buffer.",
         }
+    elif iex_is_cex:
+        buf_tile = {
+            "title": "🧫 Buffer Family",
+            "status": "good",
+            "badge": "✅ PO₄ / HEPES / MOPS",
+            "reason": "Anionic/zwitterionic buffers for CEX (SP) — omit cationic Tris (competes for SP resin!).",
+        }
+    elif iex_is_aex:
+        buf_tile = {
+            "title": "🧫 Buffer Family",
+            "status": "good",
+            "badge": "✅ Tris / HEPES / Bis-Tris",
+            "reason": "Cationic/zwitterionic buffers for AEX (Q) — omit Phosphate/Citrate (polyanions compete on Q!).",
+        }
     else:
         buf_tile = {
             "title": "🧫 Buffer Family",
             "status": "good",
-            "badge": "✅ Tris / HEPES / PO₄",
-            "reason": "Match buffer pKa within ±1 unit of working pH (check IEX counterion).",
+            "badge": "✅ HEPES / PO₄ / Tris",
+            "reason": "Match buffer pKa within ±1 unit of working pH (pair with HIC/SEC near pI).",
         }
 
     return [imac_tile, chel_tile, red_tile, iex_tile, hic_tile, buf_tile]

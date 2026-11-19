@@ -148,7 +148,7 @@ st.set_page_config(
     page_title="ProPurify Studio | Interactive Protein Purification & SEC Lab",
     page_icon="🧪",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
     menu_items={},
 )
 
@@ -1521,16 +1521,22 @@ with st.sidebar:
         uid_input = st.text_input(
             "UniProt Accession ID:",
             value="P00698",
-            help="Supports canonical accessions (P00698, A0A024RBG1), isoforms (P04637-2), entry names (LYSC_CHICK), or UniProt URLs. Live UniProt entries store full precursors (e.g., 147 aa for P00698); use an example below for cleaved mature chains."
+            help="Supports canonical accessions (P00698, A0A024RBG1), isoforms (P04637-2), entry names (LYSC_CHICK), or UniProt URLs. If UniProt annotates a Signal/Propeptide, a 1-click Mature Chain toggle appears below the protein banner."
         )
         if st.button("Fetch from UniProt", type="primary", width="stretch"):
             with st.spinner(f"Fetching {uid_input} from UniProt..."):
                 try:
                     res = fetch_uniprot_by_id(uid_input)
+                    disp_nm = f"{res['protein_name']} [{res['accession']}]"
+                    meta_up = dict(res)
+                    if res.get("mature_chain"):
+                        meta_up["precursor_sequence"] = res["sequence"]
+                        meta_up["precursor_name"] = disp_nm
+                        meta_up["is_mature_cleaved"] = False
                     if set_new_sequence(
                         seq=res["sequence"],
-                        name=f"{res['protein_name']} [{res['accession']}]",
-                        metadata=res
+                        name=disp_nm,
+                        metadata=meta_up
                     ):
                         st.success(f"Loaded: {res['protein_name']} ({res['length']} aa)")
                 except Exception as e:
@@ -1789,6 +1795,40 @@ else:
         f'</div>'
     )
 st.markdown(ribbon_html, unsafe_allow_html=True)
+
+# 1-Click Signal/Propeptide Cleavage Toggle when UniProt returns a secreted precursor with a single mature Chain
+mat_info = seq_meta.get("mature_chain")
+prec_seq = seq_meta.get("precursor_sequence")
+if mat_info and prec_seq and mat_info.get("sequence") and prec_seq != mat_info["sequence"]:
+    is_cleaved = bool(seq_meta.get("is_mature_cleaved", False))
+    mc1, mc2 = st.columns([3.1, 1.3])
+    if not is_cleaved:
+        mc1.info(
+            f"✂️ **Precursor Sequence Loaded ({len(prec_seq)} aa):** UniProt annotates **{mat_info['cleaved_summary']}** "
+            f"(mature chain: residues {mat_info['start']}–{mat_info['end']}, **{mat_info['length']} aa**). "
+            "Switch to the cleaved mature chain to match purified MW, pI, SEC, and SDS-PAGE."
+        )
+        if mc2.button(f"✂️ Use Mature Chain ({mat_info['length']} aa)", key="btn_toggle_mature_chain", type="primary", width="stretch"):
+            updated_meta = dict(seq_meta)
+            updated_meta["is_mature_cleaved"] = True
+            base_nm = updated_meta.get("precursor_name") or st.session_state.sequence_name
+            st.session_state.active_sequence = mat_info["sequence"]
+            st.session_state.sequence_name = f"{base_nm} (Mature Chain, {mat_info['length']} aa)"
+            st.session_state.sequence_metadata = updated_meta
+            st.rerun()
+    else:
+        mc1.success(
+            f"✅ **Cleaved Mature Chain Active ({mat_info['length']} aa, residues {mat_info['start']}–{mat_info['end']}):** "
+            f"Removed **{mat_info['cleaved_summary']}** from the {len(prec_seq)}-aa UniProt precursor."
+        )
+        if mc2.button(f"↩️ Restore Full Precursor ({len(prec_seq)} aa)", key="btn_toggle_mature_chain", width="stretch"):
+            updated_meta = dict(seq_meta)
+            updated_meta["is_mature_cleaved"] = False
+            base_nm = updated_meta.get("precursor_name") or st.session_state.sequence_name
+            st.session_state.active_sequence = prec_seq
+            st.session_state.sequence_name = base_nm
+            st.session_state.sequence_metadata = updated_meta
+            st.rerun()
 
 
 # --- 6-PARAMETER KPI CARDS (ALL 6 SET PARAMETERS PRESERVED + EXACT PROTPARAM PRECISION) ---
@@ -2996,14 +3036,26 @@ with tab_sec:
 
     sds_c1, sds_c2 = st.columns([1.15, 2.5])
     with sds_c1:
-        default_gel_pct = 15.0 if metrics["mw_kda"] < 22.0 else (8.0 if metrics["mw_kda"] > 110.0 else 12.0)
+        mw_gel = float(metrics["mw_kda"])
+        if mw_gel < 6.0:
+            default_gel_pct = 20.0
+        elif mw_gel < 10.0:
+            default_gel_pct = 18.0
+        elif mw_gel < 22.0:
+            default_gel_pct = 15.0
+        elif mw_gel > 250.0:
+            default_gel_pct = 6.0
+        elif mw_gel > 110.0:
+            default_gel_pct = 8.0
+        else:
+            default_gel_pct = 12.0
         active_gel_pct = st.slider(
             "Gel Acrylamide Percentage (%):",
             min_value=4.0,
             max_value=22.0,
             value=default_gel_pct,
             step=0.5,
-            help="Use 15–18% for small proteins (<20 kDa like Lysozyme); 12% for medium proteins; 6–8% for large proteins (>100 kDa)."
+            help="Use 16–20% Tricine or Bis-Tris/MES for peptides (<10 kDa); 15% for 10–20 kDa; 12% for 20–100 kDa; 6–8% for >100 kDa."
         )
         stain_type = st.radio(
             "Gel Staining Dye:",
@@ -3018,17 +3070,28 @@ with tab_sec:
                 "revealing faint host background bands in Lysate, Soluble, and Flowthrough lanes that Coomassie misses!"
             )
 
-        if metrics["mw_kda"] > 500:
+        if mw_gel > 500:
             st.info(
-                f"💡 **Mega-Dalton Polypeptide ({metrics['mw_kda']:,.1f} kDa):** Giant chains >500 kDa migrate right near "
+                f"💡 **Mega-Dalton Polypeptide ({mw_gel:,.1f} kDa):** Giant chains >500 kDa migrate right near "
                 "the top stacking/resolving boundary on standard Tris-Glycine gels (use **4%–5%** acrylamide or composite agarose-acrylamide gels)."
             )
-        elif metrics["mw_kda"] > 120 and active_gel_pct > 12:
-            st.warning(f"Tip: {metrics['mw_kda']:.1f} kDa is quite large—try lowering the gel slider to **6%–8%** so it moves further down!")
-        elif metrics["mw_kda"] < 20 and active_gel_pct < 11:
-            st.warning(f"Tip: {metrics['mw_kda']:.1f} kDa is small—try raising the gel slider to **15%** for a sharper band!")
+        elif mw_gel > 120 and active_gel_pct > 12:
+            st.warning(f"Tip: {mw_gel:.1f} kDa is quite large—try lowering the gel slider to **6%–8%** so it moves further down!")
+        elif mw_gel < 10.0:
+            if active_gel_pct < 16.0:
+                st.warning(
+                    f"⚠️ **Low-MW Peptide ({mw_gel:.1f} kDa):** On a standard **{active_gel_pct:.1f}% Tris-Glycine (Laemmli)** gel, "
+                    "peptides below ~10 kDa co-migrate with the dye front! Raise the slider to **16%–20%** and use a **16% Tricine-SDS-PAGE** or **4–12% Bis-Tris (MES buffer)** gel."
+                )
+            else:
+                st.info(
+                    f"🧪 **Low-MW Peptide ({mw_gel:.1f} kDa):** Even at **{active_gel_pct:.1f}%**, use a **16–20% Tricine-SDS-PAGE** or "
+                    "**Bis-Tris / MES** buffer system rather than standard Tris-Glycine Laemmli so bands resolve sharply above the dye front."
+                )
+        elif mw_gel < 20 and active_gel_pct < 13:
+            st.warning(f"Tip: {mw_gel:.1f} kDa is small—try raising the gel slider to **15%** (or use a 4–12% Bis-Tris/MES gel) for a sharper band!")
         else:
-            st.success(f"✅ **{active_gel_pct:.1f}% acrylamide** gives crisp band separation for a {metrics['mw_kda']:.1f} kDa protein.")
+            st.success(f"✅ **{active_gel_pct:.1f}% acrylamide** gives crisp band separation for a {mw_gel:.1f} kDa protein.")
 
     with sds_c2:
         fig_sds = generate_sds_page_figure(
@@ -3549,8 +3612,9 @@ with tab_buffers:
 
     computed_recipe = compute_custom_buffer_recipe(sanitized_rows, total_volume_ml)
 
+    vol_header_meta = f"{total_volume_ml:g} mL • Target pH {custom_ph:.1f}" if vol_unit != "mL" else f"Target pH {custom_ph:.1f}"
     if not computed_recipe:
-        st.markdown(f"#### 📋 Exact Weigh-Out Sheet for **{vol_number:g} {vol_unit}** ({total_volume_ml:g} mL • Target pH {custom_ph:.1f})")
+        st.markdown(f"#### 📋 Exact Weigh-Out Sheet for **{vol_number:g} {vol_unit}** ({vol_header_meta})")
         st.warning("Add at least one reagent above to calculate exact weights in grams (g) and milligrams (mg).")
     else:
         out_df = pd.DataFrame(computed_recipe)
@@ -3558,7 +3622,7 @@ with tab_buffers:
 
         sh_head1, sh_head2 = st.columns([2.55, 1.05])
         with sh_head1:
-            st.markdown(f"#### 📋 Exact Weigh-Out Sheet for **{vol_number:g} {vol_unit}** ({total_volume_ml:g} mL • Target pH {custom_ph:.1f})")
+            st.markdown(f"#### 📋 Exact Weigh-Out Sheet for **{vol_number:g} {vol_unit}** ({vol_header_meta})")
         with sh_head2:
             st.download_button(
                 label=f"⬇️ Download CSV ({vol_number:g} {vol_unit})",

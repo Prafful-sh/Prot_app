@@ -699,7 +699,7 @@ def _extract_uniprot_biochem_annotations(data: Dict[str, Any]) -> Dict[str, Any]
             disulfide_count += 1
         elif ftype in ("Transmembrane", "Intramembrane"):
             transmembrane_count += 1
-        elif ftype == "Signal peptide":
+        elif ftype in ("Signal", "Signal peptide"):
             has_signal_peptide = True
         elif ftype == "Zinc finger":
             zinc_finger_count += 1
@@ -757,8 +757,74 @@ def _extract_uniprot_biochem_annotations(data: Dict[str, Any]) -> Dict[str, Any]
     }
 
 
+def _extract_uniprot_mature_chain(data: Dict[str, Any], sequence: str) -> Optional[Dict[str, Any]]:
+    """
+    Inspects UniProtKB REST JSON features ('Signal'/'Signal peptide', 'Transit peptide',
+    'Propeptide', 'Chain') to identify an unambiguous cleaved mature polypeptide chain
+    when it is strictly shorter than the full precursor (e.g., P00698 147 aa -> 129 aa;
+    P02769 BSA 607 aa -> 583 aa). Returns None for cytosolic non-cleaved proteins or
+    multi-chain polyproteins (where len(chains) > 1).
+    """
+    seq = (sequence or "").strip().upper()
+    L = len(seq)
+    if L < 30:
+        return None
+
+    chains: List[Tuple[int, int, str]] = []
+    cleaved_regions: List[str] = []
+    signal_end: Optional[int] = None
+
+    for feat in (data.get("features") or []):
+        ftype = feat.get("type", "")
+        loc = feat.get("location") or {}
+        s_val = (loc.get("start") or {}).get("value")
+        e_val = (loc.get("end") or {}).get("value")
+        if not isinstance(s_val, int) or not isinstance(e_val, int):
+            continue
+        if s_val < 1 or e_val > L or s_val > e_val:
+            continue
+        if ftype == "Chain":
+            chains.append((s_val, e_val, (feat.get("description") or "").strip()))
+        elif ftype in ("Signal", "Signal peptide"):
+            cleaved_regions.append(f"Signal peptide {s_val}–{e_val}")
+            if s_val == 1:
+                signal_end = e_val
+        elif ftype == "Transit peptide":
+            cleaved_regions.append(f"Transit peptide {s_val}–{e_val}")
+            if s_val == 1 and signal_end is None:
+                signal_end = e_val
+        elif ftype == "Propeptide":
+            cleaved_regions.append(f"Propeptide {s_val}–{e_val}")
+
+    if len(chains) == 1:
+        c_start, c_end, c_desc = chains[0]
+        if (c_start > 1 or c_end < L) and (c_end - c_start + 1) >= 20:
+            mat_seq = seq[c_start - 1 : c_end]
+            summary = ", ".join(cleaved_regions) if cleaved_regions else f"N/C-terminal processing (mature {c_start}–{c_end})"
+            return {
+                "start": c_start,
+                "end": c_end,
+                "sequence": mat_seq,
+                "length": len(mat_seq),
+                "description": c_desc or "Mature Chain",
+                "cleaved_summary": summary,
+            }
+    elif len(chains) == 0 and signal_end is not None and (L - signal_end) >= 20:
+        mat_seq = seq[signal_end:]
+        return {
+            "start": signal_end + 1,
+            "end": L,
+            "sequence": mat_seq,
+            "length": len(mat_seq),
+            "description": "Mature Chain (Signal Peptide Removed)",
+            "cleaved_summary": ", ".join(cleaved_regions) or f"Signal peptide 1–{signal_end}",
+        }
+
+    return None
+
+
 def _parse_uniprot_entry_dict(data: Dict[str, Any], fallback_uid: str = "") -> Dict[str, Any]:
-    """Extracts standardized metadata, sequence, and biochemical annotations from a UniProtKB REST JSON entry."""
+    """Extracts standardized metadata, sequence, mature-chain features, and biochemical annotations from a UniProtKB REST JSON entry."""
     accession = data.get("primaryAccession", fallback_uid)
     protein_desc = data.get("proteinDescription") or {}
     rec_name_obj = protein_desc.get("recommendedName") or {}
@@ -790,7 +856,8 @@ def _parse_uniprot_entry_dict(data: Dict[str, Any], fallback_uid: str = "") -> D
     sequence_info = data.get("sequence", {})
     sequence = sequence_info.get("value", "")
     length = sequence_info.get("length", len(sequence))
-    return {
+    mature_chain = _extract_uniprot_mature_chain(data, sequence)
+    out = {
         "source": "UniProt",
         "accession": accession,
         "protein_name": recommended_name,
@@ -800,6 +867,9 @@ def _parse_uniprot_entry_dict(data: Dict[str, Any], fallback_uid: str = "") -> D
         "sequence": sequence,
         "biochem_annotations": _extract_uniprot_biochem_annotations(data),
     }
+    if mature_chain is not None:
+        out["mature_chain"] = mature_chain
+    return out
 
 
 # Authoritative Swiss-Prot reference sequences for canonical proteins & dual-meaning tag/protease names (offline fallback)
@@ -1600,9 +1670,11 @@ def fetch_uniprot_by_id(uniprot_id: str) -> Dict[str, Any]:
 
     for cand_acc in lookup_candidates:
         curated_preset_ann: Dict[str, Any] = {}
+        curated_preset_obj: Optional[Dict[str, Any]] = None
         for preset in CLASSROOM_PRESET_PROTEINS.values():
             if preset["uniprot_id"] == cand_acc and preset["tag"] == "None":
                 curated_preset_ann = dict(preset.get("biochem_annotations", {}))
+                curated_preset_obj = preset
                 break
 
         if cand_acc in OFFLINE_UNIPROT_REFERENCES:
@@ -1622,7 +1694,7 @@ def fetch_uniprot_by_id(uniprot_id: str) -> Dict[str, Any]:
         _, by_acc = _ensure_local_corpus_loaded()
         if cand_acc in by_acc:
             r = by_acc[cand_acc]
-            return {
+            out_corp: Dict[str, Any] = {
                 "source": "Built-in Local Reference Corpus (UniProt)",
                 "accession": r["accession"],
                 "uniprot_id": r["accession"],
@@ -1633,6 +1705,20 @@ def fetch_uniprot_by_id(uniprot_id: str) -> Dict[str, Any]:
                 "sequence": r["sequence"],
                 "biochem_annotations": curated_preset_ann,
             }
+            if curated_preset_obj is not None:
+                p_seq = curated_preset_obj["sequence"]
+                pos_idx = r["sequence"].find(p_seq)
+                if pos_idx >= 0 and len(p_seq) < len(r["sequence"]):
+                    cleaved_lbl = f"Signal/Propeptide 1–{pos_idx}" if pos_idx > 0 else "N/C-terminal cleavage"
+                    out_corp["mature_chain"] = {
+                        "start": pos_idx + 1,
+                        "end": pos_idx + len(p_seq),
+                        "sequence": p_seq,
+                        "length": len(p_seq),
+                        "description": r["protein_name"],
+                        "cleaved_summary": cleaved_lbl,
+                    }
+            return out_corp
 
         for preset in CLASSROOM_PRESET_PROTEINS.values():
             if preset["uniprot_id"] == cand_acc and preset["tag"] == "None":
