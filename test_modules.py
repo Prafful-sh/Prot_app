@@ -2345,6 +2345,552 @@ def test_all_5_input_methods_hardening_and_minimal_chrome(root_dir: str) -> None
     assert not any("gives crisp band separation" in s.value for s in at_pep.success)
 
 
+def test_gel_recipes_3d_viewer_feedback_and_ai_proteins(root_dir: str) -> None:
+    print("\n=== 14. Testing Gel Recipes, 3D Viewer, Feedback Modal, AI-Designed Protein Fixes & AppTest ===")
+    import glob
+    import gzip
+    import py_compile
+    import sys as _sys
+    import time
+    from unittest.mock import patch
+    import requests as _requests
+    from streamlit.testing.v1 import AppTest
+
+    from modules.buffer_advisor import infer_protein_biochemical_profile
+    from modules.gel_recipe import (
+        RECIPE_DISPLAY_COLUMNS,
+        GEL_FORMAT_PRESETS,
+        calculate_sds_gel_recipe,
+        format_gel_recipe_text,
+        get_max_achievable_gel_pct,
+        recommend_gel_recipe_params,
+    )
+    from modules.protein_3d import (
+        SCHEMATIC_3D_DISCLAIMER,
+        SUPPORTED_3DMOL_STYLES,
+        SUPPORTED_3DMOL_COLOR_SCHEMES,
+        normalize_uniprot_accession,
+        parse_uploaded_structure_file,
+        fetch_3d_structure_for_uniprot,
+        build_3dmol_viewer_html,
+        build_3d_biophysical_backbone_figure,
+    )
+
+    # ------------------------------------------------------------------
+    # 1. Static, Syntax & Branding Audit
+    # ------------------------------------------------------------------
+    py_files = [
+        os.path.join(root_dir, "app.py"),
+        os.path.join(root_dir, "test_modules.py"),
+    ] + sorted(glob.glob(os.path.join(root_dir, "modules", "*.py")))
+    for pf in py_files:
+        py_compile.compile(pf, doraise=True)
+
+    app_path = os.path.join(root_dir, "app.py")
+    with open(app_path, "r", encoding="utf-8") as af:
+        app_src = af.read()
+
+    assert "use_container_width" not in app_src, "Deprecated use_container_width found in app.py"
+    app_no_style = re.sub(r"<style>.*?</style>", "", app_src, flags=re.S | re.I)
+    assert not re.search(r"font-size\s*:", app_no_style, flags=re.I), "Inline font-size: outside <style> in app.py"
+
+    # Zero blank-line + 4-space-indent CommonMark HTML code-block traps in app.py
+    for m_html in re.finditer(r'st\.markdown\s*\(\s*f?"""(.*?)"""\s*,\s*unsafe_allow_html\s*=\s*True', app_src, flags=re.S):
+        body = m_html.group(1)
+        if "<style>" not in body:
+            assert not re.search(r"\n[ \t]*\n[ ]{4,}<", body), f"CommonMark HTML trap near offset {m_html.start()}"
+
+    brand_files = [
+        app_path,
+        os.path.join(root_dir, ".streamlit", "config.toml"),
+    ] + sorted(glob.glob(os.path.join(root_dir, "modules", "*.py")))
+    for bf in brand_files:
+        with open(bf, "r", encoding="utf-8") as fh:
+            btxt = fh.read()
+        assert not re.search(r"prafful|created\s+by", btxt, flags=re.I), f"Forbidden branding text in {bf}"
+
+    # ------------------------------------------------------------------
+    # 2. SDS-PAGE Handcast Gel Recipe Calculator (modules/gel_recipe.py)
+    # ------------------------------------------------------------------
+    # Laemmli 4%-22% across 30%/40%/49.5% stocks, 4%/5% stacking, formats & 1-4 gels
+    for pct in (4.0, 6.0, 7.5, 8.0, 10.0, 10.5, 11.0, 12.0, 15.0, 18.0, 20.0, 21.5, 22.0):
+        for stock in (30.0, 40.0, 49.5):
+            for stk_pct in (4.0, 5.0):
+                for fmt_k in ("mini_0.75mm", "mini_1.0mm", "mini_1.5mm", "midi_1.0mm"):
+                    fmt = GEL_FORMAT_PRESETS[fmt_k]
+                    max_p = get_max_achievable_gel_pct("laemmli", stock)
+                    if pct > max_p + 1e-6:
+                        try:
+                            calculate_sds_gel_recipe(
+                                pct, "laemmli", stock, fmt["resolving_vol_ml"], fmt["stacking_vol_ml"],
+                                stacking_pct=stk_pct, num_gels=2,
+                            )
+                            raise AssertionError(f"Expected ValueError for Laemmli {pct}% with {stock}% stock")
+                        except ValueError as ve:
+                            assert "Impossible gel formulation" in str(ve)
+                        rec = calculate_sds_gel_recipe(
+                            pct, "laemmli", stock, fmt["resolving_vol_ml"], fmt["stacking_vol_ml"],
+                            stacking_pct=stk_pct, num_gels=2, auto_upgrade_stock=True,
+                        )
+                        assert rec["stock_upgraded"] is True and rec["acrylamide_stock_pct"] > stock
+                        assert any("auto-upgraded" in w.lower() for w in rec["warnings"])
+                    else:
+                        rec = calculate_sds_gel_recipe(
+                            pct, "laemmli", stock, fmt["resolving_vol_ml"], fmt["stacking_vol_ml"],
+                            stacking_pct=stk_pct, num_gels=2,
+                        )
+                        assert rec["stock_upgraded"] is False
+                    for rows_key, tot_key in (("resolving_rows", "resolving_total_vol_ml"), ("stacking_rows", "stacking_total_vol_ml")):
+                        rows = rec[rows_key]
+                        tot = rec[tot_key]
+                        assert abs(sum(r["volume_ml"] for r in rows) - tot) < 1e-4
+                        assert abs(sum(r["Volume (mL)"] for r in rows) - tot) < 1e-4
+                        assert all(r["volume_ml"] >= -1e-9 for r in rows)
+                        assert all(col in rows[0] for col in RECIPE_DISPLAY_COLUMNS)
+
+    # Tricine 10%-20% across 30%/40%/49.5% stocks & glycerol toggles (including 10% and 13%)
+    for pct in (10.0, 12.0, 14.0, 16.0, 18.0, 20.0):
+        for stock in (30.0, 40.0, 49.5):
+            for inc_glyc, glyc_pct in ((None, 10.0), (True, 10.0), (True, 13.0), (False, 10.0)):
+                eff_g = (pct >= 16.0) if inc_glyc is None else inc_glyc
+                max_p = get_max_achievable_gel_pct("tricine", stock, include_glycerol=eff_g, glycerol_pct=glyc_pct)
+                if pct > max_p + 1e-6:
+                    try:
+                        calculate_sds_gel_recipe(
+                            pct, "tricine", stock, include_glycerol=inc_glyc, glycerol_pct=glyc_pct
+                        )
+                        raise AssertionError(f"Expected ValueError for Tricine {pct}% w/ {stock}% stock")
+                    except ValueError:
+                        pass
+                    rec = calculate_sds_gel_recipe(
+                        pct, "tricine", stock, include_glycerol=inc_glyc, glycerol_pct=glyc_pct,
+                        auto_upgrade_stock=True,
+                    )
+                    assert rec["stock_upgraded"] is True and rec["acrylamide_stock_pct"] > stock
+                else:
+                    rec = calculate_sds_gel_recipe(
+                        pct, "tricine", stock, include_glycerol=inc_glyc, glycerol_pct=glyc_pct
+                    )
+                assert abs(sum(r["volume_ml"] for r in rec["resolving_rows"]) - rec["resolving_total_vol_ml"]) < 1e-4
+                assert abs(sum(r["volume_ml"] for r in rec["stacking_rows"]) - rec["stacking_total_vol_ml"]) < 1e-4
+                assert all(r["volume_ml"] >= -1e-9 for r in rec["resolving_rows"])
+
+    # Textbook Laemmli 12% (10 mL, 30% stock) & gel-%-tuned TEMED + <10 kDa Tricine advisory + text sheet
+    r_12 = calculate_sds_gel_recipe(12.0, "laemmli", 30.0, resolving_vol_ml=10.0, stacking_vol_ml=5.0, target_mw_kda=5.5)
+    rmap = {r["Reagent"]: r["volume_ml"] for r in r_12["resolving_rows"]}
+    assert abs(rmap["Acrylamide/Bis 30% (37.5:1)"] - 4.0) < 1e-4
+    assert abs(rmap["Tris-HCl (pH 8.8)"] - 2.5) < 1e-4
+    assert abs(rmap["SDS"] - 0.1) < 1e-4 and abs(rmap["APS (Ammonium Persulfate)"] - 0.1) < 1e-4
+    assert abs(rmap["TEMED"] - 0.004) < 1e-6 and abs(rmap["ddH2O (Ultrapure Water)"] - 3.296) < 1e-4
+    assert any("Tricine" in w and "10 kDa" in w for w in r_12["warnings"])
+    assert recommend_gel_recipe_params(5.5)["system"] == "tricine"
+
+    # Schägger (2006) Table 1 16% Tricine 30 mL (49.5% T stock, 10% glycerol) & dual buffer text export
+    r_tri16 = calculate_sds_gel_recipe(16.0, "tricine", 49.5, resolving_vol_ml=30.0, stacking_vol_ml=12.0)
+    tmap = {r["Reagent"]: r["volume_ml"] for r in r_tri16["resolving_rows"]}
+    assert abs(tmap["3× Tricine Gel Buffer (pH 8.45)"] - 10.0) < 1e-4
+    assert abs(tmap["Glycerol (anhydrous)"] - 3.0) < 1e-4
+    assert abs(tmap["APS (Ammonium Persulfate)"] - 0.15) < 1e-4
+    assert abs(tmap["TEMED"] - 0.015) < 1e-6
+
+    laem_txt = format_gel_recipe_text(r_12)
+    tri_txt = format_gel_recipe_text(r_tri16)
+    assert "RESOLVING GEL" in laem_txt and "STACKING GEL" in laem_txt and "NEUROTOXIN" in laem_txt
+    assert "Anode (Lower)" in tri_txt and "Cathode (Upper)" in tri_txt
+
+    for bad_kwargs in (
+        {"gel_pct": 3.0, "system": "laemmli"},
+        {"gel_pct": 8.0, "system": "tricine"},
+        {"gel_pct": 12.0, "num_gels": 0},
+        {"gel_pct": 12.0, "resolving_vol_ml": -1.0},
+        {"gel_pct": 12.0, "system": "invalid_sys"},
+    ):
+        try:
+            calculate_sds_gel_recipe(**bad_kwargs)
+            raise AssertionError(f"Expected ValueError for {bad_kwargs}")
+        except ValueError:
+            pass
+
+    # ------------------------------------------------------------------
+    # 3. 3D Protein Structure Viewer & Parser (modules/protein_3d.py)
+    # ------------------------------------------------------------------
+    lyso_m = analyze_all_parameters(LYSOZYME_MATURE_SEQ)
+    lyso_ss = predict_secondary_structure(LYSOZYME_MATURE_SEQ)
+    # Warm up Plotly scatter3d validator schema once so standalone timings reflect true runtime
+    _ = build_3d_biophysical_backbone_figure(LYSOZYME_MATURE_SEQ, lyso_ss, lyso_m, color_by="ss")
+    for cmode in ("ss", "hydrophobicity", "charge"):
+        t0 = time.perf_counter()
+        fig_lyso_3d = build_3d_biophysical_backbone_figure(
+            LYSOZYME_MATURE_SEQ, lyso_ss, lyso_m, color_by=cmode, protein_name="Lysozyme"
+        )
+        dt_lyso = time.perf_counter() - t0
+        assert dt_lyso < 0.30, f"Offline 3D Lysozyme ({cmode}) too slow: {dt_lyso:.3f}s"
+        assert len(fig_lyso_3d.data) >= 3
+        assert SCHEMATIC_3D_DISCLAIMER in str(fig_lyso_3d.layout.title.subtitle.text)
+
+    titin_34k = (LYSOZYME_MATURE_SEQ * 267)[:34350]
+    titin_ss = predict_secondary_structure(titin_34k)
+    titin_m = analyze_all_parameters(titin_34k)
+    for cmode in ("ss", "hydrophobicity", "charge"):
+        t0 = time.perf_counter()
+        fig_titin_3d = build_3d_biophysical_backbone_figure(
+            titin_34k, titin_ss, titin_m, color_by=cmode, protein_name="Titin"
+        )
+        dt_titin = time.perf_counter() - t0
+        assert dt_titin < 0.30, f"Offline 3D Titin 34,350 aa ({cmode}) too slow: {dt_titin:.3f}s"
+        assert SCHEMATIC_3D_DISCLAIMER in str(fig_titin_3d.layout.title.subtitle.text)
+
+    def _pdb_atom(serial: int, name: str, resn: str, chain: str, resi: int, x: float, y: float, z: float, bfac: float, elem: str) -> str:
+        return f"ATOM  {serial:5d} {name:^4s} {resn:>3s} {chain:1s}{resi:4d}    {x:8.3f}{y:8.3f}{z:8.3f}  1.00{bfac:6.2f}          {elem:>2s}"
+
+    af2_pdb = "\n".join([
+        "HEADER    ALPHAFOLD MONOMER V2.0 PREDICTION",
+        _pdb_atom(1, "CA", "LYS", "A", 1, 1.0, 2.0, 3.0, 95.4, "C"),
+        _pdb_atom(2, "CA", "VAL", "A", 2, 4.8, 2.0, 3.0, 82.6, "C"),
+        _pdb_atom(3, "CA", "PHE", "A", 3, 8.6, 2.0, 3.0, 61.0, "C"),
+        "END",
+    ]).encode("utf-8")
+    p_af2 = parse_uploaded_structure_file(af2_pdb, "af2_model.pdb")
+    assert p_af2["valid"] and p_af2["looks_like_plddt"] is True and p_af2["plddt_scale"] == "0-100"
+    assert abs(p_af2["mean_plddt"] - 79.67) < 0.05
+
+    esm_pdb = "\n".join([
+        _pdb_atom(1, "CA", "ALA", "A", 1, 1.0, 2.0, 3.0, 0.94, "C"),
+        _pdb_atom(2, "CA", "GLY", "A", 2, 4.8, 2.0, 3.0, 0.78, "C"),
+        _pdb_atom(3, "CA", "LEU", "A", 3, 8.6, 2.0, 3.0, 0.62, "C"),
+        "END",
+    ]).encode("utf-8")
+    p_esm = parse_uploaded_structure_file(esm_pdb, "esmfold_design.pdb")
+    assert p_esm["valid"] and p_esm["looks_like_plddt"] is True and p_esm["plddt_scale"] == "0-1"
+    assert abs(p_esm["mean_plddt"] - 78.0) < 0.1 and any("0–1 pLDDT" in w for w in p_esm["warnings"])
+
+    rfd_pdb = "\n".join([
+        _pdb_atom(1, "CA", "ALA", "A", 1, 1.0, 2.0, 3.0, 0.00, "C"),
+        _pdb_atom(2, "CA", "GLU", "A", 2, 4.8, 2.0, 3.0, 0.00, "C"),
+        _pdb_atom(3, "CA", "LYS", "A", 3, 8.6, 2.0, 3.0, 0.00, "C"),
+        "END",
+    ]).encode("utf-8")
+    p_rfd = parse_uploaded_structure_file(rfd_pdb, "rfdiffusion_backbone.pdb")
+    assert p_rfd["valid"] and p_rfd["looks_like_plddt"] is False and p_rfd["plddt_scale"] is None and p_rfd["mean_plddt"] is None
+
+    xray_pdb = "\n".join([
+        "EXPDTA    X-RAY DIFFRACTION",
+        "REMARK   2 RESOLUTION.    1.45 ANGSTROMS.",
+        "SSBOND   1 CYS A    6    CYS A  127",
+        _pdb_atom(1, "CA", "HIS", "A", 1, 1.0, 2.0, 3.0, 24.5, "C"),
+        _pdb_atom(2, "CA", "CYS", "A", 2, 4.8, 2.0, 3.0, 31.2, "C"),
+        "HETATM    3 FE   HEM A 201       5.000   5.000   5.000  1.00 18.00          FE",
+        "HETATM    4 ZN    ZN A 202       9.000   5.000   5.000  1.00 15.00          ZN",
+        "HETATM    5  O   HOH A 301      12.000   5.000   5.000  1.00 35.00           O",
+        "END",
+    ]).encode("utf-8")
+    p_xray = parse_uploaded_structure_file(xray_pdb, "holo_enzyme.pdb")
+    assert p_xray["valid"] and p_xray["looks_like_plddt"] is False
+    assert p_xray["resolution_angstrom"] == 1.45 and p_xray["disulfide_bonds"] == 1
+    assert "HEM" in p_xray["cofactors"] and "FE" in p_xray["metal_ions"] and "ZN" in p_xray["metal_ions"]
+    assert "HOH" not in p_xray["hetatm_ligands"]
+
+    af3_cif = (
+        "data_AF3_BINDER\n"
+        "_struct.title 'AlphaFold3 Designed Binder'\n"
+        "_ma_qa_metric_global.metric_value 91.5\n"
+        "loop_\n"
+        "_atom_site.group_PDB\n_atom_site.id\n_atom_site.type_symbol\n_atom_site.label_atom_id\n"
+        "_atom_site.label_comp_id\n_atom_site.label_asym_id\n_atom_site.auth_seq_id\n"
+        "_atom_site.Cartn_x\n_atom_site.Cartn_y\n_atom_site.Cartn_z\n_atom_site.B_iso_or_equiv\n"
+        "ATOM 1 C CA ALA A 1 1.0 2.0 3.0 92.0\n"
+        "ATOM 2 C O5' GLU A 2 4.8 2.0 3.0 91.0\n"
+        "HETATM 3 ZN ZN ZN A 101 8.0 2.0 3.0 88.0\n"
+    ).encode("utf-8")
+    p_cif = parse_uploaded_structure_file(af3_cif, "binder_af3.cif")
+    assert p_cif["valid"] and p_cif["format"] == "cif" and p_cif["looks_like_plddt"] is True
+    assert "ZN" in p_cif["metal_ions"] and p_cif["residue_count"] == 2
+
+    p_gz = parse_uploaded_structure_file(gzip.compress(af2_pdb), "af2_model.pdb.gz")
+    assert p_gz["valid"] and p_gz["format"] == "pdb" and p_gz["looks_like_plddt"] is True
+
+    for bad_bytes, bad_name in (
+        (b"", "empty.pdb"),
+        (b"plain text", "notes.txt"),
+        (b"\x00\x01\x02binary", "fake.pdb"),
+        (b"REMARK ONLY NO ATOMS\nEND\n", "no_atoms.pdb"),
+        (b"not a valid gzip stream", "corrupt.pdb.gz"),
+        (b"A" * (10 * 1024 * 1024 + 5), "oversize.pdb"),
+    ):
+        r_bad = parse_uploaded_structure_file(bad_bytes, bad_name)
+        assert r_bad["valid"] is False and bool(r_bad["error"]), f"Should reject malformed upload {bad_name}"
+
+    # 3Dmol HTML escaping against </script>, HTML comments, quotes, backticks & line separators
+    hostile_pdb = (
+        "TITLE     HOSTILE </script><script>alert('xss')</script> <!-- comment --> \"dbl\" 'sgl' `bt`\u2028\u2029\n"
+        + af2_pdb.decode("utf-8")
+    )
+    html_esc = build_3dmol_viewer_html(hostile_pdb, fmt="pdb", style="cartoon", color_scheme="plddt", bg_color="javascript:alert(1)")
+    assert len(re.findall(r"</script>", html_esc, flags=re.I)) == 1
+    assert "<!-- comment -->" not in html_esc and "javascript:alert" not in html_esc
+    m_cfg = re.search(r"var CFG = (\{.*?\});\n", html_esc, flags=re.S)
+    assert m_cfg is not None
+    parsed_cfg = json.loads(m_cfg.group(1).replace("<\\/", "</").replace("<\\!--", "<!--"))
+    assert "</script>" in parsed_cfg["structure"] and parsed_cfg["bgColor"] == "#F8FBF9"
+    for st_name in SUPPORTED_3DMOL_STYLES:
+        for cs_name in SUPPORTED_3DMOL_COLOR_SCHEMES:
+            h_combo = build_3dmol_viewer_html(af2_pdb.decode("utf-8"), style=st_name, color_scheme=cs_name)
+            assert "$3Dmol" in h_combo
+
+    # Mocked AlphaFold -> RCSB fallback (including >4 MB skip), prefer_source='rcsb', and offline None
+    assert normalize_uniprot_accession("P04637-2") == "P04637"
+
+    class _Mock3DResp:
+        def __init__(self, code: int, text: str = "", json_obj=None, headers=None):
+            self.status_code = code
+            self.text = text
+            self.content = text.encode("utf-8") if isinstance(text, str) else b""
+            self._json = json_obj
+            self.headers = headers or {}
+
+        def json(self):
+            return self._json
+
+    def _mock_3d_fetch(url: str, **kwargs):
+        if "alphafold.ebi.ac.uk/api/prediction/P04637" in url:
+            return _Mock3DResp(404)
+        if "search.rcsb.org" in url:
+            return _Mock3DResp(200, json_obj={"result_set": [{"identifier": "9BIG"}, {"identifier": "1TUP"}]})
+        if "files.rcsb.org/download/9BIG.pdb" in url:
+            return _Mock3DResp(200, text="ATOM", headers={"Content-Length": str(5 * 1024 * 1024)})
+        if "files.rcsb.org/download/1TUP.pdb" in url:
+            return _Mock3DResp(200, text=xray_pdb.decode("utf-8"))
+        return _Mock3DResp(404)
+
+    with patch("requests.get", side_effect=_mock_3d_fetch):
+        fb_3d = fetch_3d_structure_for_uniprot("P04637-2")
+        assert fb_3d is not None and fb_3d["source"] == "RCSB PDB" and fb_3d["pdb_id"] == "1TUP"
+        assert fb_3d["accession"] == "P04637" and "ZN" in fb_3d["metal_ions"]
+
+    with patch("requests.get", side_effect=_requests.ConnectionError("Simulated offline")):
+        assert fetch_3d_structure_for_uniprot("P00698") is None
+    assert fetch_3d_structure_for_uniprot("NOT_VALID_ID") is None
+
+    # ------------------------------------------------------------------
+    # 4. AI-Designed / De Novo Protein Discrepancy Fixes (#95, #99)
+    # ------------------------------------------------------------------
+    seq_2kl8 = "MEMDIRFRGDDLEAFEKALKEMIRQARKFAGTVTYTLDGNDLEIRITGVPEQVRKELAKEAERLAKEFNITVTYTIRLEHHHHHH"
+    m_2kl8 = analyze_all_parameters(seq_2kl8)
+    prof_2kl8 = infer_protein_biochemical_profile(
+        sequence=seq_2kl8, protein_name="De novo ferredoxin fold protein Di-I_5", metrics=m_2kl8, tag_detected="6xHis"
+    )
+    assert "fe_s_cluster" not in prof_2kl8["categories"]
+    assert prof_2kl8["is_o2_sensitive"] is False and prof_2kl8["avoid_imidazole_imac"] is False
+    assert prof_2kl8["tag_conflict"] is None
+
+    # Name-only "Spinach ferredoxin" with empty sequence STILL flags [Fe-S] & O2 sensitivity
+    prof_spinach = infer_protein_biochemical_profile(protein_name="Spinach ferredoxin", sequence="", tag_detected="6xHis")
+    assert "fe_s_cluster" in prof_spinach["categories"] and prof_spinach["is_o2_sensitive"] is True
+    assert prof_spinach["avoid_imidazole_imac"] is True and prof_spinach["tag_conflict"] is not None
+
+    # 6D0T (12.6% aromatic folded de novo beta-barrel) -> NOT IDP, NOT membrane
+    seq_6d0t = "MVDAAQYFPGTWEFRFRSSDGKEYRGTVEMQPRTPTEIEIRFKGQSSDGRPVEGRGSIEVRSPYEYRFEMQSSDGARWEGTLQVRSPDSVEVRFKSSDGREYSGEFRRQEG"
+    m_6d0t = analyze_all_parameters(seq_6d0t)
+    prof_6d0t = infer_protein_biochemical_profile(
+        sequence=seq_6d0t, protein_name="De novo fluorescence-activating beta-barrel mFAP2b", metrics=m_6d0t
+    )
+    assert "idp_disordered" not in prof_6d0t["categories"]
+    assert prof_6d0t["requires_detergent_micelles"] is False
+
+    # Contrast: true low-aromatic polar IDP sequence still flags idp_disordered
+    seq_idp = "EDKQSGNTPQEDKQSGNTPQ" * 5
+    prof_idp = infer_protein_biochemical_profile(
+        sequence=seq_idp, protein_name="Unnamed_Disordered_Chain", metrics=analyze_all_parameters(seq_idp)
+    )
+    assert "idp_disordered" in prof_idp["categories"]
+
+    # 6X1K (transmembrane beta-barrel) -> requires_detergent_micelles=True + S200 micelle shift + Avoid HIC
+    seq_6x1k = "MQDGPGTLDVFVAAGWNTDNTIEITGGATYQLSPYIMVKAGYGWNNSSLNRFEFGGGLQYKVTPDLEPYAWAGATYNTDNTLVPAAGAGFRYKVSPEVKLVVEYGWNNSSLQFLQAGLSYRIQP"
+    m_6x1k = analyze_all_parameters(seq_6x1k)
+    prof_6x1k = infer_protein_biochemical_profile(
+        sequence=seq_6x1k, protein_name="De novo transmembrane beta-barrel TMB2.3", metrics=m_6x1k
+    )
+    assert prof_6x1k["requires_detergent_micelles"] is True
+    wf_6x1k = recommend_full_purification_workflow(
+        m_6x1k, 7.5, calculate_net_charge_at_ph(seq_6x1k, 7.5),
+        tag_detected="Twin-Strep-tag", sequence=seq_6x1k,
+        protein_name="De novo transmembrane beta-barrel TMB2.3", protein_profile=prof_6x1k,
+    )
+    assert "Superdex 200" in wf_6x1k["roadmap"][2]["title"]
+    assert "Avoid" in wf_6x1k["all_methods"][4]["Suitability"]
+    assert infer_protein_biochemical_profile(protein_name="Transcriptional regulatory protein OmpR")["requires_detergent_micelles"] is False
+
+    # Zero-Trp/Tyr sequence (3Q7X, eps280 = 0) -> uv280_invisible=True + SEC warning + workflow alert
+    seq_3q7x = "HEVLLRSTETGQFLRINPDGTVDGTRDRSDPGIQFQISPEGNGEVLLRSTETGQFLRINPDGTVDGTRDRSDPGIQFQISPEGNGEVLLRSTETGQFLRINPDGTVDGTRDRSDPGIQFQISPEG"
+    m_3q7x = analyze_all_parameters(seq_3q7x)
+    assert m_3q7x["extinction"]["molar_extinction_cystines"] == 0 and m_3q7x["extinction"]["abs_01_cystines"] == 0.0
+    sim_3q7x = simulate_chromatogram_peaks(
+        [{"label": "3Q7X", "mw_kda": m_3q7x["mw_kda"], "prot_eps01": m_3q7x["extinction"]["abs_01_cystines"]}],
+        SEC_COLUMNS["s75_increase_10_300"],
+    )
+    pk_3q7x = sim_3q7x["peaks"][0]
+    assert pk_3q7x["uv280_invisible"] is True and pk_3q7x["peak_height_mau"] > 0 and "214/205 nm" in pk_3q7x["note"]
+    wf_3q7x = recommend_full_purification_workflow(
+        m_3q7x, 7.4, calculate_net_charge_at_ph(seq_3q7x, 7.4),
+        sequence=seq_3q7x, protein_name="De novo symmetric beta-trefoil Symfoil-4P",
+    )
+    assert any("UV-280 Invisible" in a for a in wf_3q7x["alerts"])
+    assert simulate_chromatogram_peaks([{"label": "DefaultEps", "mw_kda": 15.0}], SEC_COLUMNS["s75_increase_10_300"])["peaks"][0]["uv280_invisible"] is False
+    assert simulate_chromatogram_peaks([{"label": "RNP", "mw_kda": 40.0, "prot_mw_kda": 15.0, "na_mw_kda": 25.0, "na_type": "ssrna", "prot_eps01": 0.0}], SEC_COLUMNS["s75_increase_10_300"])["peaks"][0]["uv280_invisible"] is False
+
+    # Glu/Lys-rich MPNN/de novo II>=40 caveat vs BSA negative control (natural II=40.11)
+    seq_ek_mpnn = "EEVVVEIRIRVQREEKVRRLIKRILEEVKRESNSVEVHVETRKRNGEVEVHVRIRHDDKETIERLVERILREIKKLDKNSEVEVRTTTKR"
+    m_ek = analyze_all_parameters(seq_ek_mpnn)
+    assert m_ek["instability_index"] >= 40.0
+    wf_ek_raw = recommend_full_purification_workflow(
+        m_ek, 7.4, calculate_net_charge_at_ph(seq_ek_mpnn, 7.4),
+        sequence=seq_ek_mpnn, protein_name="Unnamed_Design",
+    )
+    assert any("De Novo / ProteinMPNN Caveat" in a for a in wf_ek_raw["alerts"])
+
+    bsa_seq = CLASSROOM_PRESET_PROTEINS["bsa"]["sequence"]
+    m_bsa = analyze_all_parameters(bsa_seq)
+    assert m_bsa["instability_index"] >= 40.0
+    wf_bsa = recommend_full_purification_workflow(
+        m_bsa, 7.4, calculate_net_charge_at_ph(bsa_seq, 7.4),
+        sequence=bsa_seq, protein_name="Bovine Serum Albumin",
+    )
+    assert any("Cold-Room" in a for a in wf_bsa["alerts"])
+    assert not any("De Novo / ProteinMPNN Caveat" in a for a in wf_bsa["alerts"])
+
+    # ------------------------------------------------------------------
+    # 5. Headless AppTest Audit of app.py (#91, #99)
+    # ------------------------------------------------------------------
+    # 5a. Default load: 0 exceptions, 0 outbound HTTP calls, instant offline 3D Plotly scatter3d present
+    def _forbid_http(*args, **kwargs):
+        raise AssertionError(f"Unexpected outbound HTTP call on default load: args={args}")
+
+    with patch("requests.get", side_effect=_forbid_http), \
+         patch("requests.post", side_effect=_forbid_http), \
+         patch("requests.Session.request", side_effect=_forbid_http):
+        at = AppTest.from_file(app_path).run(timeout=30)
+
+    assert len(at.exception) == 0, f"Default load exceptions: {at.exception}"
+    mode_radios = [r for r in at.radio if r.key == "viewer_3d_mode_radio"]
+    assert len(mode_radios) == 1 and "Offline" in mode_radios[0].value
+    found_offline_3d = False
+    for ch in at.get("plotly_chart"):
+        spec = json.loads(ch.proto.spec)
+        if any(tr.get("type") == "scatter3d" for tr in spec.get("data", [])):
+            assert SCHEMATIC_3D_DISCLAIMER in str(spec.get("layout", {}).get("title", {}).get("subtitle", {}).get("text", ""))
+            found_offline_3d = True
+            break
+    assert found_offline_3d, "Offline 3D scatter3d Plotly figure not found on default load!"
+    rendered_md = "\n".join(m.value for m in at.markdown if "<style>" not in m.value)
+    assert "Schematic 3D Note:" in rendered_md
+    assert len(re.findall(r"font-size\s*:", rendered_md, flags=re.I)) == 0
+    assert not any("UV-280 Blind" in w.value for w in at.warning)
+
+    # 5b. Gel Recipe Pop-Out on Lysozyme (Laemmli + switch to Tricine)
+    gel_btn = [b for b in at.button if b.key == "btn_open_gel_recipe_dialog"][0]
+    gel_btn.click().run(timeout=30)
+    assert len(at.exception) == 0
+    gel_dfs = [df.value for df in at.dataframe if "Pipette Display" in list(df.value.columns)]
+    assert len(gel_dfs) == 2
+    assert abs(float(gel_dfs[0]["Volume (mL)"].sum()) - 7.5) < 1e-3
+    assert abs(float(gel_dfs[1]["Volume (mL)"].sum()) - 2.5) < 1e-3
+
+    # Switch to Tricine inside the pop-out dialog (re-trigger dialog open in headless AppTest)
+    [r for r in at.radio if r.key == "gel_calc_system_radio"][0].set_value("tricine")
+    [b for b in at.button if b.key == "btn_open_gel_recipe_dialog"][0].click()
+    at.run(timeout=30)
+    assert len(at.exception) == 0
+    tri_dfs = [df.value for df in at.dataframe if "Pipette Display" in list(df.value.columns)]
+    assert len(tri_dfs) == 2 and any("3× Tricine Gel Buffer" in str(x) for x in tri_dfs[0]["Reagent"].tolist())
+
+    # 5c. <10 kDa zero-Trp/Tyr peptide -> UV-280 Blind SEC warning + Auto-Tricine Gel Recipe Pop-Out (and W clears warning)
+    at_pep = AppTest.from_file(app_path).run(timeout=30)
+    at_pep.sidebar.radio[0].set_value("🔤 Paste Amino Acid / FASTA").run(timeout=30)
+    at_pep.sidebar.text_area[0].set_value(">DeNovo_UVBlind_Peptide\nAEKLAEKLAEKLAEKLAEKLAEKLAEKL\n").run(timeout=30)
+    at_pep.sidebar.button[0].click().run(timeout=30)
+    assert len(at_pep.exception) == 0
+    assert any("UV-280 Blind" in w.value for w in at_pep.warning)
+
+    [b for b in at_pep.button if b.key == "btn_open_gel_recipe_dialog"][0].click().run(timeout=30)
+    assert len(at_pep.exception) == 0
+    pep_sys = [r for r in at_pep.radio if r.key == "gel_calc_system_radio"]
+    assert len(pep_sys) == 1 and pep_sys[0].value == "tricine"
+    assert any("Auto-Selected Tricine-SDS-PAGE" in i.value for i in at_pep.info)
+    pep_dfs = [df.value for df in at_pep.dataframe if "Pipette Display" in list(df.value.columns)]
+    assert len(pep_dfs) == 2 and abs(float(pep_dfs[0]["Volume (mL)"].sum()) - 7.5) < 1e-3
+
+    # Appending single C-terminal Trp clears UV-280 Blind SEC warning
+    at_pep.sidebar.text_area[0].set_value(">DeNovo_TrpTag_Peptide\nAEKLAEKLAEKLAEKLAEKLAEKLAEKLW\n").run(timeout=30)
+    at_pep.sidebar.button[0].click().run(timeout=30)
+    assert len(at_pep.exception) == 0
+    assert not any("UV-280 Blind" in w.value for w in at_pep.warning)
+
+    # 5d. Live 3D Viewer: 0 HTTP before Fetch click, mocked AlphaFold fetch + cache after click
+    with patch("requests.get", side_effect=_forbid_http), \
+         patch("requests.Session.request", side_effect=_forbid_http):
+        at_live = AppTest.from_file(app_path).run(timeout=30)
+        [r for r in at_live.radio if r.key == "viewer_3d_mode_radio"][0].set_value("🌐 Live AlphaFold / PDB 3D").run(timeout=30)
+    assert len(at_live.exception) == 0
+
+    def _mock_live_af(url: str, **kwargs):
+        if "alphafold.ebi.ac.uk/api/prediction/P00698" in url:
+            return _Mock3DResp(200, json_obj=[{
+                "entryId": "AF-P00698-F1",
+                "pdbUrl": "https://alphafold.ebi.ac.uk/files/AF-P00698-F1-model_v4.pdb",
+                "globalMetricValue": 93.8,
+                "latestVersion": 4,
+                "uniprotDescription": "Lysozyme C",
+            }])
+        if "AF-P00698-F1-model_v4.pdb" in url:
+            return _Mock3DResp(200, text=af2_pdb.decode("utf-8"))
+        return _Mock3DResp(404)
+
+    with patch("requests.get", side_effect=_mock_live_af):
+        [b for b in at_live.button if b.key == "btn_fetch_3d_structure"][0].click().run(timeout=30)
+    assert len(at_live.exception) == 0
+    assert ("P00698", "alphafold") in at_live.session_state["structure_3d_cache"]
+    assert at_live.session_state["structure_3d_cache"][("P00698", "alphafold")]["mean_plddt"] == 93.8
+
+    # 5e. Feedback Modal: open & submit cleanly with guaranteed cleanup of data/user_feedback_reports.jsonl
+    fb_log_path = os.path.join(root_dir, "data", "user_feedback_reports.jsonl")
+    fb_existed_before = os.path.exists(fb_log_path)
+    fb_prior_bytes = None
+    if fb_existed_before:
+        with open(fb_log_path, "rb") as fh_prior:
+            fb_prior_bytes = fh_prior.read()
+
+    try:
+        at_fb = AppTest.from_file(app_path).run(timeout=30)
+        [b for b in at_fb.sidebar.button if b.key == "btn_open_feedback_dialog"][0].click().run(timeout=30)
+        assert len(at_fb.exception) == 0
+        [ta for ta in at_fb.text_area if ta.key == "fb_description_input"][0].set_value(
+            "Suite 14 verification feedback report (automatically cleaned up)."
+        )
+        [ti for ti in at_fb.text_input if ti.key == "fb_reference_input"][0].set_value("UniProt P00698")
+        [b for b in at_fb.button if b.key == "fb_submit_btn"][0].click()
+        [b for b in at_fb.sidebar.button if b.key == "btn_open_feedback_dialog"][0].click()
+        at_fb.run(timeout=30)
+        assert len(at_fb.exception) == 0
+        assert "last_feedback_report" in at_fb.session_state
+        assert at_fb.session_state["last_feedback_report"]["diagnostic_context"]["uniprot_or_accession_id"] == "P00698"
+        assert any("Anonymous report captured" in s.value for s in at_fb.success)
+    finally:
+        if fb_existed_before and fb_prior_bytes is not None:
+            with open(fb_log_path, "wb") as fh_restore:
+                fh_restore.write(fb_prior_bytes)
+        elif os.path.exists(fb_log_path):
+            os.remove(fb_log_path)
+    assert os.path.exists(fb_log_path) == fb_existed_before
+
+    # 5f. Hot-reload recovery for modules.gel_recipe & modules.protein_3d
+    delattr(_sys.modules["modules.gel_recipe"], "calculate_sds_gel_recipe")
+    delattr(_sys.modules["modules.protein_3d"], "build_3d_biophysical_backbone_figure")
+    at_hr = AppTest.from_file(app_path).run(timeout=30)
+    assert len(at_hr.exception) == 0, f"Hot-reload recovery failed for new modules: {at_hr.exception}"
+    assert hasattr(_sys.modules["modules.gel_recipe"], "calculate_sds_gel_recipe")
+    assert hasattr(_sys.modules["modules.protein_3d"], "build_3d_biophysical_backbone_figure")
+
+
 def test_pipeline() -> None:
     root_dir = os.path.dirname(os.path.abspath(__file__))
     test_protparam_golden_reference_and_sequences(root_dir)
@@ -2360,7 +2906,8 @@ def test_pipeline() -> None:
     test_interactive_sec_column_visualizer_and_intuitive_plots(root_dir)
     test_biochemical_protein_intelligence_and_metalloprotein_safety(root_dir)
     test_all_5_input_methods_hardening_and_minimal_chrome(root_dir)
-    print("\n=== ALL 13 GOLDEN PROTPARAM, STOICHIOMETRY, 7-METHOD, SEC, SDS-PAGE, NL PARSER, SECONDARY STRUCTURE, GIANT TITIN, INTERACTIVE SEC COLUMN, BIOCHEMICAL INTELLIGENCE & ALL-5-INPUT-METHOD TESTS PASSED! ===")
+    test_gel_recipes_3d_viewer_feedback_and_ai_proteins(root_dir)
+    print("\n=== ALL 14 GOLDEN PROTPARAM, STOICHIOMETRY, 7-METHOD, SEC, SDS-PAGE, NL PARSER, SECONDARY STRUCTURE, GIANT TITIN, INTERACTIVE SEC COLUMN, BIOCHEMICAL INTELLIGENCE, ALL-5-INPUT-METHOD, GEL RECIPES, 3D VIEWER, FEEDBACK & AI-PROTEIN TESTS PASSED! ===")
 
 
 if __name__ == "__main__":

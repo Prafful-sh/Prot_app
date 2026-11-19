@@ -1,0 +1,5908 @@
+{
+  "generated_at_utc": "2026-11-19T15:40:28Z",
+  "question_a_ai_designed_audit": {
+    "panel_size": 32,
+    "total_eval_residues": 3908,
+    "zero_leakage_vs_natural_train": {
+      "exact_sequence_overlaps": 0,
+      "max_5mer_containment": 0.7609,
+      "max_5mer_jaccard": 0.5676,
+      "any_pair_ge_0_30": true
+    },
+    "aa_composition_comparison": {
+      "ai_designed_pct": {
+        "A": 7.24,
+        "C": 0.2,
+        "D": 5.35,
+        "E": 13.58,
+        "F": 2.5,
+        "G": 5.2,
+        "H": 1.63,
+        "I": 6.57,
+        "K": 9.61,
+        "L": 10.65,
+        "M": 1.91,
+        "N": 3.46,
+        "P": 2.52,
+        "Q": 3.87,
+        "R": 6.42,
+        "S": 3.59,
+        "T": 4.92,
+        "V": 7.39,
+        "W": 1.27,
+        "Y": 2.11
+      },
+      "natural_train_pct": {
+        "A": 7.82,
+        "C": 1.4,
+        "D": 5.67,
+        "E": 6.73,
+        "F": 4.0,
+        "G": 6.91,
+        "H": 2.2,
+        "I": 5.69,
+        "K": 6.16,
+        "L": 9.31,
+        "M": 2.31,
+        "N": 4.49,
+        "P": 4.83,
+        "Q": 3.76,
+        "R": 5.2,
+        "S": 6.91,
+        "T": 5.45,
+        "V": 6.68,
+        "W": 1.22,
+        "Y": 3.27
+      },
+      "shift_ai_minus_natural_pct": {
+        "A": -0.58,
+        "C": -1.2,
+        "D": -0.32,
+        "E": 6.85,
+        "F": -1.5,
+        "G": -1.71,
+        "H": -0.57,
+        "I": 0.88,
+        "K": 3.45,
+        "L": 1.34,
+        "M": -0.4,
+        "N": -1.03,
+        "P": -2.31,
+        "Q": 0.11,
+        "R": 1.22,
+        "S": -3.32,
+        "T": -0.53,
+        "V": 0.71,
+        "W": 0.05,
+        "Y": -1.16
+      }
+    },
+    "secondary_structure_summary": {
+      "propurify_ss": {
+        "pooled_q3_pct": 80.91,
+        "MCC_H": 0.7919,
+        "MCC_E": 0.7532,
+        "MCC_C": 0.5196,
+        "mean_mcc": 0.6882,
+        "per_state": {
+          "H": {
+            "precision_pct": 97.96,
+            "recall_pct": 82.55,
+            "f1_pct": 89.6,
+            "mcc": 0.7919,
+            "support": 2264
+          },
+          "E": {
+            "precision_pct": 80.19,
+            "recall_pct": 81.23,
+            "f1_pct": 80.7,
+            "mcc": 0.7532,
+            "support": 847
+          },
+          "C": {
+            "precision_pct": 52.98,
+            "recall_pct": 75.91,
+            "f1_pct": 62.4,
+            "mcc": 0.5196,
+            "support": 797
+          }
+        },
+        "confusion_HEC": [
+          [
+            1869,
+            17,
+            378
+          ],
+          [
+            0,
+            688,
+            159
+          ],
+          [
+            39,
+            153,
+            605
+          ]
+        ],
+        "mean_protein_q3_pct": 81.19,
+        "median_protein_q3_pct": 83.48,
+        "std_protein_q3_pct": 9.12,
+        "mean_sov99_pct": 80.92,
+        "fold_class_accuracy_pct": 93.75,
+        "composition_mae": {
+          "helix_mae": 8.03,
+          "strand_mae": 5.87,
+          "coil_mae": 10.73
+        },
+        "composition_signed_bias_pred_minus_obs": {
+          "helix_bias": -7.91,
+          "strand_bias": 0.72,
+          "coil_bias": 7.18
+        },
+        "mean_latency_ms": 29.63
+      },
+      "gor4_baseline": {
+        "pooled_q3_pct": 71.34,
+        "MCC_H": 0.6529,
+        "MCC_E": 0.5328,
+        "MCC_C": 0.4464,
+        "mean_mcc": 0.544,
+        "per_state": {
+          "H": {
+            "precision_pct": 88.67,
+            "recall_pct": 80.17,
+            "f1_pct": 84.2,
+            "mcc": 0.6529,
+            "support": 2264
+          },
+          "E": {
+            "precision_pct": 91.01,
+            "recall_pct": 38.25,
+            "f1_pct": 53.87,
+            "mcc": 0.5328,
+            "support": 847
+          },
+          "C": {
+            "precision_pct": 43.12,
+            "recall_pct": 81.43,
+            "f1_pct": 56.39,
+            "mcc": 0.4464,
+            "support": 797
+          }
+        },
+        "confusion_HEC": [
+          [
+            1815,
+            0,
+            449
+          ],
+          [
+            116,
+            324,
+            407
+          ],
+          [
+            116,
+            32,
+            649
+          ]
+        ],
+        "mean_protein_q3_pct": 68.56
+      },
+      "chou_fasman_baseline": {
+        "pooled_q3_pct": 63.33,
+        "MCC_H": 0.5067,
+        "MCC_E": 0.3146,
+        "MCC_C": 0.3434,
+        "mean_mcc": 0.3882,
+        "per_state": {
+          "H": {
+            "precision_pct": 83.08,
+            "recall_pct": 71.33,
+            "f1_pct": 76.76,
+            "mcc": 0.5067,
+            "support": 2264
+          },
+          "E": {
+            "precision_pct": 48.21,
+            "recall_pct": 42.86,
+            "f1_pct": 45.38,
+            "mcc": 0.3146,
+            "support": 847
+          },
+          "C": {
+            "precision_pct": 41.04,
+            "recall_pct": 62.36,
+            "f1_pct": 49.5,
+            "mcc": 0.3434,
+            "support": 797
+          }
+        },
+        "confusion_HEC": [
+          [
+            1615,
+            244,
+            405
+          ],
+          [
+            175,
+            363,
+            309
+          ],
+          [
+            154,
+            146,
+            497
+          ]
+        ],
+        "mean_protein_q3_pct": 63.21
+      },
+      "natural_11k_reference": {
+        "pooled_q3_pct": 69.31,
+        "mean_protein_q3_pct": 69.5,
+        "mean_sov99_pct": 59.78,
+        "fold_class_accuracy_pct": 81.48,
+        "helix_mae": 7.84,
+        "strand_mae": 6.58,
+        "coil_mae": 8.5
+      },
+      "by_fold_class": {
+        "Mixed \u03b1/\u03b2": {
+          "pooled_q3_pct": 81.45,
+          "MCC_H": 0.8338,
+          "MCC_E": 0.7462,
+          "MCC_C": 0.5889,
+          "mean_mcc": 0.723,
+          "per_state": {
+            "H": {
+              "precision_pct": 97.75,
+              "recall_pct": 82.09,
+              "f1_pct": 89.24,
+              "mcc": 0.8338,
+              "support": 793
+            },
+            "E": {
+              "precision_pct": 83.42,
+              "recall_pct": 81.43,
+              "f1_pct": 82.41,
+              "mcc": 0.7462,
+              "support": 587
+            },
+            "C": {
+              "precision_pct": 62.96,
+              "recall_pct": 80.47,
+              "f1_pct": 70.65,
+              "mcc": 0.5889,
+              "support": 507
+            }
+          },
+          "confusion_HEC": [
+            [
+              651,
+              11,
+              131
+            ],
+            [
+              0,
+              478,
+              109
+            ],
+            [
+              15,
+              84,
+              408
+            ]
+          ],
+          "n_proteins": 17,
+          "mean_q3_pct": 81.6,
+          "mean_sov99_pct": 86.6
+        },
+        "All-\u03b2 (Beta-Sheet Rich)": {
+          "pooled_q3_pct": 69.75,
+          "MCC_H": 0.0,
+          "MCC_E": 0.4532,
+          "MCC_C": 0.3787,
+          "mean_mcc": 0.2773,
+          "per_state": {
+            "H": {
+              "precision_pct": 0.0,
+              "recall_pct": 0.0,
+              "f1_pct": 0.0,
+              "mcc": 0.0,
+              "support": 18
+            },
+            "E": {
+              "precision_pct": 72.99,
+              "recall_pct": 85.56,
+              "f1_pct": 78.77,
+              "mcc": 0.4532,
+              "support": 180
+            },
+            "C": {
+              "precision_pct": 63.11,
+              "recall_pct": 56.03,
+              "f1_pct": 59.36,
+              "mcc": 0.3787,
+              "support": 116
+            }
+          },
+          "confusion_HEC": [
+            [
+              0,
+              6,
+              12
+            ],
+            [
+              0,
+              154,
+              26
+            ],
+            [
+              0,
+              51,
+              65
+            ]
+          ],
+          "n_proteins": 3,
+          "mean_q3_pct": 71.12,
+          "mean_sov99_pct": 66.85
+        },
+        "All-\u03b1 (Helix-Rich)": {
+          "pooled_q3_pct": 86.16,
+          "MCC_H": 0.4833,
+          "MCC_E": 0.0,
+          "MCC_C": 0.4833,
+          "mean_mcc": 0.3222,
+          "per_state": {
+            "H": {
+              "precision_pct": 97.85,
+              "recall_pct": 86.72,
+              "f1_pct": 91.95,
+              "mcc": 0.4833,
+              "support": 1258
+            },
+            "E": {
+              "precision_pct": 0.0,
+              "recall_pct": 0.0,
+              "f1_pct": 0.0,
+              "mcc": 0.0,
+              "support": 0
+            },
+            "C": {
+              "precision_pct": 36.98,
+              "recall_pct": 80.33,
+              "f1_pct": 50.65,
+              "mcc": 0.4833,
+              "support": 122
+            }
+          },
+          "confusion_HEC": [
+            [
+              1091,
+              0,
+              167
+            ],
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              24,
+              0,
+              98
+            ]
+          ],
+          "n_proteins": 10,
+          "mean_q3_pct": 86.5,
+          "mean_sov99_pct": 80.28
+        },
+        "Transmembrane De Novo": {
+          "pooled_q3_pct": 66.36,
+          "MCC_H": 0.6556,
+          "MCC_E": 0.6443,
+          "MCC_C": 0.2399,
+          "mean_mcc": 0.5133,
+          "per_state": {
+            "H": {
+              "precision_pct": 100.0,
+              "recall_pct": 65.13,
+              "f1_pct": 78.88,
+              "mcc": 0.6556,
+              "support": 195
+            },
+            "E": {
+              "precision_pct": 75.68,
+              "recall_pct": 70.0,
+              "f1_pct": 72.73,
+              "mcc": 0.6443,
+              "support": 80
+            },
+            "C": {
+              "precision_pct": 26.98,
+              "recall_pct": 65.38,
+              "f1_pct": 38.2,
+              "mcc": 0.2399,
+              "support": 52
+            }
+          },
+          "confusion_HEC": [
+            [
+              127,
+              0,
+              68
+            ],
+            [
+              0,
+              56,
+              24
+            ],
+            [
+              0,
+              18,
+              34
+            ]
+          ],
+          "n_proteins": 2,
+          "mean_q3_pct": 66.31,
+          "mean_sov99_pct": 56.92
+        }
+      },
+      "by_design_method": {
+        "Rosetta / Classical De Novo": {
+          "pooled_q3_pct": 84.98,
+          "MCC_H": 0.8807,
+          "MCC_E": 0.7762,
+          "MCC_C": 0.587,
+          "mean_mcc": 0.748,
+          "per_state": {
+            "H": {
+              "precision_pct": 98.2,
+              "recall_pct": 89.86,
+              "f1_pct": 93.85,
+              "mcc": 0.8807,
+              "support": 730
+            },
+            "E": {
+              "precision_pct": 86.58,
+              "recall_pct": 80.82,
+              "f1_pct": 83.6,
+              "mcc": 0.7762,
+              "support": 391
+            },
+            "C": {
+              "precision_pct": 59.18,
+              "recall_pct": 77.98,
+              "f1_pct": 67.29,
+              "mcc": 0.587,
+              "support": 277
+            }
+          },
+          "confusion_HEC": [
+            [
+              656,
+              0,
+              74
+            ],
+            [
+              0,
+              316,
+              75
+            ],
+            [
+              12,
+              49,
+              216
+            ]
+          ],
+          "n_proteins": 12,
+          "mean_q3_pct": 83.95,
+          "mean_sov99_pct": 88.25
+        },
+        "Foldit / De Novo": {
+          "pooled_q3_pct": 74.05,
+          "MCC_H": 0.7918,
+          "MCC_E": 0.6687,
+          "MCC_C": 0.4683,
+          "mean_mcc": 0.6429,
+          "per_state": {
+            "H": {
+              "precision_pct": 100.0,
+              "recall_pct": 76.62,
+              "f1_pct": 86.76,
+              "mcc": 0.7918,
+              "support": 77
+            },
+            "E": {
+              "precision_pct": 91.67,
+              "recall_pct": 62.26,
+              "f1_pct": 74.16,
+              "mcc": 0.6687,
+              "support": 53
+            },
+            "C": {
+              "precision_pct": 39.68,
+              "recall_pct": 89.29,
+              "f1_pct": 54.95,
+              "mcc": 0.4683,
+              "support": 28
+            }
+          },
+          "confusion_HEC": [
+            [
+              59,
+              0,
+              18
+            ],
+            [
+              0,
+              33,
+              20
+            ],
+            [
+              0,
+              3,
+              25
+            ]
+          ],
+          "n_proteins": 2,
+          "mean_q3_pct": 75.43,
+          "mean_sov99_pct": 81.9
+        },
+        "De Novo Nanocage": {
+          "pooled_q3_pct": 78.17,
+          "MCC_H": 0.7591,
+          "MCC_E": 0.7243,
+          "MCC_C": 0.3874,
+          "mean_mcc": 0.6236,
+          "per_state": {
+            "H": {
+              "precision_pct": 97.3,
+              "recall_pct": 81.82,
+              "f1_pct": 88.89,
+              "mcc": 0.7591,
+              "support": 88
+            },
+            "E": {
+              "precision_pct": 68.75,
+              "recall_pct": 88.0,
+              "f1_pct": 77.19,
+              "mcc": 0.7243,
+              "support": 25
+            },
+            "C": {
+              "precision_pct": 47.22,
+              "recall_pct": 58.62,
+              "f1_pct": 52.31,
+              "mcc": 0.3874,
+              "support": 29
+            }
+          },
+          "confusion_HEC": [
+            [
+              72,
+              0,
+              16
+            ],
+            [
+              0,
+              22,
+              3
+            ],
+            [
+              2,
+              10,
+              17
+            ]
+          ],
+          "n_proteins": 1,
+          "mean_q3_pct": 78.17,
+          "mean_sov99_pct": 76.11
+        },
+        "Symmetric De Novo": {
+          "pooled_q3_pct": 71.01,
+          "MCC_H": 0.0,
+          "MCC_E": 0.5816,
+          "MCC_C": 0.4518,
+          "mean_mcc": 0.3445,
+          "per_state": {
+            "H": {
+              "precision_pct": 0.0,
+              "recall_pct": 0.0,
+              "f1_pct": 0.0,
+              "mcc": 0.0,
+              "support": 36
+            },
+            "E": {
+              "precision_pct": 69.49,
+              "recall_pct": 83.11,
+              "f1_pct": 75.69,
+              "mcc": 0.5816,
+              "support": 148
+            },
+            "C": {
+              "precision_pct": 72.36,
+              "recall_pct": 75.0,
+              "f1_pct": 73.66,
+              "mcc": 0.4518,
+              "support": 192
+            }
+          },
+          "confusion_HEC": [
+            [
+              0,
+              6,
+              30
+            ],
+            [
+              0,
+              123,
+              25
+            ],
+            [
+              0,
+              48,
+              144
+            ]
+          ],
+          "n_proteins": 2,
+          "mean_q3_pct": 68.25,
+          "mean_sov99_pct": 67.26
+        },
+        "De Novo Helical Bundle": {
+          "pooled_q3_pct": 88.07,
+          "MCC_H": 0.3687,
+          "MCC_E": 0.0,
+          "MCC_C": 0.3687,
+          "mean_mcc": 0.2458,
+          "per_state": {
+            "H": {
+              "precision_pct": 93.81,
+              "recall_pct": 92.86,
+              "f1_pct": 93.33,
+              "mcc": 0.3687,
+              "support": 98
+            },
+            "E": {
+              "precision_pct": 0.0,
+              "recall_pct": 0.0,
+              "f1_pct": 0.0,
+              "mcc": 0.0,
+              "support": 0
+            },
+            "C": {
+              "precision_pct": 41.67,
+              "recall_pct": 45.45,
+              "f1_pct": 43.48,
+              "mcc": 0.3687,
+              "support": 11
+            }
+          },
+          "confusion_HEC": [
+            [
+              91,
+              0,
+              7
+            ],
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              5
+            ]
+          ],
+          "n_proteins": 1,
+          "mean_q3_pct": 88.07,
+          "mean_sov99_pct": 67.0
+        },
+        "De Novo Repeat / Solenoid": {
+          "pooled_q3_pct": 80.58,
+          "MCC_H": 0.4824,
+          "MCC_E": 0.0,
+          "MCC_C": 0.4824,
+          "mean_mcc": 0.3216,
+          "per_state": {
+            "H": {
+              "precision_pct": 99.13,
+              "recall_pct": 79.17,
+              "f1_pct": 88.03,
+              "mcc": 0.4824,
+              "support": 432
+            },
+            "E": {
+              "precision_pct": 0.0,
+              "recall_pct": 0.0,
+              "f1_pct": 0.0,
+              "mcc": 0.0,
+              "support": 0
+            },
+            "C": {
+              "precision_pct": 32.84,
+              "recall_pct": 93.62,
+              "f1_pct": 48.62,
+              "mcc": 0.4824,
+              "support": 47
+            }
+          },
+          "confusion_HEC": [
+            [
+              342,
+              0,
+              90
+            ],
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              3,
+              0,
+              44
+            ]
+          ],
+          "n_proteins": 3,
+          "mean_q3_pct": 79.44,
+          "mean_sov99_pct": 76.5
+        },
+        "De Novo Membrane": {
+          "pooled_q3_pct": 66.36,
+          "MCC_H": 0.6556,
+          "MCC_E": 0.6443,
+          "MCC_C": 0.2399,
+          "mean_mcc": 0.5133,
+          "per_state": {
+            "H": {
+              "precision_pct": 100.0,
+              "recall_pct": 65.13,
+              "f1_pct": 78.88,
+              "mcc": 0.6556,
+              "support": 195
+            },
+            "E": {
+              "precision_pct": 75.68,
+              "recall_pct": 70.0,
+              "f1_pct": 72.73,
+              "mcc": 0.6443,
+              "support": 80
+            },
+            "C": {
+              "precision_pct": 26.98,
+              "recall_pct": 65.38,
+              "f1_pct": 38.2,
+              "mcc": 0.2399,
+              "support": 52
+            }
+          },
+          "confusion_HEC": [
+            [
+              127,
+              0,
+              68
+            ],
+            [
+              0,
+              56,
+              24
+            ],
+            [
+              0,
+              18,
+              34
+            ]
+          ],
+          "n_proteins": 2,
+          "mean_q3_pct": 66.31,
+          "mean_sov99_pct": 56.92
+        },
+        "Deep-Learning Hallucination": {
+          "pooled_q3_pct": 90.5,
+          "MCC_H": 0.9038,
+          "MCC_E": 0.825,
+          "MCC_C": 0.7083,
+          "mean_mcc": 0.8124,
+          "per_state": {
+            "H": {
+              "precision_pct": 96.03,
+              "recall_pct": 96.8,
+              "f1_pct": 96.41,
+              "mcc": 0.9038,
+              "support": 125
+            },
+            "E": {
+              "precision_pct": 80.56,
+              "recall_pct": 90.62,
+              "f1_pct": 85.29,
+              "mcc": 0.825,
+              "support": 32
+            },
+            "C": {
+              "precision_pct": 81.58,
+              "recall_pct": 72.09,
+              "f1_pct": 76.54,
+              "mcc": 0.7083,
+              "support": 43
+            }
+          },
+          "confusion_HEC": [
+            [
+              121,
+              0,
+              4
+            ],
+            [
+              0,
+              29,
+              3
+            ],
+            [
+              5,
+              7,
+              31
+            ]
+          ],
+          "n_proteins": 2,
+          "mean_q3_pct": 90.34,
+          "mean_sov99_pct": 92.97
+        },
+        "ProteinMPNN / Hallucination": {
+          "pooled_q3_pct": 87.3,
+          "MCC_H": 0.8918,
+          "MCC_E": 0.8439,
+          "MCC_C": 0.6185,
+          "mean_mcc": 0.7847,
+          "per_state": {
+            "H": {
+              "precision_pct": 96.05,
+              "recall_pct": 91.25,
+              "f1_pct": 93.59,
+              "mcc": 0.8918,
+              "support": 80
+            },
+            "E": {
+              "precision_pct": 92.86,
+              "recall_pct": 87.84,
+              "f1_pct": 90.28,
+              "mcc": 0.8439,
+              "support": 74
+            },
+            "C": {
+              "precision_pct": 62.79,
+              "recall_pct": 77.14,
+              "f1_pct": 69.23,
+              "mcc": 0.6185,
+              "support": 35
+            }
+          },
+          "confusion_HEC": [
+            [
+              73,
+              0,
+              7
+            ],
+            [
+              0,
+              65,
+              9
+            ],
+            [
+              3,
+              5,
+              27
+            ]
+          ],
+          "n_proteins": 2,
+          "mean_q3_pct": 86.24,
+          "mean_sov99_pct": 89.95
+        },
+        "ProteinMPNN": {
+          "pooled_q3_pct": 66.67,
+          "MCC_H": 0.4884,
+          "MCC_E": 0.5683,
+          "MCC_C": 0.5863,
+          "mean_mcc": 0.5477,
+          "per_state": {
+            "H": {
+              "precision_pct": 100.0,
+              "recall_pct": 30.43,
+              "f1_pct": 46.67,
+              "mcc": 0.4884,
+              "support": 23
+            },
+            "E": {
+              "precision_pct": 53.19,
+              "recall_pct": 100.0,
+              "f1_pct": 69.44,
+              "mcc": 0.5683,
+              "support": 25
+            },
+            "C": {
+              "precision_pct": 81.48,
+              "recall_pct": 66.67,
+              "f1_pct": 73.33,
+              "mcc": 0.5863,
+              "support": 33
+            }
+          },
+          "confusion_HEC": [
+            [
+              7,
+              11,
+              5
+            ],
+            [
+              0,
+              25,
+              0
+            ],
+            [
+              0,
+              11,
+              22
+            ]
+          ],
+          "n_proteins": 1,
+          "mean_q3_pct": 66.67,
+          "mean_sov99_pct": 69.15
+        },
+        "De Novo Minibinder": {
+          "pooled_q3_pct": 90.91,
+          "MCC_H": 0.6335,
+          "MCC_E": 0.0,
+          "MCC_C": 0.6335,
+          "mean_mcc": 0.4223,
+          "per_state": {
+            "H": {
+              "precision_pct": 97.83,
+              "recall_pct": 91.84,
+              "f1_pct": 94.74,
+              "mcc": 0.6335,
+              "support": 49
+            },
+            "E": {
+              "precision_pct": 0.0,
+              "recall_pct": 0.0,
+              "f1_pct": 0.0,
+              "mcc": 0.0,
+              "support": 0
+            },
+            "C": {
+              "precision_pct": 55.56,
+              "recall_pct": 83.33,
+              "f1_pct": 66.67,
+              "mcc": 0.6335,
+              "support": 6
+            }
+          },
+          "confusion_HEC": [
+            [
+              45,
+              0,
+              4
+            ],
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              5
+            ]
+          ],
+          "n_proteins": 1,
+          "mean_q3_pct": 90.91,
+          "mean_sov99_pct": 99.09
+        },
+        "RFdiffusion + ProteinMPNN": {
+          "pooled_q3_pct": 83.76,
+          "MCC_H": 0.5888,
+          "MCC_E": 0.9486,
+          "MCC_C": 0.4789,
+          "mean_mcc": 0.6721,
+          "per_state": {
+            "H": {
+              "precision_pct": 97.53,
+              "recall_pct": 83.38,
+              "f1_pct": 89.9,
+              "mcc": 0.5888,
+              "support": 331
+            },
+            "E": {
+              "precision_pct": 90.48,
+              "recall_pct": 100.0,
+              "f1_pct": 95.0,
+              "mcc": 0.9486,
+              "support": 19
+            },
+            "C": {
+              "precision_pct": 38.89,
+              "recall_pct": 79.55,
+              "f1_pct": 52.24,
+              "mcc": 0.4789,
+              "support": 44
+            }
+          },
+          "confusion_HEC": [
+            [
+              276,
+              0,
+              55
+            ],
+            [
+              0,
+              19,
+              0
+            ],
+            [
+              7,
+              2,
+              35
+            ]
+          ],
+          "n_proteins": 3,
+          "mean_q3_pct": 85.17,
+          "mean_sov99_pct": 70.47
+        }
+      }
+    },
+    "purification_metrics_audit": {
+      "zero_a280_proteins": [
+        "6WI5 (Foldit4)",
+        "3Q7X (Symfoil-4P)",
+        "7UDJ (RPB_PEW3_R4)"
+      ],
+      "low_a280_proteins": [
+        "2KL8 (Di-I_5 (Ferredoxin fold), Abs0.1%=0.297)",
+        "5IM5 (I53-40A Nanocage, Abs0.1%=0.285)",
+        "4TQL (3-Helix Bundle, Abs0.1%=0.161)",
+        "5J73 (2L4HC2_9, Abs0.1%=0.167)",
+        "8D05 (HALC2_065, Abs0.1%=0.223)",
+        "8SK7 (RFdiff HA_20, Abs0.1%=0.202)",
+        "8T5E (RFdiff Bim_fulldiff, Abs0.1%=0.096)"
+      ],
+      "instability_index_false_unstable_count": 16,
+      "instability_index_false_unstable_pct": 50.0,
+      "instability_index_false_unstable_details": [
+        {
+          "pdb_id": "6WVS",
+          "name": "DeNovoTIM15",
+          "ii": 53.7,
+          "top_dipeptides": [
+            [
+              "IL",
+              12,
+              13.36
+            ],
+            [
+              "RR",
+              4,
+              12.81
+            ],
+            [
+              "KQ",
+              8,
+              10.83
+            ],
+            [
+              "LQ",
+              4,
+              7.38
+            ]
+          ],
+          "E_pct": 6.6,
+          "K_pct": 8.8,
+          "R_pct": 6.6
+        },
+        {
+          "pdb_id": "2LV8",
+          "name": "Rossmann 2x2",
+          "ii": 55.52,
+          "top_dipeptides": [
+            [
+              "EE",
+              4,
+              12.22
+            ],
+            [
+              "KM",
+              2,
+              6.11
+            ],
+            [
+              "RW",
+              1,
+              5.3
+            ],
+            [
+              "IE",
+              1,
+              4.09
+            ]
+          ],
+          "E_pct": 16.4,
+          "K_pct": 13.6,
+          "R_pct": 5.5
+        },
+        {
+          "pdb_id": "6WI5",
+          "name": "Foldit4",
+          "ii": 56.49,
+          "top_dipeptides": [
+            [
+              "KR",
+              4,
+              14.93
+            ],
+            [
+              "EE",
+              3,
+              11.2
+            ],
+            [
+              "RR",
+              1,
+              6.48
+            ],
+            [
+              "IE",
+              1,
+              4.99
+            ]
+          ],
+          "E_pct": 20.0,
+          "K_pct": 10.0,
+          "R_pct": 17.8
+        },
+        {
+          "pdb_id": "5IM5",
+          "name": "I53-40A Nanocage",
+          "ii": 42.15,
+          "top_dipeptides": [
+            [
+              "IE",
+              2,
+              6.33
+            ],
+            [
+              "EE",
+              2,
+              4.73
+            ],
+            [
+              "RR",
+              1,
+              4.1
+            ],
+            [
+              "SP",
+              1,
+              3.16
+            ]
+          ],
+          "E_pct": 8.5,
+          "K_pct": 11.3,
+          "R_pct": 3.5
+        },
+        {
+          "pdb_id": "6D0T",
+          "name": "mFAP2b (BB1)",
+          "ii": 63.07,
+          "top_dipeptides": [
+            [
+              "RS",
+              3,
+              12.15
+            ],
+            [
+              "IE",
+              2,
+              8.1
+            ],
+            [
+              "QS",
+              2,
+              8.1
+            ],
+            [
+              "SP",
+              2,
+              8.1
+            ]
+          ],
+          "E_pct": 12.6,
+          "K_pct": 2.7,
+          "R_pct": 13.5
+        },
+        {
+          "pdb_id": "7UR7",
+          "name": "17_bp_sh3",
+          "ii": 48.56,
+          "top_dipeptides": [
+            [
+              "EE",
+              2,
+              10.67
+            ],
+            [
+              "HI",
+              1,
+              7.13
+            ],
+            [
+              "NI",
+              1,
+              7.13
+            ],
+            [
+              "KR",
+              1,
+              5.33
+            ]
+          ],
+          "E_pct": 17.5,
+          "K_pct": 11.1,
+          "R_pct": 7.9
+        },
+        {
+          "pdb_id": "4TQL",
+          "name": "3-Helix Bundle",
+          "ii": 53.52,
+          "top_dipeptides": [
+            [
+              "KQ",
+              10,
+              10.67
+            ],
+            [
+              "EE",
+              7,
+              10.18
+            ],
+            [
+              "IE",
+              5,
+              9.73
+            ],
+            [
+              "KM",
+              6,
+              8.73
+            ]
+          ],
+          "E_pct": 17.7,
+          "K_pct": 26.0,
+          "R_pct": 2.6
+        },
+        {
+          "pdb_id": "5J73",
+          "name": "2L4HC2_9",
+          "ii": 61.17,
+          "top_dipeptides": [
+            [
+              "EE",
+              4,
+              17.92
+            ],
+            [
+              "IE",
+              2,
+              11.98
+            ],
+            [
+              "RR",
+              1,
+              7.77
+            ],
+            [
+              "RS",
+              1,
+              5.99
+            ]
+          ],
+          "E_pct": 20.0,
+          "K_pct": 8.0,
+          "R_pct": 12.0
+        },
+        {
+          "pdb_id": "6Z35",
+          "name": "Maquette 2-1ip",
+          "ii": 50.14,
+          "top_dipeptides": [
+            [
+              "EE",
+              3,
+              9.25
+            ],
+            [
+              "EQ",
+              4,
+              7.43
+            ],
+            [
+              "RQ",
+              3,
+              5.58
+            ],
+            [
+              "KQ",
+              2,
+              4.52
+            ]
+          ],
+          "E_pct": 17.4,
+          "K_pct": 9.2,
+          "R_pct": 7.3
+        },
+        {
+          "pdb_id": "7UDJ",
+          "name": "RPB_PEW3_R4",
+          "ii": 64.2,
+          "top_dipeptides": [
+            [
+              "EE",
+              13,
+              22.75
+            ],
+            [
+              "KR",
+              4,
+              7.0
+            ],
+            [
+              "EQ",
+              5,
+              5.28
+            ],
+            [
+              "LQ",
+              3,
+              5.25
+            ]
+          ],
+          "E_pct": 22.9,
+          "K_pct": 6.8,
+          "R_pct": 5.2
+        },
+        {
+          "pdb_id": "9HNH",
+          "name": "A7 Alpha-Solenoid",
+          "ii": 48.95,
+          "top_dipeptides": [
+            [
+              "EE",
+              13,
+              28.93
+            ],
+            [
+              "PE",
+              6,
+              7.3
+            ],
+            [
+              "KR",
+              2,
+              4.45
+            ],
+            [
+              "LP",
+              3,
+              4.03
+            ]
+          ],
+          "E_pct": 24.5,
+          "K_pct": 17.2,
+          "R_pct": 4.6
+        },
+        {
+          "pdb_id": "8FJE",
+          "name": "E8 5-Repeat",
+          "ii": 103.98,
+          "top_dipeptides": [
+            [
+              "EE",
+              12,
+              29.65
+            ],
+            [
+              "RR",
+              6,
+              25.71
+            ],
+            [
+              "IE",
+              3,
+              9.91
+            ],
+            [
+              "MP",
+              3,
+              9.91
+            ]
+          ],
+          "E_pct": 24.3,
+          "K_pct": 4.4,
+          "R_pct": 11.8
+        },
+        {
+          "pdb_id": "6M6Z",
+          "name": "TMH4C4 (TM Pore)",
+          "ii": 55.67,
+          "top_dipeptides": [
+            [
+              "EE",
+              6,
+              9.93
+            ],
+            [
+              "RS",
+              4,
+              8.86
+            ],
+            [
+              "LQ",
+              4,
+              6.62
+            ],
+            [
+              "RR",
+              2,
+              5.74
+            ]
+          ],
+          "E_pct": 11.8,
+          "K_pct": 5.4,
+          "R_pct": 6.4
+        },
+        {
+          "pdb_id": "7M0Q",
+          "name": "Hallucinated 0738",
+          "ii": 42.47,
+          "top_dipeptides": [
+            [
+              "NI",
+              3,
+              13.09
+            ],
+            [
+              "LQ",
+              2,
+              6.52
+            ],
+            [
+              "RS",
+              1,
+              4.36
+            ],
+            [
+              "IE",
+              1,
+              4.36
+            ]
+          ],
+          "E_pct": 6.8,
+          "K_pct": 6.8,
+          "R_pct": 4.9
+        },
+        {
+          "pdb_id": "8T5E",
+          "name": "RFdiff Bim_fulldiff",
+          "ii": 65.32,
+          "top_dipeptides": [
+            [
+              "RR",
+              5,
+              21.75
+            ],
+            [
+              "EE",
+              3,
+              7.52
+            ],
+            [
+              "IE",
+              2,
+              6.71
+            ],
+            [
+              "KR",
+              2,
+              5.01
+            ]
+          ],
+          "E_pct": 18.7,
+          "K_pct": 3.7,
+          "R_pct": 15.7
+        },
+        {
+          "pdb_id": "9FW7",
+          "name": "RFdiff RAD32",
+          "ii": 42.72,
+          "top_dipeptides": [
+            [
+              "EE",
+              6,
+              10.13
+            ],
+            [
+              "IE",
+              2,
+              4.52
+            ],
+            [
+              "FY",
+              2,
+              3.38
+            ],
+            [
+              "EP",
+              3,
+              3.05
+            ]
+          ],
+          "E_pct": 21.1,
+          "K_pct": 10.6,
+          "R_pct": 3.0
+        }
+      ],
+      "wilkinson_harrison_breakdown": {
+        "high_solubility_count": 21,
+        "borderline_count": 5,
+        "elevated_inclusion_body_risk_count": 6,
+        "inclusion_body_false_alarm_details": [
+          {
+            "pdb_id": "5TPJ",
+            "name": "DeNovo-NTF2",
+            "cv": 2.37,
+            "cv_diff": 0.66,
+            "ngps_pct": 16.4,
+            "net_q_per_res": 0.025
+          },
+          {
+            "pdb_id": "6D0T",
+            "name": "mFAP2b (BB1)",
+            "cv": 2.89,
+            "cv_diff": 1.18,
+            "ngps_pct": 27.9,
+            "net_q_per_res": 0.018
+          },
+          {
+            "pdb_id": "6E5C",
+            "name": "DSBH-DeNovo",
+            "cv": 3.27,
+            "cv_diff": 1.56,
+            "ngps_pct": 26.9,
+            "net_q_per_res": 0.0
+          },
+          {
+            "pdb_id": "6F0Q",
+            "name": "Pizza6-AYW",
+            "cv": 4.22,
+            "cv_diff": 2.51,
+            "ngps_pct": 33.1,
+            "net_q_per_res": 0.0
+          },
+          {
+            "pdb_id": "6X1K",
+            "name": "TMB2.3 (TM Beta-Barrel)",
+            "cv": 3.13,
+            "cv_diff": 1.42,
+            "ngps_pct": 30.6,
+            "net_q_per_res": 0.024
+          },
+          {
+            "pdb_id": "7M0Q",
+            "name": "Hallucinated 0738",
+            "cv": 2.42,
+            "cv_diff": 0.71,
+            "ngps_pct": 23.3,
+            "net_q_per_res": 0.01
+          }
+        ],
+        "borderline_details": [
+          {
+            "pdb_id": "7LDF",
+            "name": "ems_thioM_802",
+            "cv": 1.5,
+            "cv_diff": -0.21
+          },
+          {
+            "pdb_id": "5IM5",
+            "name": "I53-40A Nanocage",
+            "cv": 1.39,
+            "cv_diff": -0.32
+          },
+          {
+            "pdb_id": "3Q7X",
+            "name": "Symfoil-4P",
+            "cv": 1.92,
+            "cv_diff": 0.21
+          },
+          {
+            "pdb_id": "7K3H",
+            "name": "Hallucinated 0217",
+            "cv": 1.96,
+            "cv_diff": 0.25
+          },
+          {
+            "pdb_id": "9LQM",
+            "name": "MPNN-Ub R4",
+            "cv": 1.8,
+            "cv_diff": 0.09
+          }
+        ]
+      }
+    },
+    "buffer_advisor_audit": {
+      "total_discrepancies_found": 1,
+      "discrepancies": [
+        {
+          "pdb_id": "6X1K",
+          "name": "TMB2.3 (TM Beta-Barrel)",
+          "mode": "raw_unnamed",
+          "type": "FALSE_NEGATIVE_MEMBRANE",
+          "gravy": -0.239,
+          "categories": [],
+          "input_name": ""
+        }
+      ]
+    },
+    "sec_simulator_audit": {
+      "elongated_shape_shifts_ge_0_45ml": [
+        {
+          "pdb_id": "4TQL",
+          "name": "3-Helix Bundle",
+          "mw_kda": 27.79,
+          "column": "Superdex 75 Increase 10/300 GL",
+          "aspect_ratio_p": 7.28,
+          "perrin_f_f0": 1.391,
+          "rh_glob_a": 23.9,
+          "rh_3d_perrin_a": 32.9,
+          "ve_glob_ml": 11.6,
+          "ve_3d_ml": 9.74,
+          "delta_ve_ml": 1.86,
+          "ve_shape_profile_ml": 10.26,
+          "recommended_profile": "elongated"
+        },
+        {
+          "pdb_id": "5J73",
+          "name": "2L4HC2_9",
+          "mw_kda": 8.91,
+          "column": "Superdex 75 Increase 10/300 GL",
+          "aspect_ratio_p": 4.03,
+          "perrin_f_f0": 1.185,
+          "rh_glob_a": 15.7,
+          "rh_3d_perrin_a": 18.4,
+          "ve_glob_ml": 14.93,
+          "ve_3d_ml": 13.59,
+          "delta_ve_ml": 1.34,
+          "ve_shape_profile_ml": 13.16,
+          "recommended_profile": "elongated"
+        },
+        {
+          "pdb_id": "6M6Z",
+          "name": "TMH4C4 (TM Pore)",
+          "mw_kda": 23.43,
+          "column": "Superdex 75 Increase 10/300 GL",
+          "aspect_ratio_p": 3.67,
+          "perrin_f_f0": 1.16,
+          "rh_glob_a": 22.4,
+          "rh_3d_perrin_a": 25.8,
+          "ve_glob_ml": 12.05,
+          "ve_3d_ml": 11.09,
+          "delta_ve_ml": 0.96,
+          "ve_shape_profile_ml": 11.14,
+          "recommended_profile": "moderately_elongated"
+        },
+        {
+          "pdb_id": "7K3H",
+          "name": "Hallucinated 0217",
+          "mw_kda": 11.64,
+          "column": "Superdex 75 Increase 10/300 GL",
+          "aspect_ratio_p": 3.35,
+          "perrin_f_f0": 1.137,
+          "rh_glob_a": 17.3,
+          "rh_3d_perrin_a": 19.5,
+          "ve_glob_ml": 14.1,
+          "ve_3d_ml": 13.13,
+          "delta_ve_ml": 0.97,
+          "ve_shape_profile_ml": 13.04,
+          "recommended_profile": "moderately_elongated"
+        }
+      ],
+      "special_oligomer_and_nanocage_checks": [
+        {
+          "assembly": "I53-40 Icosahedral Nanocage (60A + 60B, ~2.38 MDa)",
+          "mw_kda": 2380.0,
+          "conformation": "globular",
+          "column": "Superose 6 Increase 10/300 GL",
+          "pred_rh_a": 119.9,
+          "exp_rh_a": 120.0,
+          "pred_ve_ml": 11.71,
+          "exp_ve_ml": 11.71,
+          "kav": 0.227,
+          "note": "Bale et al. Science 2016: hollow 24 nm outer-diameter icosahedral shell (Rh ~120 \u00c5; hollow cage has ~20% larger Rh than solid sphere of equal MW!)"
+        },
+        {
+          "assembly": "5J73 2L4HC2_9 Coiled-Coil Homodimer (17.8 kDa)",
+          "mw_kda": 17.8,
+          "conformation": "elongated",
+          "column": "Superdex 75 Increase 10/300 GL",
+          "pred_rh_a": 25.1,
+          "exp_rh_a": null,
+          "pred_ve_ml": 11.26,
+          "exp_ve_ml": null,
+          "kav": 0.214,
+          "note": "Elongated helical coiled-coil dimer; elutes earlier than 17.8 kDa globular sphere"
+        },
+        {
+          "assembly": "8D05 HALC2_065 C2 Homodimer (13.6 kDa)",
+          "mw_kda": 13.6,
+          "conformation": "globular",
+          "column": "Superdex 75 Increase 10/300 GL",
+          "pred_rh_a": 18.3,
+          "exp_rh_a": null,
+          "pred_ve_ml": 13.63,
+          "exp_ve_ml": null,
+          "kav": 0.36,
+          "note": "Compact C2 homodimer"
+        },
+        {
+          "assembly": "6M6Z TMH4C4 Octameric Nanopore + DDM Micelle (~260 kDa)",
+          "mw_kda": 260.0,
+          "conformation": "globular",
+          "column": "Superdex 200 Increase 10/300 GL",
+          "pred_rh_a": 54.2,
+          "exp_rh_a": null,
+          "pred_ve_ml": 11.69,
+          "exp_ve_ml": null,
+          "kav": 0.228,
+          "note": "8 x 23.8 kDa pore (190 kDa) + ~70 kDa DDM detergent belt (~260 kDa)"
+        }
+      ],
+      "zero_a280_uv280_invisible_flagged_count": 3,
+      "zero_a280_workflow_alert_count": 3,
+      "ii_denovo_caveat_count_named": 16
+    },
+    "per_protein_results": [
+      {
+        "pdb_id": "1QYS",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "Top7",
+        "realistic_name": "Top7 computationally designed novel fold protein",
+        "method_group": "Rosetta / Classical De Novo",
+        "citation": "Kuhlman et al., Science 2003",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2003",
+        "length_core": 92,
+        "length_eval": 92,
+        "core_sequence": "DIQVQVNIDDNGKNFDYTYTVTTESELQKVLNELMDYIKKQGAKRVRISITARTKKEAEKFAAILIKVFAELGYNDINVTFDGDTVTVEGQL",
+        "core_ss3": "CEEEEEEEECCCCEEEEEEEECCCHHHHHHHHHHHHHHHHHHCCEEEEEEECCHHHHHHHHHHHHHHHHHHHCCCEEEEEEECCEEEEEEEC",
+        "pred_ss3": "CCEEEEEECCCCCCEEEEEEECCHHHHHHHHHHHHHHHHHCCCCEEEEEEEECCHHHHHHHHHHHHHHHHHHCCCEEEEEEECEEEEEEECC",
+        "metrics": {
+          "mw_kda": 10.43,
+          "pi": 4.87,
+          "net_charge_ph74": -3.46,
+          "num_trp": 0,
+          "num_tyr": 4,
+          "num_cys": 0,
+          "eps_280_reduced": 5960,
+          "abs_01_reduced": 0.571,
+          "gravy": -0.372,
+          "aliphatic_index": 94.24,
+          "instability_index": 19.11,
+          "instability_class": "Stable (in vitro)",
+          "ii_top_dipeptides": [
+            [
+              "NI",
+              1,
+              4.88
+            ],
+            [
+              "LQ",
+              1,
+              3.65
+            ],
+            [
+              "KR",
+              1,
+              3.65
+            ]
+          ],
+          "wh_cv": 0.33,
+          "wh_cv_diff": -1.38,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 80.0,
+          "wh_ngps_pct": 14.1,
+          "wh_net_q_per_res": 0.033,
+          "charged_pct": 29.3
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "6xHis",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: Ammonium Sulfate (NH4)2SO4 Fractionation (40\u201370% Cut)",
+          "named_alerts_count": 0,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": false
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 16.6,
+          "ve_globular_ml": 14.44,
+          "kav_globular": 0.41,
+          "rh_shape_profile_a": 16.6,
+          "ve_shape_profile_ml": 14.44,
+          "ve_from_3d_perrin_ml": 14.39,
+          "geometry_3d": {
+            "n_ca_atoms": 91,
+            "rg_angstrom": 12.24,
+            "semi_axes_a_b_c": [
+              20.2,
+              14.0,
+              12.1
+            ],
+            "max_end_to_end_span_a": 47.6,
+            "prolate_aspect_ratio_p": 1.55,
+            "perrin_f_over_f0": 1.017,
+            "rh_3d_perrin_a": 16.7,
+            "rh_from_rg_a": 15.8,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.7538,
+          "sds_rf_12pct": 0.8034,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 89.13,
+          "sov99_pct": 96.56,
+          "gor4_q3_pct": 73.91,
+          "chou_fasman_q3_pct": 76.09,
+          "obs_helix_pct": 40.22,
+          "obs_strand_pct": 40.22,
+          "obs_coil_pct": 19.57,
+          "pred_helix_pct": 38.04,
+          "pred_strand_pct": 38.04,
+          "pred_coil_pct": 23.91,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "fold_match": true,
+          "mean_confidence": 0.7958,
+          "latency_ms": 86.69
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0341,
+          "max_5mer_jaccard_vs_train": 0.0032,
+          "closest_train_protein": "Q8U1S6 (CRISPR system Cmr subunit Cmr2)"
+        }
+      },
+      {
+        "pdb_id": "5BVL",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "sTIM11",
+        "realistic_name": "ProteinMPNN / Rosetta designed TIM barrel sTIM11",
+        "method_group": "Rosetta / Classical De Novo",
+        "citation": "Huang et al., Nat Chem Biol 2016",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2015",
+        "length_core": 184,
+        "length_eval": 180,
+        "core_sequence": "DKDEAWKCVEQLRREGATQIAYRSDDWRDLKEAWKKGADILIVDATDKDEAWKQVEQLRREGATQIAYRSDDWRDLKEAWKKGADILIVDATDKDEAWKQVEQLRREGATQIAYRSDDWRDLKEAWKKGADILIVDATDKDEAWKQVEQLRREGATQIAYRSDDWRDLKEAWKKGADILICDAT",
+        "core_ss3": "HHHHHHHHHHHHHHHCCCEEEEEECHHHHHHHHHCCCCCEEEECCCHHHHHHHHHHHHHHHHCCCEEEEECHHHHHHHHHHHCCCEEEEECCHHHHHHHHHHHHHHHCCCEEEEEECHHHHHHHHHHHHCCEEEEECCHHHHHHHHHHHHHHHHCCCEEEEECHHHHHHHHHHHHCCEEEECCC",
+        "pred_ss3": "CCHHHHHHHHHHHHHCCCEEECCCCCHHHHHHHHHHCCCEEEEECCCHHHHHHHHHHHHHHCCCEEEECCCCHHHHHHHHHHCCCEEEEECCCHHHHHHHHHHHHHHCCCEEEECCCCHHHHHHHHHHCCCEEEEECCCHHHHHHHHHHHHHHCCCEEEECCCCHHHHHHHHHCCCCCCCCCCC",
+        "metrics": {
+          "mw_kda": 21.6,
+          "pi": 4.88,
+          "net_charge_ph74": -8.52,
+          "num_trp": 12,
+          "num_tyr": 4,
+          "num_cys": 2,
+          "eps_280_reduced": 71960,
+          "abs_01_reduced": 3.331,
+          "gravy": -1.051,
+          "aliphatic_index": 74.95,
+          "instability_index": 27.55,
+          "instability_class": "Stable (in vitro)",
+          "ii_top_dipeptides": [
+            [
+              "RR",
+              4,
+              12.67
+            ],
+            [
+              "RS",
+              4,
+              9.77
+            ],
+            [
+              "EQ",
+              4,
+              4.4
+            ]
+          ],
+          "wh_cv": -1.17,
+          "wh_cv_diff": -2.88,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 96.3,
+          "wh_ngps_pct": 6.5,
+          "wh_net_q_per_res": 0.043,
+          "charged_pct": 43.5
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "6xHis",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: HiTrap Q (Anion Exchange) or (NH4)2SO4 Salting-Out",
+          "named_alerts_count": 0,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": false
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 21.8,
+          "ve_globular_ml": 12.27,
+          "kav_globular": 0.276,
+          "rh_shape_profile_a": 21.8,
+          "ve_shape_profile_ml": 12.27,
+          "ve_from_3d_perrin_ml": 12.26,
+          "geometry_3d": {
+            "n_ca_atoms": 180,
+            "rg_angstrom": 14.98,
+            "semi_axes_a_b_c": [
+              22.4,
+              21.5,
+              12.7
+            ],
+            "max_end_to_end_span_a": 61.6,
+            "prolate_aspect_ratio_p": 1.36,
+            "perrin_f_over_f0": 1.008,
+            "rh_3d_perrin_a": 21.8,
+            "rh_from_rg_a": 19.3,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.5968,
+          "sds_rf_12pct": 0.6737,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 83.33,
+          "sov99_pct": 90.93,
+          "gor4_q3_pct": 70.0,
+          "chou_fasman_q3_pct": 53.89,
+          "obs_helix_pct": 58.89,
+          "obs_strand_pct": 22.22,
+          "obs_coil_pct": 18.89,
+          "pred_helix_pct": 51.11,
+          "pred_strand_pct": 16.67,
+          "pred_coil_pct": 32.22,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "fold_match": true,
+          "mean_confidence": 0.7822,
+          "latency_ms": 16.05
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0364,
+          "max_5mer_jaccard_vs_train": 0.0036,
+          "closest_train_protein": "Q55DL0 (Dihydropyrimidinase)"
+        }
+      },
+      {
+        "pdb_id": "6WVS",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "DeNovoTIM15",
+        "realistic_name": "Hyperstable de novo TIM barrel DeNovoTIM15",
+        "method_group": "Rosetta / Classical De Novo",
+        "citation": "Wiese et al., 2020",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2020",
+        "length_core": 182,
+        "length_eval": 182,
+        "core_sequence": "DILIVNATDVDEMLKQVEILRRLGAKQIAVVSDDWRILQEALKKGGDILIVNATDVDEMLKQVEILRRLGAKQIAVVSDDWRILQEALKKGGDILIVNATDVDEMLKQVEILRRLGAKQIAVVSDDWRILQEALKKGGDILIVNATDVDEMLKQVEILRRLGAKQIAVVSDDWRILQEALKK",
+        "core_ss3": "CEEEECCCHHHHHHHHHHHHHHHCCCCEEEEECHHHHHHHHHHHCCCEEEECCCHHHHHHHHHHHHHHHCCCEEEEEECHHHHHHHHHHHCCCEEEECCCHHHHHHHHHHHHHHHCCCCEEEEECHHHHHHHHHHHHCCEEEECCCHHHHHHHHHHHHHHHCCCEEEEEECHHHHHHHHHHH",
+        "pred_ss3": "CEEEEECCCHHHHHHHHHHHHHCCCCEEEEECCCHHHHHHHHHCCCCEEEEECCCHHHHHHHHHHHHHCCCCEEEEECCCHHHHHHHHHCCCCEEEEECCCHHHHHHHHHHHHHCCCCEEEEECCCHHHHHHHHHCCCCEEEEECCCHHHHHHHHHHHHHCCCCEEEEECCHHHHHHHHCCC",
+        "metrics": {
+          "mw_kda": 20.48,
+          "pi": 5.08,
+          "net_charge_ph74": -4.46,
+          "num_trp": 4,
+          "num_tyr": 0,
+          "num_cys": 0,
+          "eps_280_reduced": 22000,
+          "abs_01_reduced": 1.074,
+          "gravy": 0.02,
+          "aliphatic_index": 134.95,
+          "instability_index": 53.7,
+          "instability_class": "Unstable (potential degradation / short half-life)",
+          "ii_top_dipeptides": [
+            [
+              "IL",
+              12,
+              13.36
+            ],
+            [
+              "RR",
+              4,
+              12.81
+            ],
+            [
+              "KQ",
+              8,
+              10.83
+            ]
+          ],
+          "wh_cv": -0.01,
+          "wh_cv_diff": -1.72,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 85.2,
+          "wh_ngps_pct": 9.9,
+          "wh_net_q_per_res": 0.022,
+          "charged_pct": 33.0
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "6xHis",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: HiTrap Q (Anion Exchange) or (NH4)2SO4 Salting-Out",
+          "named_alerts_count": 1,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": true
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 21.3,
+          "ve_globular_ml": 12.42,
+          "kav_globular": 0.285,
+          "rh_shape_profile_a": 21.3,
+          "ve_shape_profile_ml": 12.42,
+          "ve_from_3d_perrin_ml": 12.44,
+          "geometry_3d": {
+            "n_ca_atoms": 182,
+            "rg_angstrom": 15.39,
+            "semi_axes_a_b_c": [
+              22.7,
+              22.6,
+              12.7
+            ],
+            "max_end_to_end_span_a": 62.9,
+            "prolate_aspect_ratio_p": 1.34,
+            "perrin_f_over_f0": 1.008,
+            "rh_3d_perrin_a": 21.3,
+            "rh_from_rg_a": 19.9,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.61,
+          "sds_rf_12pct": 0.6854,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 84.62,
+          "sov99_pct": 96.7,
+          "gor4_q3_pct": 76.92,
+          "chou_fasman_q3_pct": 59.34,
+          "obs_helix_pct": 57.69,
+          "obs_strand_pct": 20.88,
+          "obs_coil_pct": 21.43,
+          "pred_helix_pct": 47.8,
+          "pred_strand_pct": 21.98,
+          "pred_coil_pct": 30.22,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "fold_match": true,
+          "mean_confidence": 0.8374,
+          "latency_ms": 14.07
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0652,
+          "max_5mer_jaccard_vs_train": 0.0086,
+          "closest_train_protein": "P11110 (Neck protein gp13)"
+        }
+      },
+      {
+        "pdb_id": "2KL8",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "Di-I_5 (Ferredoxin fold)",
+        "realistic_name": "De novo ferredoxin fold protein Di-I_5",
+        "method_group": "Rosetta / Classical De Novo",
+        "citation": "Koga et al., Nature 2012",
+        "exp_method": "SOLUTION NMR",
+        "release_year": "2009",
+        "length_core": 85,
+        "length_eval": 85,
+        "core_sequence": "MEMDIRFRGDDLEAFEKALKEMIRQARKFAGTVTYTLDGNDLEIRITGVPEQVRKELAKEAERLAKEFNITVTYTIRLEHHHHHH",
+        "core_ss3": "CEEEEEEECCHHHHHHHHHHHHHHHHHCCCCEEEEEECCCCEEEEEECCHHHHHHHHHHHHHHHHHHHCCEEEEEEECCCCCCCC",
+        "pred_ss3": "CCCEEEEECCCHHHHHHHHHHHHHHHHHHCCEEEEEEECCEEEEEEEECCHHHHHHHHHHHHHHHHHCCCEEEEEEEEEECCCCC",
+        "metrics": {
+          "mw_kda": 10.05,
+          "pi": 6.29,
+          "net_charge_ph74": -2.5,
+          "num_trp": 0,
+          "num_tyr": 2,
+          "num_cys": 0,
+          "eps_280_reduced": 2980,
+          "abs_01_reduced": 0.297,
+          "gravy": -0.699,
+          "aliphatic_index": 81.53,
+          "instability_index": 15.4,
+          "instability_class": "Stable (in vitro)",
+          "ii_top_dipeptides": [
+            [
+              "NI",
+              1,
+              5.29
+            ],
+            [
+              "RQ",
+              1,
+              2.38
+            ],
+            [
+              "EI",
+              1,
+              2.38
+            ]
+          ],
+          "wh_cv": -0.31,
+          "wh_cv_diff": -2.02,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 89.1,
+          "wh_ngps_pct": 8.2,
+          "wh_net_q_per_res": 0.024,
+          "charged_pct": 35.3
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "6xHis",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Affinity Capture: Ni-NTA / HisTrap HP (6xHis)",
+          "named_alerts_count": 0,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": false
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 16.4,
+          "ve_globular_ml": 14.56,
+          "kav_globular": 0.417,
+          "rh_shape_profile_a": 18.7,
+          "ve_shape_profile_ml": 13.48,
+          "ve_from_3d_perrin_ml": 14.34,
+          "geometry_3d": {
+            "n_ca_atoms": 85,
+            "rg_angstrom": 13.52,
+            "semi_axes_a_b_c": [
+              24.2,
+              13.9,
+              11.5
+            ],
+            "max_end_to_end_span_a": 58.5,
+            "prolate_aspect_ratio_p": 1.92,
+            "perrin_f_over_f0": 1.039,
+            "rh_3d_perrin_a": 16.8,
+            "rh_from_rg_a": 17.4,
+            "geometry_class": "Moderately Elongated",
+            "recommended_sec_conformation": "moderately_elongated"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.7602,
+          "sds_rf_12pct": 0.8083,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 84.71,
+          "sov99_pct": 94.9,
+          "gor4_q3_pct": 87.06,
+          "chou_fasman_q3_pct": 60.0,
+          "obs_helix_pct": 42.35,
+          "obs_strand_pct": 30.59,
+          "obs_coil_pct": 27.06,
+          "pred_helix_pct": 41.18,
+          "pred_strand_pct": 35.29,
+          "pred_coil_pct": 23.53,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "fold_match": true,
+          "mean_confidence": 0.7968,
+          "latency_ms": 99.55
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0506,
+          "max_5mer_jaccard_vs_train": 0.005,
+          "closest_train_protein": "Q5SHT5 (Endonuclease MutS2)"
+        }
+      },
+      {
+        "pdb_id": "2LV8",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "Rossmann 2x2",
+        "realistic_name": "De novo Rossmann 2x2 fold protein",
+        "method_group": "Rosetta / Classical De Novo",
+        "citation": "Koga et al., Nature 2012",
+        "exp_method": "SOLUTION NMR",
+        "release_year": "2012",
+        "length_core": 110,
+        "length_eval": 110,
+        "core_sequence": "MLLYVLIISNDKKLIEEARKMAEKANLELRTVKTEDELKKYLEEFRKESQNIKVLILVSNDEELDKAKELAQKMEIDVRTRKVTSPDEAKRWIKEFSEEGGSLEHHHHHH",
+        "core_ss3": "CEEEEEEECCHHHHHHHHHHHHHHHHCEEEEECHHHHHHHHHHHHHHCCCCEEEEEEECHHHHHHHHHHHHHHHCCCEEEEECCHHHHHHHHHHHHHHHCCCCCCCCCCC",
+        "pred_ss3": "CEEEEEEECCCHHHHHHHHHHHHHHCCCCCCCCCHHHHHHHHHHHHHHCCCEEEEEEECCCHHHHHHHHHHHHHCCCCCCCCCCCHHHHHHHHHHHHHCCCCCCCCCCCC",
+        "metrics": {
+          "mw_kda": 13.05,
+          "pi": 6.08,
+          "net_charge_ph74": -3.52,
+          "num_trp": 1,
+          "num_tyr": 2,
+          "num_cys": 0,
+          "eps_280_reduced": 8480,
+          "abs_01_reduced": 0.65,
+          "gravy": -0.864,
+          "aliphatic_index": 92.18,
+          "instability_index": 55.52,
+          "instability_class": "Unstable (potential degradation / short half-life)",
+          "ii_top_dipeptides": [
+            [
+              "EE",
+              4,
+              12.22
+            ],
+            [
+              "KM",
+              2,
+              6.11
+            ],
+            [
+              "RW",
+              1,
+              5.3
+            ]
+          ],
+          "wh_cv": 0.13,
+          "wh_cv_diff": -1.58,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 83.2,
+          "wh_ngps_pct": 11.8,
+          "wh_net_q_per_res": 0.027,
+          "charged_pct": 40.9
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "6xHis",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Affinity Capture: Ni-NTA / HisTrap HP (6xHis)",
+          "named_alerts_count": 1,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": true
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 18.0,
+          "ve_globular_ml": 13.75,
+          "kav_globular": 0.367,
+          "rh_shape_profile_a": 18.0,
+          "ve_shape_profile_ml": 13.75,
+          "ve_from_3d_perrin_ml": 13.77,
+          "geometry_3d": {
+            "n_ca_atoms": 110,
+            "rg_angstrom": 12.57,
+            "semi_axes_a_b_c": [
+              18.7,
+              16.1,
+              13.5
+            ],
+            "max_end_to_end_span_a": 51.0,
+            "prolate_aspect_ratio_p": 1.26,
+            "perrin_f_over_f0": 1.005,
+            "rh_3d_perrin_a": 18.0,
+            "rh_from_rg_a": 16.2,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.7119,
+          "sds_rf_12pct": 0.7704,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 83.64,
+          "sov99_pct": 85.63,
+          "gor4_q3_pct": 66.36,
+          "chou_fasman_q3_pct": 65.45,
+          "obs_helix_pct": 54.55,
+          "obs_strand_pct": 21.82,
+          "obs_coil_pct": 23.64,
+          "pred_helix_pct": 49.09,
+          "pred_strand_pct": 12.73,
+          "pred_coil_pct": 38.18,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "fold_match": true,
+          "mean_confidence": 0.7879,
+          "latency_ms": 11.12
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0381,
+          "max_5mer_jaccard_vs_train": 0.0032,
+          "closest_train_protein": "C7NBY4 (CRISPR-associated endoribonuclease Cas13)"
+        }
+      },
+      {
+        "pdb_id": "5TPJ",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "DeNovo-NTF2",
+        "realistic_name": "De novo luciferase LuxSit NTF2-like curved beta-sheet scaffold",
+        "method_group": "Rosetta / Classical De Novo",
+        "citation": "Marcos et al., Science 2017",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2017",
+        "length_core": 122,
+        "length_eval": 122,
+        "core_sequence": "MSREEIRKVVEEMVRKLKQGSPEDISKYLSPDVRLEVGNYTFEGSEQVTKFWRMLTKFVDRVEVRKVQVDGNHVRVEVEVEWNGKKWTFEVEVEVRNGKIKRIRLQVDPEFKKVVQNIWNLL",
+        "core_ss3": "CHHHHHHHHHHHHHHHCCCCCCHHHHHCEEEEEEEEECCEEEEHHHHHHHHHHHHHHCCCEEEEEEEEEECCEEEEEEEEEECCEEEEEEEEEEEECCEEEEEEEECHHHHHHHHHHHHHHH",
+        "pred_ss3": "CCHHHHHHHHHHHHHHHCCCCCHHHHHCCCCCEEEEEECCCCCCCHHHHHHHHHHHHHHCEEEEEEEEECCCEEEEEEEEEECCCEEEEEEEEEEECCEEEEEEEEECHHHHHHHHHHHHCC",
+        "metrics": {
+          "mw_kda": 14.62,
+          "pi": 9.18,
+          "net_charge_ph74": 2.3,
+          "num_trp": 4,
+          "num_tyr": 2,
+          "num_cys": 0,
+          "eps_280_reduced": 24980,
+          "abs_01_reduced": 1.709,
+          "gravy": -0.644,
+          "aliphatic_index": 88.28,
+          "instability_index": 30.06,
+          "instability_class": "Stable (in vitro)",
+          "ii_top_dipeptides": [
+            [
+              "SP",
+              2,
+              7.37
+            ],
+            [
+              "EE",
+              2,
+              5.51
+            ],
+            [
+              "MS",
+              1,
+              3.68
+            ]
+          ],
+          "wh_cv": 2.37,
+          "wh_cv_diff": 0.66,
+          "wh_class": "Elevated Inclusion-Body Risk (Heuristic)",
+          "wh_sol_pct": 34.2,
+          "wh_ngps_pct": 16.4,
+          "wh_net_q_per_res": 0.025,
+          "charged_pct": 36.9
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: Ammonium Sulfate (NH4)2SO4 Fractionation (40\u201370% Cut)",
+          "named_alerts_count": 0,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": false
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 18.8,
+          "ve_globular_ml": 13.41,
+          "kav_globular": 0.346,
+          "rh_shape_profile_a": 18.8,
+          "ve_shape_profile_ml": 13.41,
+          "ve_from_3d_perrin_ml": 13.42,
+          "geometry_3d": {
+            "n_ca_atoms": 122,
+            "rg_angstrom": 13.4,
+            "semi_axes_a_b_c": [
+              20.9,
+              16.7,
+              13.5
+            ],
+            "max_end_to_end_span_a": 57.3,
+            "prolate_aspect_ratio_p": 1.39,
+            "perrin_f_over_f0": 1.01,
+            "rh_3d_perrin_a": 18.8,
+            "rh_from_rg_a": 17.3,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.6883,
+          "sds_rf_12pct": 0.7514,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 82.79,
+          "sov99_pct": 90.49,
+          "gor4_q3_pct": 55.74,
+          "chou_fasman_q3_pct": 39.34,
+          "obs_helix_pct": 40.16,
+          "obs_strand_pct": 43.44,
+          "obs_coil_pct": 16.39,
+          "pred_helix_pct": 37.7,
+          "pred_strand_pct": 36.89,
+          "pred_coil_pct": 25.41,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "fold_match": true,
+          "mean_confidence": 0.7497,
+          "latency_ms": 11.59
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0172,
+          "max_5mer_jaccard_vs_train": 0.0022,
+          "closest_train_protein": "O93655 (Tricorn protease-interacting factor F3)"
+        }
+      },
+      {
+        "pdb_id": "6MRR",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "Foldit1",
+        "realistic_name": "De novo designed protein Foldit1",
+        "method_group": "Foldit / De Novo",
+        "citation": "Koepnick et al., Nature 2019",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2019",
+        "length_core": 68,
+        "length_eval": 68,
+        "core_sequence": "GWSTELEKHREELKEFLKKEGITNVEIRIDNGRLEVRVEGGTERLKRFLEELRQKLEKKGYTVDIKIE",
+        "core_ss3": "CCHHHHHHHHHHHHHHHHHHHCCCEEEEEECCEEEEEECCCHHHHHHHHHHHHHHHHHHCCEEEEEEC",
+        "pred_ss3": "CCCCHHHHHHHHHHHHHHHCCCEEEEEEEECCEEEEEEECCCHHHHHHHHHHHHHHHCCCCEEEEEEC",
+        "metrics": {
+          "mw_kda": 8.14,
+          "pi": 6.84,
+          "net_charge_ph74": -0.41,
+          "num_trp": 1,
+          "num_tyr": 1,
+          "num_cys": 0,
+          "eps_280_reduced": 6990,
+          "abs_01_reduced": 0.859,
+          "gravy": -1.018,
+          "aliphatic_index": 91.62,
+          "instability_index": 28.12,
+          "instability_class": "Stable (in vitro)",
+          "ii_top_dipeptides": [
+            [
+              "EE",
+              2,
+              9.88
+            ],
+            [
+              "IE",
+              1,
+              6.61
+            ],
+            [
+              "TE",
+              2,
+              5.96
+            ]
+          ],
+          "wh_cv": 1.16,
+          "wh_cv_diff": -0.55,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 63.4,
+          "wh_ngps_pct": 13.2,
+          "wh_net_q_per_res": 0.0,
+          "charged_pct": 47.1
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: Ammonium Sulfate (NH4)2SO4 Fractionation (40\u201370% Cut)",
+          "named_alerts_count": 1,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": false
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 15.1,
+          "ve_globular_ml": 15.22,
+          "kav_globular": 0.458,
+          "rh_shape_profile_a": 15.1,
+          "ve_shape_profile_ml": 15.22,
+          "ve_from_3d_perrin_ml": 15.13,
+          "geometry_3d": {
+            "n_ca_atoms": 68,
+            "rg_angstrom": 11.27,
+            "semi_axes_a_b_c": [
+              18.7,
+              12.5,
+              11.3
+            ],
+            "max_end_to_end_span_a": 37.9,
+            "prolate_aspect_ratio_p": 1.58,
+            "perrin_f_over_f0": 1.019,
+            "rh_3d_perrin_a": 15.3,
+            "rh_from_rg_a": 14.5,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.7929,
+          "sds_rf_12pct": 0.8331,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 85.29,
+          "sov99_pct": 94.78,
+          "gor4_q3_pct": 73.53,
+          "chou_fasman_q3_pct": 76.47,
+          "obs_helix_pct": 54.41,
+          "obs_strand_pct": 26.47,
+          "obs_coil_pct": 19.12,
+          "pred_helix_pct": 44.12,
+          "pred_strand_pct": 30.88,
+          "pred_coil_pct": 25.0,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "fold_match": true,
+          "mean_confidence": 0.7523,
+          "latency_ms": 8.94
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0625,
+          "max_5mer_jaccard_vs_train": 0.0063,
+          "closest_train_protein": "A8I4E9 (Cilia- and flagella-associated protein 1)"
+        }
+      },
+      {
+        "pdb_id": "6WI5",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "Foldit4",
+        "realistic_name": "De novo designed protein Foldit4 (zero Trp/Tyr)",
+        "method_group": "Foldit / De Novo",
+        "citation": "Koepnick et al., 2020",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2020",
+        "length_core": 90,
+        "length_eval": 90,
+        "core_sequence": "EEVVVEIRIRVQREEKVRRLIKRILEEVKRESNSVEVHVETRKRNGEVEVHVRIRHDDKETIERLVERILREIKKLDKNSEVEVRTTTKR",
+        "core_ss3": "CCEEEEEEEEECHHHHHHHHHHHHHHHHHHHHCCCEEEEEEEEECCEEEEEEEEEECHHHHHHHHHHHHHHHHHHHHCCCEEEEEEECCC",
+        "pred_ss3": "CCCEEEEEEEECCHHHHHHHHHHHHHHHHHCCCCCCCCCCCCCCCCCEEEEEEECCCCCCCHHHHHHHHHHHHCCCCCCCCCCCCCCCCC",
+        "metrics": {
+          "mw_kda": 11.0,
+          "pi": 9.68,
+          "net_charge_ph74": 3.77,
+          "num_trp": 0,
+          "num_tyr": 0,
+          "num_cys": 0,
+          "eps_280_reduced": 0,
+          "abs_01_reduced": 0.0,
+          "gravy": -1.028,
+          "aliphatic_index": 104.67,
+          "instability_index": 56.49,
+          "instability_class": "Unstable (potential degradation / short half-life)",
+          "ii_top_dipeptides": [
+            [
+              "KR",
+              4,
+              14.93
+            ],
+            [
+              "EE",
+              3,
+              11.2
+            ],
+            [
+              "RR",
+              1,
+              6.48
+            ]
+          ],
+          "wh_cv": 0.77,
+          "wh_cv_diff": -0.94,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 71.8,
+          "wh_ngps_pct": 7.8,
+          "wh_net_q_per_res": 0.044,
+          "charged_pct": 51.1
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: HiTrap SP (Cation Exchange) or (NH4)2SO4 Salting-Out",
+          "named_alerts_count": 2,
+          "uv280_invisible_alert_present": true,
+          "ii_denovo_caveat_present": true
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 16.9,
+          "ve_globular_ml": 14.28,
+          "kav_globular": 0.4,
+          "rh_shape_profile_a": 19.3,
+          "ve_shape_profile_ml": 13.21,
+          "ve_from_3d_perrin_ml": 14.05,
+          "geometry_3d": {
+            "n_ca_atoms": 90,
+            "rg_angstrom": 12.86,
+            "semi_axes_a_b_c": [
+              22.9,
+              13.5,
+              11.1
+            ],
+            "max_end_to_end_span_a": 51.4,
+            "prolate_aspect_ratio_p": 1.87,
+            "perrin_f_over_f0": 1.036,
+            "rh_3d_perrin_a": 17.4,
+            "rh_from_rg_a": 16.6,
+            "geometry_class": "Moderately Elongated",
+            "recommended_sec_conformation": "moderately_elongated"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": true,
+          "sds_rf_15pct": 0.7444,
+          "sds_rf_12pct": 0.7961,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 65.56,
+          "sov99_pct": 69.01,
+          "gor4_q3_pct": 60.0,
+          "chou_fasman_q3_pct": 51.11,
+          "obs_helix_pct": 44.44,
+          "obs_strand_pct": 38.89,
+          "obs_coil_pct": 16.67,
+          "pred_helix_pct": 32.22,
+          "pred_strand_pct": 16.67,
+          "pred_coil_pct": 51.11,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "fold_match": true,
+          "mean_confidence": 0.6529,
+          "latency_ms": 65.8
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0353,
+          "max_5mer_jaccard_vs_train": 0.0057,
+          "closest_train_protein": "P76339 (Sensor histidine kinase HprS)"
+        }
+      },
+      {
+        "pdb_id": "7LDF",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "ems_thioM_802",
+        "realistic_name": "De novo minimal thioredoxin fold protein",
+        "method_group": "Rosetta / Classical De Novo",
+        "citation": "Baker/Marcos Lab, 2022",
+        "exp_method": "SOLUTION NMR",
+        "release_year": "2022",
+        "length_core": 71,
+        "length_eval": 71,
+        "core_sequence": "MDEVKVHVGDDQFEEVSREIKKAGWKVEVHKHPSNTSQVTVTKGNKQWTFKDPKQAVEFVQKSLEHHHHHH",
+        "core_ss3": "CEEEEEEECHHHHHHHHHHHHHHCCEEEEEEECCCCEEEEEEECCEEEEECCHHHHHHHHHHHHHCCCCCC",
+        "pred_ss3": "CCCEEEECCCCCHHHHHHHHHHCCCEEEEECCCCCCCCEEEECCCCCCCCCCHHHHHHHHHHHHHCCCCCC",
+        "metrics": {
+          "mw_kda": 8.35,
+          "pi": 7.14,
+          "net_charge_ph74": -0.4,
+          "num_trp": 2,
+          "num_tyr": 0,
+          "num_cys": 0,
+          "eps_280_reduced": 11000,
+          "abs_01_reduced": 1.318,
+          "gravy": -1.173,
+          "aliphatic_index": 54.65,
+          "instability_index": 23.11,
+          "instability_class": "Stable (in vitro)",
+          "ii_top_dipeptides": [
+            [
+              "KQ",
+              2,
+              6.94
+            ],
+            [
+              "EE",
+              1,
+              4.73
+            ],
+            [
+              "HK",
+              1,
+              3.48
+            ]
+          ],
+          "wh_cv": 1.5,
+          "wh_cv_diff": -0.21,
+          "wh_class": "Borderline Solubility (Heuristic)",
+          "wh_sol_pct": 54.9,
+          "wh_ngps_pct": 15.5,
+          "wh_net_q_per_res": 0.0,
+          "charged_pct": 31.0
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "6xHis",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Affinity Capture: Ni-NTA / HisTrap HP (6xHis)",
+          "named_alerts_count": 1,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": false
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 15.3,
+          "ve_globular_ml": 15.14,
+          "kav_globular": 0.453,
+          "rh_shape_profile_a": 17.4,
+          "ve_shape_profile_ml": 14.05,
+          "ve_from_3d_perrin_ml": 14.86,
+          "geometry_3d": {
+            "n_ca_atoms": 71,
+            "rg_angstrom": 11.74,
+            "semi_axes_a_b_c": [
+              21.2,
+              12.1,
+              9.6
+            ],
+            "max_end_to_end_span_a": 45.3,
+            "prolate_aspect_ratio_p": 1.97,
+            "perrin_f_over_f0": 1.042,
+            "rh_3d_perrin_a": 15.8,
+            "rh_from_rg_a": 15.2,
+            "geometry_class": "Moderately Elongated",
+            "recommended_sec_conformation": "moderately_elongated"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.7893,
+          "sds_rf_12pct": 0.8303,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 76.06,
+          "sov99_pct": 82.72,
+          "gor4_q3_pct": 61.97,
+          "chou_fasman_q3_pct": 52.11,
+          "obs_helix_pct": 38.03,
+          "obs_strand_pct": 36.62,
+          "obs_coil_pct": 25.35,
+          "pred_helix_pct": 32.39,
+          "pred_strand_pct": 18.31,
+          "pred_coil_pct": 49.3,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "fold_match": true,
+          "mean_confidence": 0.7669,
+          "latency_ms": 47.3
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0303,
+          "max_5mer_jaccard_vs_train": 0.0097,
+          "closest_train_protein": "Q04I02 (Transcriptional regulator AdcR)"
+        }
+      },
+      {
+        "pdb_id": "5IM5",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "I53-40A Nanocage",
+        "realistic_name": "De novo icosahedral nanocage subunit I53-40A",
+        "method_group": "De Novo Nanocage",
+        "citation": "Bale et al., Science 2016",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2016",
+        "length_core": 142,
+        "length_eval": 142,
+        "core_sequence": "TKKVGIVDTTFARVDMASAAILTLKMESPNIKIIRKTVPGIKDLPVACKKLLEEEGCDIVMALGMPGKAEKDKVCAHEASLGLMLAQLMTNKHIIEVFVHEDEAKDDAELKILAARRAIEHALNVYYLLFKPEYLTRMAGKG",
+        "core_ss3": "CCEEEEEEECCCCCCHHHHHHHHHHHHHCCCEEEEEEECHHHHHHHHHHHHHHHHCCCEEEEEECCCCCCHHHHHHHHHHHHHHHHHHHHHCCEEEEECHHHHHCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCCC",
+        "pred_ss3": "CCEEEEEEEEEEEEEHHHHHHHHHHHCCCCEEEEEECCCCCCCHHHHHHHHHHHCCCEEEEEECCCCCHHHHHHHHHHHHHHHHHHHHHHCCEEEEEEECCCCCCCHHHHHHHHHHHHHHHHHHHHHHHCCHHHHHHHCCCC",
+        "metrics": {
+          "mw_kda": 15.66,
+          "pi": 7.66,
+          "net_charge_ph74": 0.25,
+          "num_trp": 0,
+          "num_tyr": 3,
+          "num_cys": 3,
+          "eps_280_reduced": 4470,
+          "abs_01_reduced": 0.285,
+          "gravy": 0.056,
+          "aliphatic_index": 106.55,
+          "instability_index": 42.15,
+          "instability_class": "Unstable (potential degradation / short half-life)",
+          "ii_top_dipeptides": [
+            [
+              "IE",
+              2,
+              6.33
+            ],
+            [
+              "EE",
+              2,
+              4.73
+            ],
+            [
+              "RR",
+              1,
+              4.1
+            ]
+          ],
+          "wh_cv": 1.39,
+          "wh_cv_diff": -0.32,
+          "wh_class": "Borderline Solubility (Heuristic)",
+          "wh_sol_pct": 57.9,
+          "wh_ngps_pct": 13.4,
+          "wh_net_q_per_res": 0.007,
+          "charged_pct": 28.9
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [
+            "cytosolic_free_thiol"
+          ],
+          "named_ai_categories": [
+            "cytosolic_free_thiol"
+          ],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [
+            "cytosolic_free_thiol"
+          ],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: Ammonium Sulfate (NH4)2SO4 Fractionation (40\u201370% Cut)",
+          "named_alerts_count": 3,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": true
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 19.3,
+          "ve_globular_ml": 13.2,
+          "kav_globular": 0.333,
+          "rh_shape_profile_a": 19.3,
+          "ve_shape_profile_ml": 13.2,
+          "ve_from_3d_perrin_ml": 13.21,
+          "geometry_3d": {
+            "n_ca_atoms": 142,
+            "rg_angstrom": 14.64,
+            "semi_axes_a_b_c": [
+              22.8,
+              18.4,
+              14.6
+            ],
+            "max_end_to_end_span_a": 64.6,
+            "prolate_aspect_ratio_p": 1.39,
+            "perrin_f_over_f0": 1.01,
+            "rh_3d_perrin_a": 19.3,
+            "rh_from_rg_a": 18.9,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.6733,
+          "sds_rf_12pct": 0.739,
+          "oligomer_n": 60
+        },
+        "secondary_structure": {
+          "q3_pct": 78.17,
+          "sov99_pct": 76.11,
+          "gor4_q3_pct": 69.72,
+          "chou_fasman_q3_pct": 67.61,
+          "obs_helix_pct": 61.97,
+          "obs_strand_pct": 17.61,
+          "obs_coil_pct": 20.42,
+          "pred_helix_pct": 52.11,
+          "pred_strand_pct": 22.54,
+          "pred_coil_pct": 25.35,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "fold_match": true,
+          "mean_confidence": 0.7719,
+          "latency_ms": 11.12
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.7609,
+          "max_5mer_jaccard_vs_train": 0.5676,
+          "closest_train_protein": "Q58584 (Riboflavin synthase)"
+        }
+      },
+      {
+        "pdb_id": "6D0T",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "mFAP2b (BB1)",
+        "realistic_name": "esmGFP / De novo fluorescence-activating beta-barrel mFAP2b",
+        "method_group": "Rosetta / Classical De Novo",
+        "citation": "Dou et al., Nature 2018",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2018",
+        "length_core": 111,
+        "length_eval": 111,
+        "core_sequence": "MVDAAQYFPGTWEFRFRSSDGKEYRGTVEMQPRTPTEIEIRFKGQSSDGRPVEGRGSIEVRSPYEYRFEMQSSDGARWEGTLQVRSPDSVEVRFKSSDGREYSGEFRRQEG",
+        "core_ss3": "CCHHHHHHCEEEEEEEEECCCCEEEEEEEEEEEECCEEEEEEEEEECCCCEEEEEEEEECCCCCCCEEEEEECCCCEEEEEEEEEECCEEEEEEEECCCCEEEEEEEECCC",
+        "pred_ss3": "CCCCCCCCCEEEEEEEECCCCCEEEEEEEECCCCCEEEEEEEEECCCCCCCCCCCEEEEEECCEEEEEEEECCCCCEEEEEEEEECCCEEEEEEECCCCEEEEEEEECCCC",
+        "metrics": {
+          "mw_kda": 12.89,
+          "pi": 5.31,
+          "net_charge_ph74": -2.72,
+          "num_trp": 2,
+          "num_tyr": 5,
+          "num_cys": 0,
+          "eps_280_reduced": 18450,
+          "abs_01_reduced": 1.431,
+          "gravy": -1.166,
+          "aliphatic_index": 35.05,
+          "instability_index": 63.07,
+          "instability_class": "Unstable (potential degradation / short half-life)",
+          "ii_top_dipeptides": [
+            [
+              "RS",
+              3,
+              12.15
+            ],
+            [
+              "IE",
+              2,
+              8.1
+            ],
+            [
+              "QS",
+              2,
+              8.1
+            ]
+          ],
+          "wh_cv": 2.89,
+          "wh_cv_diff": 1.18,
+          "wh_class": "Elevated Inclusion-Body Risk (Heuristic)",
+          "wh_sol_pct": 23.6,
+          "wh_ngps_pct": 27.9,
+          "wh_net_q_per_res": 0.018,
+          "charged_pct": 34.2
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "6xHis",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: Ammonium Sulfate (NH4)2SO4 Fractionation (40\u201370% Cut)",
+          "named_alerts_count": 1,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": true
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 18.0,
+          "ve_globular_ml": 13.79,
+          "kav_globular": 0.37,
+          "rh_shape_profile_a": 18.0,
+          "ve_shape_profile_ml": 13.79,
+          "ve_from_3d_perrin_ml": 13.73,
+          "geometry_3d": {
+            "n_ca_atoms": 111,
+            "rg_angstrom": 12.96,
+            "semi_axes_a_b_c": [
+              21.2,
+              15.0,
+              12.9
+            ],
+            "max_end_to_end_span_a": 51.8,
+            "prolate_aspect_ratio_p": 1.52,
+            "perrin_f_over_f0": 1.016,
+            "rh_3d_perrin_a": 18.1,
+            "rh_from_rg_a": 16.7,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.7143,
+          "sds_rf_12pct": 0.7724,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 73.87,
+          "sov99_pct": 82.6,
+          "gor4_q3_pct": 34.23,
+          "chou_fasman_q3_pct": 41.44,
+          "obs_helix_pct": 5.41,
+          "obs_strand_pct": 64.86,
+          "obs_coil_pct": 29.73,
+          "pred_helix_pct": 0.0,
+          "pred_strand_pct": 56.76,
+          "pred_coil_pct": 43.24,
+          "obs_fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+          "pred_fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+          "fold_match": true,
+          "mean_confidence": 0.7112,
+          "latency_ms": 12.61
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0286,
+          "max_5mer_jaccard_vs_train": 0.0068,
+          "closest_train_protein": "Q4GZD1 (Deoxyhypusine synthase regulatory subuni)"
+        }
+      },
+      {
+        "pdb_id": "7UR7",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "17_bp_sh3",
+        "realistic_name": "De novo small SH3-like beta-barrel 17_bp_sh3",
+        "method_group": "Rosetta / Classical De Novo",
+        "citation": "Marcos Lab, 2023",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2023",
+        "length_core": 63,
+        "length_eval": 63,
+        "core_sequence": "SEVKELLEEFLKRNKPVRIHHKNGEEIKVRITHIGEDTVEFELNGRTHRINIKDILDVKEWLE",
+        "core_ss3": "HHHHHHHHHHHHHCCCEEEEECCCCEEEECCCEECCCEEEEECCCCEEEEECCCEEEEEECCC",
+        "pred_ss3": "CHHHHHHHHHHHHCCCEEEEEECCCEEEEEEEECCCEEEEEEECCCEEEEEEEEEEEEEECCC",
+        "metrics": {
+          "mw_kda": 7.57,
+          "pi": 6.07,
+          "net_charge_ph74": -2.6,
+          "num_trp": 1,
+          "num_tyr": 0,
+          "num_cys": 0,
+          "eps_280_reduced": 5500,
+          "abs_01_reduced": 0.726,
+          "gravy": -0.814,
+          "aliphatic_index": 103.49,
+          "instability_index": 48.56,
+          "instability_class": "Unstable (potential degradation / short half-life)",
+          "ii_top_dipeptides": [
+            [
+              "EE",
+              2,
+              10.67
+            ],
+            [
+              "HI",
+              1,
+              7.13
+            ],
+            [
+              "NI",
+              1,
+              7.13
+            ]
+          ],
+          "wh_cv": 0.38,
+          "wh_cv_diff": -1.33,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 79.1,
+          "wh_ngps_pct": 14.3,
+          "wh_net_q_per_res": 0.032,
+          "charged_pct": 41.3
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "6xHis",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: Ammonium Sulfate (NH4)2SO4 Fractionation (40\u201370% Cut)",
+          "named_alerts_count": 1,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": true
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 14.7,
+          "ve_globular_ml": 15.44,
+          "kav_globular": 0.472,
+          "rh_shape_profile_a": 14.7,
+          "ve_shape_profile_ml": 15.44,
+          "ve_from_3d_perrin_ml": 15.46,
+          "geometry_3d": {
+            "n_ca_atoms": 63,
+            "rg_angstrom": 10.6,
+            "semi_axes_a_b_c": [
+              14.2,
+              13.9,
+              12.9
+            ],
+            "max_end_to_end_span_a": 42.7,
+            "prolate_aspect_ratio_p": 1.06,
+            "perrin_f_over_f0": 1.0,
+            "rh_3d_perrin_a": 14.7,
+            "rh_from_rg_a": 13.7,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.803,
+          "sds_rf_12pct": 0.8405,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 82.54,
+          "sov99_pct": 77.86,
+          "gor4_q3_pct": 47.62,
+          "chou_fasman_q3_pct": 49.21,
+          "obs_helix_pct": 20.63,
+          "obs_strand_pct": 42.86,
+          "obs_coil_pct": 36.51,
+          "pred_helix_pct": 19.05,
+          "pred_strand_pct": 55.56,
+          "pred_coil_pct": 25.4,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "fold_match": true,
+          "mean_confidence": 0.7675,
+          "latency_ms": 41.3
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0508,
+          "max_5mer_jaccard_vs_train": 0.0035,
+          "closest_train_protein": "Q46G04 (Acetyl-CoA decarbonylase/synthase comple)"
+        }
+      },
+      {
+        "pdb_id": "6E5C",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "DSBH-DeNovo",
+        "realistic_name": "De novo double-stranded beta-helix protein",
+        "method_group": "Rosetta / Classical De Novo",
+        "citation": "Marcos et al., Nature Struct Mol Biol 2018",
+        "exp_method": "SOLUTION NMR",
+        "release_year": "2018",
+        "length_core": 78,
+        "length_eval": 78,
+        "core_sequence": "TRETKVTVNPGEEYEVKVNPGTRVEIQAKGPAEFEGGGTRTRLNPGESYKFENLTSQPLRIRLRNLSDTPIEFRIREE",
+        "core_ss3": "CEEEEEEECCCCEEEEEECCCCEEEEEECCCEEEEECCEEEEECCCCEEEEECCCCCCEEEEEEECCCCCEEEEEEEC",
+        "pred_ss3": "CEEEEEEEECCCEEEEEECCCEEEEEEECCCEEEECCEEEEEECCCCEEEEEEEEEEEEEEEEEEEEEEEEEEEEECC",
+        "metrics": {
+          "mw_kda": 8.9,
+          "pi": 6.26,
+          "net_charge_ph74": -0.79,
+          "num_trp": 0,
+          "num_tyr": 2,
+          "num_cys": 0,
+          "eps_280_reduced": 2980,
+          "abs_01_reduced": 0.335,
+          "gravy": -1.014,
+          "aliphatic_index": 66.15,
+          "instability_index": 33.06,
+          "instability_class": "Stable (in vitro)",
+          "ii_top_dipeptides": [
+            [
+              "EE",
+              2,
+              8.62
+            ],
+            [
+              "IE",
+              1,
+              5.76
+            ],
+            [
+              "LR",
+              2,
+              5.19
+            ]
+          ],
+          "wh_cv": 3.27,
+          "wh_cv_diff": 1.56,
+          "wh_class": "Elevated Inclusion-Body Risk (Heuristic)",
+          "wh_sol_pct": 17.2,
+          "wh_ngps_pct": 26.9,
+          "wh_net_q_per_res": 0.0,
+          "charged_pct": 33.3
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: Ammonium Sulfate (NH4)2SO4 Fractionation (40\u201370% Cut)",
+          "named_alerts_count": 0,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": false
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 15.6,
+          "ve_globular_ml": 14.94,
+          "kav_globular": 0.441,
+          "rh_shape_profile_a": 17.8,
+          "ve_shape_profile_ml": 13.85,
+          "ve_from_3d_perrin_ml": 14.75,
+          "geometry_3d": {
+            "n_ca_atoms": 78,
+            "rg_angstrom": 11.78,
+            "semi_axes_a_b_c": [
+              20.8,
+              12.6,
+              10.2
+            ],
+            "max_end_to_end_span_a": 47.1,
+            "prolate_aspect_ratio_p": 1.84,
+            "perrin_f_over_f0": 1.034,
+            "rh_3d_perrin_a": 16.0,
+            "rh_from_rg_a": 15.2,
+            "geometry_class": "Moderately Elongated",
+            "recommended_sec_conformation": "moderately_elongated"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.7797,
+          "sds_rf_12pct": 0.8231,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 79.49,
+          "sov99_pct": 67.38,
+          "gor4_q3_pct": 48.72,
+          "chou_fasman_q3_pct": 61.54,
+          "obs_helix_pct": 0.0,
+          "obs_strand_pct": 61.54,
+          "obs_coil_pct": 38.46,
+          "pred_helix_pct": 0.0,
+          "pred_strand_pct": 76.92,
+          "pred_coil_pct": 23.08,
+          "obs_fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+          "pred_fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+          "fold_match": true,
+          "mean_confidence": 0.7254,
+          "latency_ms": 94.92
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.027,
+          "max_5mer_jaccard_vs_train": 0.0108,
+          "closest_train_protein": "O54259 (Deoxynogalonate monooxygenase)"
+        }
+      },
+      {
+        "pdb_id": "6F0Q",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "Pizza6-AYW",
+        "realistic_name": "De novo symmetric 6-bladed beta-propeller Pizza6",
+        "method_group": "Symmetric De Novo",
+        "citation": "Voet et al., 2018",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2018",
+        "length_core": 251,
+        "length_eval": 251,
+        "core_sequence": "SNTQTVLPFTGLNTPSGVAVDSAGTVWVTDHGNNRVVKLAAGSNTQTVLPFTGLNTPSGVAVDSAGTVWVTDHGNNRVVKLAAGSNTQTVLPFTGLNTPSGVAVDSAGTVWVTDHGNNRVVKLAAGSNTQTVLPFTGLNTPSGVAVDSAGTVWVTDHGNNRVVKLAAGSNTQTVLPFTGLNTPSGVAVDSAGTVWVTDHGNNRVVKLAAGSNTQTVLPFTGLNTPSGVAVDSAGTVWVTDHGNNRVVKLAA",
+        "core_ss3": "CCCCEECCCCCCCCCCCCEECCCCCEEEEEHHHHEEEEECCCCCCEEECCCCCCCCCCCEEECCCCCEEEEEHHHHEEEEECCCCCCEEECCCCCCCCCCCEEECCCCCEEEEEHHHHEEEEECCCCCCCEECCCCCCCCCCCCEECCCCCEEEEEHHHHEEEEECCCCCCCEECCCCCCCCCCCCEECCCCCEEEEEHHHHEEEEECCCCCCCEECCCCCCCCCCCCEECCCCCEEEEEHHHHEEEEECC",
+        "pred_ss3": "CCCCCCCCCCCCCCCCCCCCCCCCCEEEECCCCCCEEEEECCCCCCEECCCCCCCCCCCEEECCCCEEEEECCCCCCEEEEECCCCCCEEEEECCCCCCCCEEECCCCEEEEECCCCCCEEEEECCCCCCEEEEECCCCCCCCEEECCCCEEEEECCCCCCEEEEECCCCCCEECCCCCCCCCCCEEECCCCEEEEECCCCCCEEEEECCCCCCEECCCCCCCCCCCCEECCCCEEEEECCCCCEEEEECC",
+        "metrics": {
+          "mw_kda": 25.37,
+          "pi": 6.99,
+          "net_charge_ph74": -0.54,
+          "num_trp": 6,
+          "num_tyr": 0,
+          "num_cys": 0,
+          "eps_280_reduced": 33000,
+          "abs_01_reduced": 1.301,
+          "gravy": 0.049,
+          "aliphatic_index": 86.06,
+          "instability_index": 3.58,
+          "instability_class": "Stable (in vitro)",
+          "ii_top_dipeptides": [
+            [
+              "LP",
+              6,
+              4.84
+            ],
+            [
+              "PF",
+              6,
+              4.84
+            ],
+            [
+              "PS",
+              6,
+              4.84
+            ]
+          ],
+          "wh_cv": 4.22,
+          "wh_cv_diff": 2.51,
+          "wh_class": "Elevated Inclusion-Body Risk (Heuristic)",
+          "wh_sol_pct": 6.1,
+          "wh_ngps_pct": 33.1,
+          "wh_net_q_per_res": 0.0,
+          "charged_pct": 9.6
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: Ammonium Sulfate (NH4)2SO4 Fractionation (40\u201370% Cut)",
+          "named_alerts_count": 1,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": false
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 23.1,
+          "ve_globular_ml": 11.84,
+          "kav_globular": 0.249,
+          "rh_shape_profile_a": 23.1,
+          "ve_shape_profile_ml": 11.84,
+          "ve_from_3d_perrin_ml": 11.84,
+          "geometry_3d": {
+            "n_ca_atoms": 251,
+            "rg_angstrom": 16.3,
+            "semi_axes_a_b_c": [
+              23.3,
+              22.7,
+              16.4
+            ],
+            "max_end_to_end_span_a": 68.1,
+            "prolate_aspect_ratio_p": 1.21,
+            "perrin_f_over_f0": 1.003,
+            "rh_3d_perrin_a": 23.1,
+            "rh_from_rg_a": 21.0,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.5556,
+          "sds_rf_12pct": 0.6366,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 76.49,
+          "sov99_pct": 83.94,
+          "gor4_q3_pct": 78.88,
+          "chou_fasman_q3_pct": 57.77,
+          "obs_helix_pct": 9.56,
+          "obs_strand_pct": 35.06,
+          "obs_coil_pct": 55.38,
+          "pred_helix_pct": 0.0,
+          "pred_strand_pct": 35.46,
+          "pred_coil_pct": 64.54,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+          "fold_match": false,
+          "mean_confidence": 0.7304,
+          "latency_ms": 15.06
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0476,
+          "max_5mer_jaccard_vs_train": 0.0061,
+          "closest_train_protein": "Q8GZD5 (Xyloglucan endotransglucosylase protein )"
+        }
+      },
+      {
+        "pdb_id": "3Q7X",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "Symfoil-4P",
+        "realistic_name": "De novo symmetric beta-trefoil Symfoil-4P",
+        "method_group": "Symmetric De Novo",
+        "citation": "Lee & Blaber, PNAS 2011",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2012",
+        "length_core": 125,
+        "length_eval": 125,
+        "core_sequence": "HEVLLRSTETGQFLRINPDGTVDGTRDRSDPGIQFQISPEGNGEVLLRSTETGQFLRINPDGTVDGTRDRSDPGIQFQISPEGNGEVLLRSTETGQFLRINPDGTVDGTRDRSDPGIQFQISPEG",
+        "core_ss3": "CCEEEEECCCCCEEEECCCCCEEEECCCCHHHHCEEEEEEECCEEEEEECCCCCEEEECCCCCEEEECCCCHHHHCEEEEEEECCEEEEEECCCCCEEEECCCCCEEEECCCCHHHHCEEEEECC",
+        "pred_ss3": "CEEEEEEEEEEEEEEECCCCCEEEEEECCCCEEEEEEECCCCEEEEEEEEEEEEEEEEECCCCEEEEEEECCCEEEEEEECCCCEEEEEEEEEEEEEEEEECCCCEEEEEECCCCEEEEEECCCC",
+        "metrics": {
+          "mw_kda": 13.65,
+          "pi": 4.45,
+          "net_charge_ph74": -9.39,
+          "num_trp": 0,
+          "num_tyr": 0,
+          "num_cys": 0,
+          "eps_280_reduced": 0,
+          "abs_01_reduced": 0.0,
+          "gravy": -0.798,
+          "aliphatic_index": 70.08,
+          "instability_index": 34.94,
+          "instability_class": "Stable (in vitro)",
+          "ii_top_dipeptides": [
+            [
+              "RS",
+              6,
+              21.57
+            ],
+            [
+              "SP",
+              3,
+              10.79
+            ],
+            [
+              "LR",
+              6,
+              9.72
+            ]
+          ],
+          "wh_cv": 1.92,
+          "wh_cv_diff": 0.21,
+          "wh_class": "Borderline Solubility (Heuristic)",
+          "wh_sol_pct": 45.0,
+          "wh_ngps_pct": 32.0,
+          "wh_net_q_per_res": 0.072,
+          "charged_pct": 26.4
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "6xHis",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: HiTrap Q (Anion Exchange) or (NH4)2SO4 Salting-Out",
+          "named_alerts_count": 1,
+          "uv280_invisible_alert_present": true,
+          "ii_denovo_caveat_present": false
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 18.4,
+          "ve_globular_ml": 13.61,
+          "kav_globular": 0.359,
+          "rh_shape_profile_a": 18.4,
+          "ve_shape_profile_ml": 13.61,
+          "ve_from_3d_perrin_ml": 13.59,
+          "geometry_3d": {
+            "n_ca_atoms": 124,
+            "rg_angstrom": 12.81,
+            "semi_axes_a_b_c": [
+              17.5,
+              17.1,
+              14.9
+            ],
+            "max_end_to_end_span_a": 54.8,
+            "prolate_aspect_ratio_p": 1.1,
+            "perrin_f_over_f0": 1.001,
+            "rh_3d_perrin_a": 18.4,
+            "rh_from_rg_a": 16.5,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": true,
+          "sds_rf_15pct": 0.7027,
+          "sds_rf_12pct": 0.7631,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 60.0,
+          "sov99_pct": 50.58,
+          "gor4_q3_pct": 63.2,
+          "chou_fasman_q3_pct": 50.4,
+          "obs_helix_pct": 9.6,
+          "obs_strand_pct": 48.0,
+          "obs_coil_pct": 42.4,
+          "pred_helix_pct": 0.0,
+          "pred_strand_pct": 70.4,
+          "pred_coil_pct": 29.6,
+          "obs_fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+          "pred_fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+          "fold_match": true,
+          "mean_confidence": 0.7143,
+          "latency_ms": 13.32
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0465,
+          "max_5mer_jaccard_vs_train": 0.0025,
+          "closest_train_protein": "D0C8V9 (Probable TonB-dependent siderophore rece)"
+        }
+      },
+      {
+        "pdb_id": "4TQL",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "3-Helix Bundle",
+        "realistic_name": "De novo elongated three-helix bundle",
+        "method_group": "Rosetta / Classical De Novo",
+        "citation": "Huang et al., Science 2014",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2014",
+        "length_core": 231,
+        "length_eval": 229,
+        "core_sequence": "YKQMVQELEKARDRMEKLYKEMVELIQKAIELMRKIFQEVKQEVEKAIEEMKKLYDEAKKKIEQMIQQIKQGGDKQKMEELLKRAKEEMKKVKDKMEKLLEKLKQIMQEAKQKMEKLLKQLKEEMKKMKEKMEKLLKEMKQRMEEVKKKMDGDDELLEKIKKNIDDLKKIAEDLIKKAEENIKEAKKIAEQLVKRAKQLIEKAKQVAEELIKKILQLIEKAKEIAEKVLKG",
+        "core_ss3": "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCCCCHHHHHHHCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH",
+        "pred_ss3": "CCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCC",
+        "metrics": {
+          "mw_kda": 27.79,
+          "pi": 9.46,
+          "net_charge_ph74": 14.45,
+          "num_trp": 0,
+          "num_tyr": 3,
+          "num_cys": 0,
+          "eps_280_reduced": 4470,
+          "abs_01_reduced": 0.161,
+          "gravy": -1.031,
+          "aliphatic_index": 92.08,
+          "instability_index": 53.52,
+          "instability_class": "Unstable (potential degradation / short half-life)",
+          "ii_top_dipeptides": [
+            [
+              "KQ",
+              10,
+              10.67
+            ],
+            [
+              "EE",
+              7,
+              10.18
+            ],
+            [
+              "IE",
+              5,
+              9.73
+            ]
+          ],
+          "wh_cv": -0.63,
+          "wh_cv_diff": -2.34,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 92.5,
+          "wh_ngps_pct": 2.6,
+          "wh_net_q_per_res": 0.065,
+          "charged_pct": 50.6
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "6xHis",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: Cation Exchange (HiTrap SP) or Heparin Sepharose",
+          "named_alerts_count": 1,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": true
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 23.9,
+          "ve_globular_ml": 11.6,
+          "kav_globular": 0.235,
+          "rh_shape_profile_a": 29.6,
+          "ve_shape_profile_ml": 10.26,
+          "ve_from_3d_perrin_ml": 9.74,
+          "geometry_3d": {
+            "n_ca_atoms": 229,
+            "rg_angstrom": 34.03,
+            "semi_axes_a_b_c": [
+              74.7,
+              10.6,
+              10.0
+            ],
+            "max_end_to_end_span_a": 127.2,
+            "prolate_aspect_ratio_p": 7.28,
+            "perrin_f_over_f0": 1.391,
+            "rh_3d_perrin_a": 32.9,
+            "rh_from_rg_a": 43.9,
+            "geometry_class": "Elongated / Rod-like",
+            "recommended_sec_conformation": "elongated"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.5318,
+          "sds_rf_12pct": 0.6146,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 95.2,
+          "sov99_pct": 95.17,
+          "gor4_q3_pct": 91.27,
+          "chou_fasman_q3_pct": 95.63,
+          "obs_helix_pct": 96.51,
+          "obs_strand_pct": 0.0,
+          "obs_coil_pct": 3.49,
+          "pred_helix_pct": 96.07,
+          "pred_strand_pct": 0.0,
+          "pred_coil_pct": 3.93,
+          "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_fold_class": "All-\u03b1 (Helix-Rich)",
+          "fold_match": true,
+          "mean_confidence": 0.7761,
+          "latency_ms": 13.82
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0303,
+          "max_5mer_jaccard_vs_train": 0.0072,
+          "closest_train_protein": "Q9JJI8 (Large ribosomal subunit protein eL38)"
+        }
+      },
+      {
+        "pdb_id": "5J73",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "2L4HC2_9",
+        "realistic_name": "De novo H-bond network coiled-coil homo-oligomer 2L4HC2_9",
+        "method_group": "Rosetta / Classical De Novo",
+        "citation": "Boyken et al., Science 2016",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2016",
+        "length_core": 75,
+        "length_eval": 75,
+        "core_sequence": "TSDYIIEQIQRDQEEARKKVEEAEERLERVKEASKRGVSSDQLLDLIRELAEIIEELIRIIRRSNEAIKELIKNQ",
+        "core_ss3": "CHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHC",
+        "pred_ss3": "CCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCCC",
+        "metrics": {
+          "mw_kda": 8.91,
+          "pi": 4.96,
+          "net_charge_ph74": -4.79,
+          "num_trp": 0,
+          "num_tyr": 1,
+          "num_cys": 0,
+          "eps_280_reduced": 1490,
+          "abs_01_reduced": 0.167,
+          "gravy": -0.848,
+          "aliphatic_index": 111.87,
+          "instability_index": 61.17,
+          "instability_class": "Unstable (potential degradation / short half-life)",
+          "ii_top_dipeptides": [
+            [
+              "EE",
+              4,
+              17.92
+            ],
+            [
+              "IE",
+              2,
+              11.98
+            ],
+            [
+              "RR",
+              1,
+              7.77
+            ]
+          ],
+          "wh_cv": -0.82,
+          "wh_cv_diff": -2.53,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 94.1,
+          "wh_ngps_pct": 10.7,
+          "wh_net_q_per_res": 0.053,
+          "charged_pct": 45.3
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: HiTrap Q (Anion Exchange) or (NH4)2SO4 Salting-Out",
+          "named_alerts_count": 1,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": true
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 15.7,
+          "ve_globular_ml": 14.93,
+          "kav_globular": 0.44,
+          "rh_shape_profile_a": 19.4,
+          "ve_shape_profile_ml": 13.16,
+          "ve_from_3d_perrin_ml": 13.59,
+          "geometry_3d": {
+            "n_ca_atoms": 75,
+            "rg_angstrom": 17.03,
+            "semi_axes_a_b_c": [
+              35.7,
+              11.1,
+              7.1
+            ],
+            "max_end_to_end_span_a": 63.2,
+            "prolate_aspect_ratio_p": 4.03,
+            "perrin_f_over_f0": 1.185,
+            "rh_3d_perrin_a": 18.4,
+            "rh_from_rg_a": 22.0,
+            "geometry_class": "Elongated / Rod-like",
+            "recommended_sec_conformation": "elongated"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.7796,
+          "sds_rf_12pct": 0.823,
+          "oligomer_n": 2
+        },
+        "secondary_structure": {
+          "q3_pct": 92.0,
+          "sov99_pct": 98.11,
+          "gor4_q3_pct": 78.67,
+          "chou_fasman_q3_pct": 65.33,
+          "obs_helix_pct": 93.33,
+          "obs_strand_pct": 0.0,
+          "obs_coil_pct": 6.67,
+          "pred_helix_pct": 85.33,
+          "pred_strand_pct": 0.0,
+          "pred_coil_pct": 14.67,
+          "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_fold_class": "All-\u03b1 (Helix-Rich)",
+          "fold_match": true,
+          "mean_confidence": 0.6842,
+          "latency_ms": 55.48
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0423,
+          "max_5mer_jaccard_vs_train": 0.0168,
+          "closest_train_protein": "P95435 (Type 3 secretion system chaperone PscG)"
+        }
+      },
+      {
+        "pdb_id": "6Z35",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "Maquette 2-1ip",
+        "realistic_name": "De novo 4-helix bundle Maquette 2",
+        "method_group": "De Novo Helical Bundle",
+        "citation": "Dutton/Anderson Lab, 2021",
+        "exp_method": "SOLUTION NMR",
+        "release_year": "2021",
+        "length_core": 109,
+        "length_eval": 109,
+        "core_sequence": "SEFEKLRQTGDELVQAEQRLREIFDKGDDDSLEQVLEEIEELIQKHRQLFDNRQEAADTEAAKQGDQWVQLKQRFREAIDKGDKDSLEQLLEELEQALQKIRELAEKKN",
+        "core_ss3": "CHHHHHHHHHHHHHHHHHHHHHHHHCCHHHHHHHHHHHHHHHHHHHHHHHHCCCCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCC",
+        "pred_ss3": "CHHHHHHHHHHHHHHHHHHHHHHHHCCCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCHHHHHHHHHHHHHHHHHHHHHHCCCC",
+        "metrics": {
+          "mw_kda": 12.91,
+          "pi": 4.56,
+          "net_charge_ph74": -12.71,
+          "num_trp": 1,
+          "num_tyr": 0,
+          "num_cys": 0,
+          "eps_280_reduced": 5500,
+          "abs_01_reduced": 0.426,
+          "gravy": -1.207,
+          "aliphatic_index": 83.3,
+          "instability_index": 50.14,
+          "instability_class": "Unstable (potential degradation / short half-life)",
+          "ii_top_dipeptides": [
+            [
+              "EE",
+              3,
+              9.25
+            ],
+            [
+              "EQ",
+              4,
+              7.43
+            ],
+            [
+              "RQ",
+              3,
+              5.58
+            ]
+          ],
+          "wh_cv": -2.87,
+          "wh_cv_diff": -4.58,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 97.9,
+          "wh_ngps_pct": 8.3,
+          "wh_net_q_per_res": 0.11,
+          "charged_pct": 44.0
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: HiTrap Q (Anion Exchange) or (NH4)2SO4 Salting-Out",
+          "named_alerts_count": 1,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": true
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 18.0,
+          "ve_globular_ml": 13.78,
+          "kav_globular": 0.369,
+          "rh_shape_profile_a": 20.5,
+          "ve_shape_profile_ml": 12.73,
+          "ve_from_3d_perrin_ml": 13.51,
+          "geometry_3d": {
+            "n_ca_atoms": 109,
+            "rg_angstrom": 14.75,
+            "semi_axes_a_b_c": [
+              26.8,
+              16.1,
+              10.5
+            ],
+            "max_end_to_end_span_a": 56.6,
+            "prolate_aspect_ratio_p": 2.06,
+            "perrin_f_over_f0": 1.047,
+            "rh_3d_perrin_a": 18.6,
+            "rh_from_rg_a": 19.0,
+            "geometry_class": "Moderately Elongated",
+            "recommended_sec_conformation": "moderately_elongated"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.714,
+          "sds_rf_12pct": 0.7722,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 88.07,
+          "sov99_pct": 67.0,
+          "gor4_q3_pct": 69.72,
+          "chou_fasman_q3_pct": 60.55,
+          "obs_helix_pct": 89.91,
+          "obs_strand_pct": 0.0,
+          "obs_coil_pct": 10.09,
+          "pred_helix_pct": 88.99,
+          "pred_strand_pct": 0.0,
+          "pred_coil_pct": 11.01,
+          "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_fold_class": "All-\u03b1 (Helix-Rich)",
+          "fold_match": true,
+          "mean_confidence": 0.7755,
+          "latency_ms": 10.97
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0288,
+          "max_5mer_jaccard_vs_train": 0.0077,
+          "closest_train_protein": "P56839 (Phosphoenolpyruvate phosphomutase)"
+        }
+      },
+      {
+        "pdb_id": "7UDJ",
+        "entity_id": 2,
+        "asym_id": "B",
+        "short_name": "RPB_PEW3_R4",
+        "realistic_name": "De novo designed helical repeat protein RPB_PEW3_R4",
+        "method_group": "De Novo Repeat / Solenoid",
+        "citation": "Baker Lab, 2023",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2023",
+        "length_core": 192,
+        "length_eval": 192,
+        "core_sequence": "KKEAEEVAAHVEQIAFIAKEQGNEEVAKLAKRLAETIKRLNEGTEEEVKRLLEAAEVAAHVLQIAFIAHEQGNEEVAKLALELAESILRLIEGTEEEVKRLLEAAEVAAHVLQIAFIAHEQGNEEVAKLALELAESILRLIEGTEEEVKELLERAEEAAHVLQHAFIATEQGNEEDAKEALRKAEEILRRNA",
+        "core_ss3": "CHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHCHHHHHHHHHHHHHHHHHHHCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHCHHHHHHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCC",
+        "pred_ss3": "CCCHHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHHHHHHCCCCHHHHHHHHHHHHHHHHHHHHHHHHHCCCCHHHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHHHHHHHHHHHHHHCCCCHHHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHHHHHHHHHHHHHHHCCCCHHHHHHHHHHHHHHCCCC",
+        "metrics": {
+          "mw_kda": 21.34,
+          "pi": 4.73,
+          "net_charge_ph74": -22.17,
+          "num_trp": 0,
+          "num_tyr": 0,
+          "num_cys": 0,
+          "eps_280_reduced": 0,
+          "abs_01_reduced": 0.0,
+          "gravy": -0.281,
+          "aliphatic_index": 113.02,
+          "instability_index": 64.2,
+          "instability_class": "Unstable (potential degradation / short half-life)",
+          "ii_top_dipeptides": [
+            [
+              "EE",
+              13,
+              22.75
+            ],
+            [
+              "KR",
+              4,
+              7.0
+            ],
+            [
+              "EQ",
+              5,
+              5.28
+            ]
+          ],
+          "wh_cv": -3.07,
+          "wh_cv_diff": -4.78,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 97.9,
+          "wh_ngps_pct": 7.8,
+          "wh_net_q_per_res": 0.115,
+          "charged_pct": 35.4
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: HiTrap Q (Anion Exchange) or (NH4)2SO4 Salting-Out",
+          "named_alerts_count": 2,
+          "uv280_invisible_alert_present": true,
+          "ii_denovo_caveat_present": true
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 21.7,
+          "ve_globular_ml": 12.31,
+          "kav_globular": 0.278,
+          "rh_shape_profile_a": 21.7,
+          "ve_shape_profile_ml": 12.31,
+          "ve_from_3d_perrin_ml": 12.16,
+          "geometry_3d": {
+            "n_ca_atoms": 192,
+            "rg_angstrom": 16.96,
+            "semi_axes_a_b_c": [
+              28.9,
+              20.8,
+              13.2
+            ],
+            "max_end_to_end_span_a": 73.5,
+            "prolate_aspect_ratio_p": 1.74,
+            "perrin_f_over_f0": 1.028,
+            "rh_3d_perrin_a": 22.1,
+            "rh_from_rg_a": 21.9,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": true,
+          "sds_rf_15pct": 0.5998,
+          "sds_rf_12pct": 0.6764,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 88.02,
+          "sov99_pct": 76.7,
+          "gor4_q3_pct": 88.02,
+          "chou_fasman_q3_pct": 65.62,
+          "obs_helix_pct": 93.23,
+          "obs_strand_pct": 0.0,
+          "obs_coil_pct": 6.77,
+          "pred_helix_pct": 83.33,
+          "pred_strand_pct": 0.0,
+          "pred_coil_pct": 16.67,
+          "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_fold_class": "All-\u03b1 (Helix-Rich)",
+          "fold_match": true,
+          "mean_confidence": 0.7953,
+          "latency_ms": 14.8
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.042,
+          "max_5mer_jaccard_vs_train": 0.0087,
+          "closest_train_protein": "Q53W17 (CRISPR system endoribonuclease Csm6)"
+        }
+      },
+      {
+        "pdb_id": "9HNH",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "A7 Alpha-Solenoid",
+        "realistic_name": "A7 Synthetic alpha-solenoid repeat protein",
+        "method_group": "De Novo Repeat / Solenoid",
+        "citation": "2025",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2025",
+        "length_core": 151,
+        "length_eval": 151,
+        "core_sequence": "WEEELEKFIRYLKENDLPEEEKEKLVREFLRKAKENLNPEELFKVFLRIINEVPLPEEFKKKLVEEYFEWAKENLNPEELFKVFLRIINEVPLPEEFKKKLVEEYFEWAKKNLNLDELKKVFEKILKEVPIPEEFKEELKKRYEEYMKKRQ",
+        "core_ss3": "HHHHHHHHHHHHHHCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCHHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHHHHHCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCHHHHHHHHHHHHHHHHHHHH",
+        "pred_ss3": "CCHHHHHHHHHHHHCCCCHHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHHCCCCCHHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHHCCCCCHHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHHCCCCCHHHHHHHHHHHHHHHCCCC",
+        "metrics": {
+          "mw_kda": 18.91,
+          "pi": 5.18,
+          "net_charge_ph74": -6.48,
+          "num_trp": 3,
+          "num_tyr": 5,
+          "num_cys": 0,
+          "eps_280_reduced": 23950,
+          "abs_01_reduced": 1.266,
+          "gravy": -0.939,
+          "aliphatic_index": 89.01,
+          "instability_index": 48.95,
+          "instability_class": "Unstable (potential degradation / short half-life)",
+          "ii_top_dipeptides": [
+            [
+              "EE",
+              13,
+              28.93
+            ],
+            [
+              "PE",
+              6,
+              7.3
+            ],
+            [
+              "KR",
+              2,
+              4.45
+            ]
+          ],
+          "wh_cv": -0.22,
+          "wh_cv_diff": -1.93,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 88.0,
+          "wh_ngps_pct": 11.9,
+          "wh_net_q_per_res": 0.04,
+          "charged_pct": 47.7
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "6xHis",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: HiTrap Q (Anion Exchange) or (NH4)2SO4 Salting-Out",
+          "named_alerts_count": 1,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": true
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 20.7,
+          "ve_globular_ml": 12.65,
+          "kav_globular": 0.299,
+          "rh_shape_profile_a": 23.6,
+          "ve_shape_profile_ml": 11.68,
+          "ve_from_3d_perrin_ml": 12.23,
+          "geometry_3d": {
+            "n_ca_atoms": 151,
+            "rg_angstrom": 17.17,
+            "semi_axes_a_b_c": [
+              32.7,
+              16.3,
+              11.6
+            ],
+            "max_end_to_end_span_a": 68.9,
+            "prolate_aspect_ratio_p": 2.37,
+            "perrin_f_over_f0": 1.069,
+            "rh_3d_perrin_a": 21.9,
+            "rh_from_rg_a": 22.2,
+            "geometry_class": "Moderately Elongated",
+            "recommended_sec_conformation": "moderately_elongated"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.6295,
+          "sds_rf_12pct": 0.7022,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 84.11,
+          "sov99_pct": 73.48,
+          "gor4_q3_pct": 78.15,
+          "chou_fasman_q3_pct": 70.2,
+          "obs_helix_pct": 92.05,
+          "obs_strand_pct": 0.0,
+          "obs_coil_pct": 7.95,
+          "pred_helix_pct": 77.48,
+          "pred_strand_pct": 0.0,
+          "pred_coil_pct": 22.52,
+          "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_fold_class": "All-\u03b1 (Helix-Rich)",
+          "fold_match": true,
+          "mean_confidence": 0.8391,
+          "latency_ms": 11.11
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0312,
+          "max_5mer_jaccard_vs_train": 0.0116,
+          "closest_train_protein": "O28770 (Uncharacterized protein AF_1502)"
+        }
+      },
+      {
+        "pdb_id": "8FJE",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "E8 5-Repeat",
+        "realistic_name": "De novo five-repeat helical solenoid E8",
+        "method_group": "De Novo Repeat / Solenoid",
+        "citation": "2023",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2023",
+        "length_core": 136,
+        "length_eval": 136,
+        "core_sequence": "PLETLPLEELERRALKIYLRRHGSVPEEEIETMPLEELERKALQDYLRRYGTLPEEEIETMPLEELEREALKNYLRRYGTLPEEEIDTMPLEELEREALKNYLRRYGSLPPEELEKLPLEELERKALIEYLRRYGP",
+        "core_ss3": "HHHHHHHHHHHHHHHHHHHHHHCCCCCCCCCCCHHHHHHHHHHHHHHHHHCCCHHHHHHCCHHHHHHHHHHHHHHHHHHCCHHHHHHHHHHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHHHHHHHHHHHHHHHC",
+        "pred_ss3": "CCCCCCHHHHHHHHHHHHHHHCCCCCCCCCCCCCCCHHHHHHHHHHHHHHCCCCCCCCCCCCCCHHHHHHHHHHHHHHCCCCCCCCCCCCCCCCCHHHHHHHHHHHCCCCCCCCCCCCCHHHHHHHHHHHHHHCCC",
+        "metrics": {
+          "mw_kda": 16.44,
+          "pi": 4.71,
+          "net_charge_ph74": -13.06,
+          "num_trp": 0,
+          "num_tyr": 9,
+          "num_cys": 0,
+          "eps_280_reduced": 13410,
+          "abs_01_reduced": 0.816,
+          "gravy": -0.929,
+          "aliphatic_index": 97.57,
+          "instability_index": 103.98,
+          "instability_class": "Unstable (potential degradation / short half-life)",
+          "ii_top_dipeptides": [
+            [
+              "EE",
+              12,
+              29.65
+            ],
+            [
+              "RR",
+              6,
+              25.71
+            ],
+            [
+              "IE",
+              3,
+              9.91
+            ]
+          ],
+          "wh_cv": -1.33,
+          "wh_cv_diff": -3.04,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 97.0,
+          "wh_ngps_pct": 15.4,
+          "wh_net_q_per_res": 0.096,
+          "charged_pct": 41.9
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: HiTrap Q (Anion Exchange) or (NH4)2SO4 Salting-Out",
+          "named_alerts_count": 1,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": true
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 19.7,
+          "ve_globular_ml": 13.06,
+          "kav_globular": 0.324,
+          "rh_shape_profile_a": 19.7,
+          "ve_shape_profile_ml": 13.06,
+          "ve_from_3d_perrin_ml": 13.04,
+          "geometry_3d": {
+            "n_ca_atoms": 136,
+            "rg_angstrom": 15.06,
+            "semi_axes_a_b_c": [
+              22.6,
+              21.6,
+              12.3
+            ],
+            "max_end_to_end_span_a": 62.0,
+            "prolate_aspect_ratio_p": 1.39,
+            "perrin_f_over_f0": 1.01,
+            "rh_3d_perrin_a": 19.7,
+            "rh_from_rg_a": 19.4,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.6623,
+          "sds_rf_12pct": 0.73,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 66.18,
+          "sov99_pct": 79.33,
+          "gor4_q3_pct": 73.53,
+          "chou_fasman_q3_pct": 62.5,
+          "obs_helix_pct": 83.82,
+          "obs_strand_pct": 0.0,
+          "obs_coil_pct": 16.18,
+          "pred_helix_pct": 50.0,
+          "pred_strand_pct": 0.0,
+          "pred_coil_pct": 50.0,
+          "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_fold_class": "All-\u03b1 (Helix-Rich)",
+          "fold_match": true,
+          "mean_confidence": 0.7709,
+          "latency_ms": 13.38
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0357,
+          "max_5mer_jaccard_vs_train": 0.0053,
+          "closest_train_protein": "P53919 (H/ACA ribonucleoprotein complex non-core)"
+        }
+      },
+      {
+        "pdb_id": "6M6Z",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "TMH4C4 (TM Pore)",
+        "realistic_name": "De novo transmembrane nanopore TMH4C4",
+        "method_group": "De Novo Membrane",
+        "citation": "Xu et al., Nature 2020",
+        "exp_method": "ELECTRON MICROSCOPY",
+        "release_year": "2020",
+        "length_core": 203,
+        "length_eval": 203,
+        "core_sequence": "SAEELLRRSREYLKKVALIQLVIAFVFLILLILLSWRSEELIRELEEKGAASEAELARMKQQHMTAYLQAALTAWEIISKSVIALLLLQQNQLNLELNTDTDKNVAEELLRRSREYLKKVALIQLVIAFVFLILLILLSWRSEELIRELEEKGAASEAELARMKQQHMTAYLQAALTAWEIISKSVIALLLLQQNQLNLELRH",
+        "core_ss3": "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHC",
+        "pred_ss3": "CCHHHHHHHHHHHCCCCCCCCCCCCCCCCCCCCCCCCCHHHHHHHHHCCCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCCCCCCCCHHHHHHHHHHHHHHCCCCCCCCCCCCHHHHHCCCCCCCCCHHHHHHHHHCCCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCCCCCCCC",
+        "metrics": {
+          "mw_kda": 23.43,
+          "pi": 6.01,
+          "net_charge_ph74": -2.65,
+          "num_trp": 4,
+          "num_tyr": 4,
+          "num_cys": 0,
+          "eps_280_reduced": 27960,
+          "abs_01_reduced": 1.193,
+          "gravy": 0.211,
+          "aliphatic_index": 139.95,
+          "instability_index": 55.67,
+          "instability_class": "Unstable (potential degradation / short half-life)",
+          "ii_top_dipeptides": [
+            [
+              "EE",
+              6,
+              9.93
+            ],
+            [
+              "RS",
+              4,
+              8.86
+            ],
+            [
+              "LQ",
+              4,
+              6.62
+            ]
+          ],
+          "wh_cv": 0.42,
+          "wh_cv_diff": -1.29,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 78.5,
+          "wh_ngps_pct": 10.3,
+          "wh_net_q_per_res": 0.01,
+          "charged_pct": 24.6
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [
+            "membrane_integral"
+          ],
+          "named_ai_categories": [
+            "membrane_integral"
+          ],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [
+            "membrane_integral"
+          ],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Membrane Solubilization (1% DDM / LMNG) + Detergent Ion-Exchange Capture",
+          "named_alerts_count": 2,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": true
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 22.4,
+          "ve_globular_ml": 12.05,
+          "kav_globular": 0.262,
+          "rh_shape_profile_a": 25.6,
+          "ve_shape_profile_ml": 11.14,
+          "ve_from_3d_perrin_ml": 11.09,
+          "geometry_3d": {
+            "n_ca_atoms": 203,
+            "rg_angstrom": 23.47,
+            "semi_axes_a_b_c": [
+              48.4,
+              17.7,
+              9.8
+            ],
+            "max_end_to_end_span_a": 95.6,
+            "prolate_aspect_ratio_p": 3.67,
+            "perrin_f_over_f0": 1.16,
+            "rh_3d_perrin_a": 25.8,
+            "rh_from_rg_a": 30.3,
+            "geometry_class": "Elongated / Rod-like",
+            "recommended_sec_conformation": "moderately_elongated"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.5761,
+          "sds_rf_12pct": 0.6553,
+          "oligomer_n": 8
+        },
+        "secondary_structure": {
+          "q3_pct": 66.5,
+          "sov99_pct": 47.15,
+          "gor4_q3_pct": 88.67,
+          "chou_fasman_q3_pct": 50.74,
+          "obs_helix_pct": 96.06,
+          "obs_strand_pct": 0.0,
+          "obs_coil_pct": 3.94,
+          "pred_helix_pct": 62.56,
+          "pred_strand_pct": 0.0,
+          "pred_coil_pct": 37.44,
+          "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_fold_class": "All-\u03b1 (Helix-Rich)",
+          "fold_match": true,
+          "mean_confidence": 0.6596,
+          "latency_ms": 14.02
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0323,
+          "max_5mer_jaccard_vs_train": 0.012,
+          "closest_train_protein": "P54710 (Sodium/potassium-transporting ATPase sub)"
+        }
+      },
+      {
+        "pdb_id": "6X1K",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "TMB2.3 (TM Beta-Barrel)",
+        "realistic_name": "De novo transmembrane beta-barrel TMB2.3",
+        "method_group": "De Novo Membrane",
+        "citation": "Vorobieva et al., Science 2021",
+        "exp_method": "SOLUTION NMR",
+        "release_year": "2021",
+        "length_core": 124,
+        "length_eval": 124,
+        "core_sequence": "MQDGPGTLDVFVAAGWNTDNTIEITGGATYQLSPYIMVKAGYGWNNSSLNRFEFGGGLQYKVTPDLEPYAWAGATYNTDNTLVPAAGAGFRYKVSPEVKLVVEYGWNNSSLQFLQAGLSYRIQP",
+        "core_ss3": "CCCCCCEEEEEEEEEEECCCEEEEEEEEEEECCCCEEEEEEEEECCCCCCEEEEEEEECCCCCCCCEEEEEEEEEEECCCEEEEEEEEEEEEECCCCCEEEEEEEECCCCCCEEEEEEEEECCC",
+        "pred_ss3": "CCCCCCCEEEEEECCCCCCEEEEEECCCEEEECCEEEEEECCCCCCCEEEEEEECCCEEEEEECCCCCEEEEEEEEECCCCEECCCCCEEEEEECCEEEEEEEEECCCCEEEEEEEEEEEEECC",
+        "metrics": {
+          "mw_kda": 13.54,
+          "pi": 4.65,
+          "net_charge_ph74": -3.74,
+          "num_trp": 4,
+          "num_tyr": 9,
+          "num_cys": 0,
+          "eps_280_reduced": 35410,
+          "abs_01_reduced": 2.615,
+          "gravy": -0.239,
+          "aliphatic_index": 73.95,
+          "instability_index": 36.1,
+          "instability_class": "Stable (in vitro)",
+          "ii_top_dipeptides": [
+            [
+              "LQ",
+              3,
+              8.13
+            ],
+            [
+              "SP",
+              2,
+              7.25
+            ],
+            [
+              "IE",
+              1,
+              3.62
+            ]
+          ],
+          "wh_cv": 3.13,
+          "wh_cv_diff": 1.42,
+          "wh_class": "Elevated Inclusion-Body Risk (Heuristic)",
+          "wh_sol_pct": 19.4,
+          "wh_ngps_pct": 30.6,
+          "wh_net_q_per_res": 0.024,
+          "charged_pct": 13.7
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [
+            "membrane_integral"
+          ],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [
+            "membrane_integral"
+          ],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Membrane Solubilization (1% DDM / LMNG) + Detergent Ion-Exchange Capture",
+          "named_alerts_count": 1,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": false
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 18.3,
+          "ve_globular_ml": 13.64,
+          "kav_globular": 0.36,
+          "rh_shape_profile_a": 18.3,
+          "ve_shape_profile_ml": 13.64,
+          "ve_from_3d_perrin_ml": 13.51,
+          "geometry_3d": {
+            "n_ca_atoms": 124,
+            "rg_angstrom": 14.79,
+            "semi_axes_a_b_c": [
+              25.3,
+              15.9,
+              14.1
+            ],
+            "max_end_to_end_span_a": 57.4,
+            "prolate_aspect_ratio_p": 1.69,
+            "perrin_f_over_f0": 1.025,
+            "rh_3d_perrin_a": 18.6,
+            "rh_from_rg_a": 19.1,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.7044,
+          "sds_rf_12pct": 0.7644,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 66.13,
+          "sov99_pct": 66.69,
+          "gor4_q3_pct": 40.32,
+          "chou_fasman_q3_pct": 50.0,
+          "obs_helix_pct": 0.0,
+          "obs_strand_pct": 64.52,
+          "obs_coil_pct": 35.48,
+          "pred_helix_pct": 0.0,
+          "pred_strand_pct": 59.68,
+          "pred_coil_pct": 40.32,
+          "obs_fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+          "pred_fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+          "fold_match": true,
+          "mean_confidence": 0.7252,
+          "latency_ms": 10.1
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0174,
+          "max_5mer_jaccard_vs_train": 0.0055,
+          "closest_train_protein": "Q84BQ9 (Ribosomal protein L11 methyltransferase)"
+        }
+      },
+      {
+        "pdb_id": "7K3H",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "Hallucinated 0217",
+        "realistic_name": "Deep network hallucinated protein 0217",
+        "method_group": "Deep-Learning Hallucination",
+        "citation": "Anishchenko et al., Nature 2021",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2021",
+        "length_core": 104,
+        "length_eval": 104,
+        "core_sequence": "RGSHMSPIARQALDIAKSVLEHSKGMFDYWEGMLEQYEKTGDPDQANKLRQTLNRVKNSVGRLESALKRAERAYDTGNPDAAVGAVVELIGNVHEIMSTFHELF",
+        "core_ss3": "CCCCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCCCCHHHHHHHHHHHHHHHHHHHHHHH",
+        "pred_ss3": "CCCCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHHHHHHHHHHHHHC",
+        "metrics": {
+          "mw_kda": 11.64,
+          "pi": 6.08,
+          "net_charge_ph74": -2.31,
+          "num_trp": 1,
+          "num_tyr": 3,
+          "num_cys": 0,
+          "eps_280_reduced": 9970,
+          "abs_01_reduced": 0.856,
+          "gravy": -0.551,
+          "aliphatic_index": 77.88,
+          "instability_index": 28.15,
+          "instability_class": "Stable (in vitro)",
+          "ii_top_dipeptides": [
+            [
+              "MS",
+              2,
+              8.64
+            ],
+            [
+              "SP",
+              1,
+              4.32
+            ],
+            [
+              "RQ",
+              2,
+              3.9
+            ]
+          ],
+          "wh_cv": 1.96,
+          "wh_cv_diff": 0.25,
+          "wh_class": "Borderline Solubility (Heuristic)",
+          "wh_sol_pct": 44.1,
+          "wh_ngps_pct": 22.1,
+          "wh_net_q_per_res": 0.019,
+          "charged_pct": 26.9
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "6xHis",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: Ammonium Sulfate (NH4)2SO4 Fractionation (40\u201370% Cut)",
+          "named_alerts_count": 0,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": false
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 17.3,
+          "ve_globular_ml": 14.1,
+          "kav_globular": 0.389,
+          "rh_shape_profile_a": 19.7,
+          "ve_shape_profile_ml": 13.04,
+          "ve_from_3d_perrin_ml": 13.13,
+          "geometry_3d": {
+            "n_ca_atoms": 104,
+            "rg_angstrom": 16.97,
+            "semi_axes_a_b_c": [
+              35.0,
+              10.9,
+              10.0
+            ],
+            "max_end_to_end_span_a": 70.0,
+            "prolate_aspect_ratio_p": 3.35,
+            "perrin_f_over_f0": 1.137,
+            "rh_3d_perrin_a": 19.5,
+            "rh_from_rg_a": 21.9,
+            "geometry_class": "Elongated / Rod-like",
+            "recommended_sec_conformation": "moderately_elongated"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.7341,
+          "sds_rf_12pct": 0.788,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 94.23,
+          "sov99_pct": 97.6,
+          "gor4_q3_pct": 69.23,
+          "chou_fasman_q3_pct": 66.35,
+          "obs_helix_pct": 86.54,
+          "obs_strand_pct": 0.0,
+          "obs_coil_pct": 13.46,
+          "pred_helix_pct": 88.46,
+          "pred_strand_pct": 0.0,
+          "pred_coil_pct": 11.54,
+          "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_fold_class": "All-\u03b1 (Helix-Rich)",
+          "fold_match": true,
+          "mean_confidence": 0.9044,
+          "latency_ms": 10.03
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.02,
+          "max_5mer_jaccard_vs_train": 0.0025,
+          "closest_train_protein": "P24481 (Phenylalanine ammonia-lyase 1)"
+        }
+      },
+      {
+        "pdb_id": "7M0Q",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "Hallucinated 0738",
+        "realistic_name": "Deep network hallucinated protein 0738_mod",
+        "method_group": "Deep-Learning Hallucination",
+        "citation": "Anishchenko et al., Nature 2021",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2021",
+        "length_core": 103,
+        "length_eval": 96,
+        "core_sequence": "SHMNIQVSLQWEDPKKGKVFSHTVNIPPGGTAEQIADNILDMARSLQDEGWDKLTVQVTVNPGFPKETAMRVAAALKEAFEDRGLRLTSIETSGNSIHLKFRY",
+        "core_ss3": "CCCEEEEEEECCCCCCCCCCEEEEEECCCCHHHHHHHHHHHHHHHHHCCCCCCCEEEEEEECCCHHHHHHHHHHHHHHHHHHCCCEEEEEECCCCCEEEEEEC",
+        "pred_ss3": "CCCCEEEEEEEECCCCCCEEEEEEECCCCCCHHHHHHHHHHHHHHHHHCCCCEEEEEEEECCCCCHHHHHHHHHHHHHHHHHCCCEEEEEEECCCEEEEEEEC",
+        "metrics": {
+          "mw_kda": 11.48,
+          "pi": 6.26,
+          "net_charge_ph74": -1.65,
+          "num_trp": 2,
+          "num_tyr": 1,
+          "num_cys": 0,
+          "eps_280_reduced": 12490,
+          "abs_01_reduced": 1.088,
+          "gravy": -0.449,
+          "aliphatic_index": 80.49,
+          "instability_index": 42.47,
+          "instability_class": "Unstable (potential degradation / short half-life)",
+          "ii_top_dipeptides": [
+            [
+              "NI",
+              3,
+              13.09
+            ],
+            [
+              "LQ",
+              2,
+              6.52
+            ],
+            [
+              "RS",
+              1,
+              4.36
+            ]
+          ],
+          "wh_cv": 2.42,
+          "wh_cv_diff": 0.71,
+          "wh_class": "Elevated Inclusion-Body Risk (Heuristic)",
+          "wh_sol_pct": 33.0,
+          "wh_ngps_pct": 23.3,
+          "wh_net_q_per_res": 0.01,
+          "charged_pct": 24.3
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "6xHis",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: Ammonium Sulfate (NH4)2SO4 Fractionation (40\u201370% Cut)",
+          "named_alerts_count": 1,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": true
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 17.2,
+          "ve_globular_ml": 14.15,
+          "kav_globular": 0.392,
+          "rh_shape_profile_a": 17.2,
+          "ve_shape_profile_ml": 14.15,
+          "ve_from_3d_perrin_ml": 14.01,
+          "geometry_3d": {
+            "n_ca_atoms": 96,
+            "rg_angstrom": 12.65,
+            "semi_axes_a_b_c": [
+              21.8,
+              13.2,
+              12.3
+            ],
+            "max_end_to_end_span_a": 51.9,
+            "prolate_aspect_ratio_p": 1.71,
+            "perrin_f_over_f0": 1.026,
+            "rh_3d_perrin_a": 17.5,
+            "rh_from_rg_a": 16.3,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.7366,
+          "sds_rf_12pct": 0.79,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 86.46,
+          "sov99_pct": 88.33,
+          "gor4_q3_pct": 68.75,
+          "chou_fasman_q3_pct": 84.38,
+          "obs_helix_pct": 36.46,
+          "obs_strand_pct": 33.33,
+          "obs_coil_pct": 30.21,
+          "pred_helix_pct": 35.42,
+          "pred_strand_pct": 37.5,
+          "pred_coil_pct": 27.08,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "fold_match": true,
+          "mean_confidence": 0.8549,
+          "latency_ms": 13.87
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0404,
+          "max_5mer_jaccard_vs_train": 0.006,
+          "closest_train_protein": "P9WPH9 (ESX-1 secretion system protein EccA1)"
+        }
+      },
+      {
+        "pdb_id": "8CYK",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "HALC1_878",
+        "realistic_name": "ProteinMPNN hallucinated protein HALC1_878",
+        "method_group": "ProteinMPNN / Hallucination",
+        "citation": "Wicky et al., Science 2022",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2022",
+        "length_core": 129,
+        "length_eval": 129,
+        "core_sequence": "KKLYEYTVTTLDEFLEKLKEFILNTSKDKIYKLTITNPKLIKDIGKAIAKAAEIADVDPKEIEEMIKAVEENELTKLVITIEQTDDKYVIKVELENEDGLVHSFEIYFKNKEEMEKFLELLEKLISKLS",
+        "core_ss3": "CEEEEEECCHHHHHHHHHHHHHHHCCCCEEEEEEECHHHHHHHHHHHHHHHHHHHCCHHHHHHHHHHHHHCCCEEEEEEEEEEECCEEEEEEEEEECCCEEEEEEEEECHHHHHHHHHHHHHHHHHHCC",
+        "pred_ss3": "CCCCEEEHHHHHHHHHHHHHHHHHCCCCCEEEEEECCHHHHHHHHHHHHHHHHHCCCCHHHHHHHHHHHHHCCCEEEEEEEEECCCEEEEEEEEECCCCEEEEEEEEECCHHHHHHHHHHHHHHHHHCC",
+        "metrics": {
+          "mw_kda": 15.07,
+          "pi": 4.85,
+          "net_charge_ph74": -8.44,
+          "num_trp": 0,
+          "num_tyr": 5,
+          "num_cys": 0,
+          "eps_280_reduced": 7450,
+          "abs_01_reduced": 0.494,
+          "gravy": -0.355,
+          "aliphatic_index": 111.09,
+          "instability_index": 17.64,
+          "instability_class": "Stable (in vitro)",
+          "ii_top_dipeptides": [
+            [
+              "EE",
+              3,
+              7.81
+            ],
+            [
+              "IE",
+              2,
+              6.97
+            ],
+            [
+              "EI",
+              3,
+              4.71
+            ]
+          ],
+          "wh_cv": -1.17,
+          "wh_cv_diff": -2.88,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 96.3,
+          "wh_ngps_pct": 10.1,
+          "wh_net_q_per_res": 0.062,
+          "charged_pct": 38.8
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: HiTrap Q (Anion Exchange) or (NH4)2SO4 Salting-Out",
+          "named_alerts_count": 0,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": false
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 19.0,
+          "ve_globular_ml": 13.32,
+          "kav_globular": 0.34,
+          "rh_shape_profile_a": 19.0,
+          "ve_shape_profile_ml": 13.32,
+          "ve_from_3d_perrin_ml": 13.33,
+          "geometry_3d": {
+            "n_ca_atoms": 129,
+            "rg_angstrom": 13.73,
+            "semi_axes_a_b_c": [
+              21.4,
+              16.3,
+              14.8
+            ],
+            "max_end_to_end_span_a": 56.8,
+            "prolate_aspect_ratio_p": 1.38,
+            "perrin_f_over_f0": 1.009,
+            "rh_3d_perrin_a": 19.0,
+            "rh_from_rg_a": 17.7,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.6817,
+          "sds_rf_12pct": 0.746,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 89.15,
+          "sov99_pct": 94.57,
+          "gor4_q3_pct": 64.34,
+          "chou_fasman_q3_pct": 62.02,
+          "obs_helix_pct": 50.39,
+          "obs_strand_pct": 33.33,
+          "obs_coil_pct": 16.28,
+          "pred_helix_pct": 49.61,
+          "pred_strand_pct": 27.91,
+          "pred_coil_pct": 22.48,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "fold_match": true,
+          "mean_confidence": 0.7802,
+          "latency_ms": 13.19
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0241,
+          "max_5mer_jaccard_vs_train": 0.0097,
+          "closest_train_protein": "B5KM66 (Synaptonemal complex central element pro)"
+        }
+      },
+      {
+        "pdb_id": "8D05",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "HALC2_065",
+        "realistic_name": "ProteinMPNN hallucinated C2 assembly HALC2_065",
+        "method_group": "ProteinMPNN / Hallucination",
+        "citation": "Wicky et al., Science 2022",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2022",
+        "length_core": 60,
+        "length_eval": 60,
+        "core_sequence": "PIVIDLNKTIERDGRKVKLVRATITVDPETNTITIDIEYEGGPITKEDLLEAFKLAASKL",
+        "core_ss3": "CEEEECCCEEEECCEEEEEEEEEEEEECCCCEEEEEEEEEECCCHHHHHHHHHHHHHHHC",
+        "pred_ss3": "CEEEEEEEEEEECCCEEEEEEEEEEECCCCCEEEEEEEEEEEECCHHHHHHHHHHHHCCC",
+        "metrics": {
+          "mw_kda": 6.67,
+          "pi": 4.96,
+          "net_charge_ph74": -2.11,
+          "num_trp": 0,
+          "num_tyr": 1,
+          "num_cys": 0,
+          "eps_280_reduced": 1490,
+          "abs_01_reduced": 0.223,
+          "gravy": -0.163,
+          "aliphatic_index": 117.0,
+          "instability_index": 18.85,
+          "instability_class": "Stable (in vitro)",
+          "ii_top_dipeptides": [
+            [
+              "IE",
+              2,
+              14.98
+            ],
+            [
+              "NK",
+              1,
+              4.11
+            ],
+            [
+              "ED",
+              1,
+              3.38
+            ]
+          ],
+          "wh_cv": 0.44,
+          "wh_cv_diff": -1.27,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 78.0,
+          "wh_ngps_pct": 15.0,
+          "wh_net_q_per_res": 0.033,
+          "charged_pct": 33.3
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: Ammonium Sulfate (NH4)2SO4 Fractionation (40\u201370% Cut)",
+          "named_alerts_count": 0,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": false
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 14.0,
+          "ve_globular_ml": 15.83,
+          "kav_globular": 0.496,
+          "rh_shape_profile_a": 16.0,
+          "ve_shape_profile_ml": 14.75,
+          "ve_from_3d_perrin_ml": 15.46,
+          "geometry_3d": {
+            "n_ca_atoms": 60,
+            "rg_angstrom": 11.87,
+            "semi_axes_a_b_c": [
+              22.1,
+              11.6,
+              8.9
+            ],
+            "max_end_to_end_span_a": 45.9,
+            "prolate_aspect_ratio_p": 2.17,
+            "perrin_f_over_f0": 1.055,
+            "rh_3d_perrin_a": 14.7,
+            "rh_from_rg_a": 15.3,
+            "geometry_class": "Moderately Elongated",
+            "recommended_sec_conformation": "moderately_elongated"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.819,
+          "sds_rf_12pct": 0.8523,
+          "oligomer_n": 2
+        },
+        "secondary_structure": {
+          "q3_pct": 83.33,
+          "sov99_pct": 85.33,
+          "gor4_q3_pct": 66.67,
+          "chou_fasman_q3_pct": 73.33,
+          "obs_helix_pct": 25.0,
+          "obs_strand_pct": 51.67,
+          "obs_coil_pct": 23.33,
+          "pred_helix_pct": 20.0,
+          "pred_strand_pct": 56.67,
+          "pred_coil_pct": 23.33,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "fold_match": true,
+          "mean_confidence": 0.8017,
+          "latency_ms": 37.23
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0536,
+          "max_5mer_jaccard_vs_train": 0.0026,
+          "closest_train_protein": "O75151 (Lysine-specific demethylase PHF2)"
+        }
+      },
+      {
+        "pdb_id": "9LQM",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "MPNN-Ub R4",
+        "realistic_name": "ProteinMPNN synthetic ubiquitin variant R4",
+        "method_group": "ProteinMPNN",
+        "citation": "2025",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2025",
+        "length_core": 81,
+        "length_eval": 81,
+        "core_sequence": "GSGGSMTIYVKTQDGKIIKLEVNDDDTILNVKKKIEEKTGIPPEDQILIYKGKVLEDDKTLADYNIKENDTLYLVKRLKSP",
+        "core_ss3": "CCCCCEEEEEECCCCCEEEEEECCCCHHHHHHHHHHHHHHCHHHCEEEEECCEECCCCCHHHHHHCCCCCEEEEEECCCCC",
+        "pred_ss3": "CCCCCEEEEEEECCCEEEEEEECCCCEEEEEHHHHHHHCCCCCCCEEEEEEEEEEECCCEEEEEEEEECCEEEEEEEECCC",
+        "metrics": {
+          "mw_kda": 9.14,
+          "pi": 5.4,
+          "net_charge_ph74": -1.47,
+          "num_trp": 0,
+          "num_tyr": 4,
+          "num_cys": 0,
+          "eps_280_reduced": 5960,
+          "abs_01_reduced": 0.652,
+          "gravy": -0.643,
+          "aliphatic_index": 100.99,
+          "instability_index": 31.04,
+          "instability_class": "Stable (in vitro)",
+          "ii_top_dipeptides": [
+            [
+              "IE",
+              1,
+              5.55
+            ],
+            [
+              "NI",
+              1,
+              5.55
+            ],
+            [
+              "SP",
+              1,
+              5.55
+            ]
+          ],
+          "wh_cv": 1.8,
+          "wh_cv_diff": 0.09,
+          "wh_class": "Borderline Solubility (Heuristic)",
+          "wh_sol_pct": 48.3,
+          "wh_ngps_pct": 19.8,
+          "wh_net_q_per_res": 0.012,
+          "charged_pct": 35.8
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "6xHis",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: Ammonium Sulfate (NH4)2SO4 Fractionation (40\u201370% Cut)",
+          "named_alerts_count": 0,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": false
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 15.8,
+          "ve_globular_ml": 14.85,
+          "kav_globular": 0.435,
+          "rh_shape_profile_a": 15.8,
+          "ve_shape_profile_ml": 14.85,
+          "ve_from_3d_perrin_ml": 14.86,
+          "geometry_3d": {
+            "n_ca_atoms": 81,
+            "rg_angstrom": 11.53,
+            "semi_axes_a_b_c": [
+              18.3,
+              13.4,
+              12.2
+            ],
+            "max_end_to_end_span_a": 48.4,
+            "prolate_aspect_ratio_p": 1.43,
+            "perrin_f_over_f0": 1.011,
+            "rh_3d_perrin_a": 15.8,
+            "rh_from_rg_a": 14.9,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.7756,
+          "sds_rf_12pct": 0.82,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 66.67,
+          "sov99_pct": 69.15,
+          "gor4_q3_pct": 59.26,
+          "chou_fasman_q3_pct": 69.14,
+          "obs_helix_pct": 28.4,
+          "obs_strand_pct": 30.86,
+          "obs_coil_pct": 40.74,
+          "pred_helix_pct": 8.64,
+          "pred_strand_pct": 58.02,
+          "pred_coil_pct": 33.33,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_fold_class": "All-\u03b2 (Beta-Sheet Rich)",
+          "fold_match": false,
+          "mean_confidence": 0.7157,
+          "latency_ms": 76.54
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.039,
+          "max_5mer_jaccard_vs_train": 0.0035,
+          "closest_train_protein": "P10342 (Isoamylase)"
+        }
+      },
+      {
+        "pdb_id": "7JZL",
+        "entity_id": 2,
+        "asym_id": "B",
+        "short_name": "LCB1 Minibinder",
+        "realistic_name": "De novo SARS-CoV-2 RBD minibinder LCB1",
+        "method_group": "De Novo Minibinder",
+        "citation": "Cao et al., Science 2020",
+        "exp_method": "ELECTRON MICROSCOPY",
+        "release_year": "2020",
+        "length_core": 55,
+        "length_eval": 55,
+        "core_sequence": "DKEWILQKIYEIMRLLDELGHAEASMRVSDLIYEFMKKGDERLLEEAERLLEEVE",
+        "core_ss3": "CHHHHHHHHHHHHHHHHHHCHHHHHHHHHHHHHHHHCCCCHHHHHHHHHHHHHHH",
+        "pred_ss3": "CHHHHHHHHHHHHHHHHHHCCHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHCCC",
+        "metrics": {
+          "mw_kda": 6.65,
+          "pi": 4.53,
+          "net_charge_ph74": -8.4,
+          "num_trp": 1,
+          "num_tyr": 2,
+          "num_cys": 0,
+          "eps_280_reduced": 8480,
+          "abs_01_reduced": 1.274,
+          "gravy": -0.504,
+          "aliphatic_index": 108.18,
+          "instability_index": 21.76,
+          "instability_class": "Stable (in vitro)",
+          "ii_top_dipeptides": [
+            [
+              "EE",
+              2,
+              12.22
+            ],
+            [
+              "LQ",
+              1,
+              6.11
+            ],
+            [
+              "IL",
+              1,
+              3.68
+            ]
+          ],
+          "wh_cv": -4.06,
+          "wh_cv_diff": -5.77,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 97.9,
+          "wh_ngps_pct": 7.3,
+          "wh_net_q_per_res": 0.145,
+          "charged_pct": 43.6
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: HiTrap Q (Anion Exchange) or (NH4)2SO4 Salting-Out",
+          "named_alerts_count": 0,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": false
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 14.0,
+          "ve_globular_ml": 15.84,
+          "kav_globular": 0.496,
+          "rh_shape_profile_a": 16.0,
+          "ve_shape_profile_ml": 14.75,
+          "ve_from_3d_perrin_ml": 15.63,
+          "geometry_3d": {
+            "n_ca_atoms": 55,
+            "rg_angstrom": 10.18,
+            "semi_axes_a_b_c": [
+              18.3,
+              9.7,
+              9.4
+            ],
+            "max_end_to_end_span_a": 41.5,
+            "prolate_aspect_ratio_p": 1.91,
+            "perrin_f_over_f0": 1.038,
+            "rh_3d_perrin_a": 14.4,
+            "rh_from_rg_a": 13.1,
+            "geometry_class": "Moderately Elongated",
+            "recommended_sec_conformation": "moderately_elongated"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.8194,
+          "sds_rf_12pct": 0.8526,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 90.91,
+          "sov99_pct": 99.09,
+          "gor4_q3_pct": 69.09,
+          "chou_fasman_q3_pct": 80.0,
+          "obs_helix_pct": 89.09,
+          "obs_strand_pct": 0.0,
+          "obs_coil_pct": 10.91,
+          "pred_helix_pct": 83.64,
+          "pred_strand_pct": 0.0,
+          "pred_coil_pct": 16.36,
+          "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_fold_class": "All-\u03b1 (Helix-Rich)",
+          "fold_match": true,
+          "mean_confidence": 0.8313,
+          "latency_ms": 44.32
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0612,
+          "max_5mer_jaccard_vs_train": 0.0065,
+          "closest_train_protein": "Q5SIC2 (Aspartate--tRNA(Asp/Asn) ligase)"
+        }
+      },
+      {
+        "pdb_id": "8SK7",
+        "entity_id": 3,
+        "asym_id": "C",
+        "short_name": "RFdiff HA_20",
+        "realistic_name": "RFdiffusion binder HA_20 against Influenza Hemagglutinin",
+        "method_group": "RFdiffusion + ProteinMPNN",
+        "citation": "Watson et al., Nature 2023",
+        "exp_method": "ELECTRON MICROSCOPY",
+        "release_year": "2023",
+        "length_core": 65,
+        "length_eval": 65,
+        "core_sequence": "MEKEKELKEYAEKIKKEIGDIESVEVKDGKILVKAKKITDKTVDAIMKLTVKAARLGFKVEVELV",
+        "core_ss3": "CHHHHHHHHHHHHHHHHHCCEEEEEEECCEEEEEECCCHHHHHHHHHHHHHHHHCCCCEEEEEEC",
+        "pred_ss3": "CCCHHHHHHHHHHHHHHHCCEEEEEEECCEEEEEEEECCHHHHHHHHHHHHHHHHHCCEEEEEEC",
+        "metrics": {
+          "mw_kda": 7.38,
+          "pi": 8.83,
+          "net_charge_ph74": 1.26,
+          "num_trp": 0,
+          "num_tyr": 1,
+          "num_cys": 0,
+          "eps_280_reduced": 1490,
+          "abs_01_reduced": 0.202,
+          "gravy": -0.342,
+          "aliphatic_index": 109.38,
+          "instability_index": 11.43,
+          "instability_class": "Stable (in vitro)",
+          "ii_top_dipeptides": [
+            [
+              "IE",
+              1,
+              6.91
+            ],
+            [
+              "YA",
+              1,
+              3.8
+            ],
+            [
+              "EI",
+              1,
+              3.12
+            ]
+          ],
+          "wh_cv": 0.93,
+          "wh_cv_diff": -0.78,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 68.6,
+          "wh_ngps_pct": 6.2,
+          "wh_net_q_per_res": 0.031,
+          "charged_pct": 46.2
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: Ammonium Sulfate (NH4)2SO4 Fractionation (40\u201370% Cut)",
+          "named_alerts_count": 0,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": false
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 14.6,
+          "ve_globular_ml": 15.52,
+          "kav_globular": 0.477,
+          "rh_shape_profile_a": 14.6,
+          "ve_shape_profile_ml": 15.52,
+          "ve_from_3d_perrin_ml": 15.4,
+          "geometry_3d": {
+            "n_ca_atoms": 65,
+            "rg_angstrom": 10.67,
+            "semi_axes_a_b_c": [
+              18.5,
+              10.9,
+              10.5
+            ],
+            "max_end_to_end_span_a": 43.5,
+            "prolate_aspect_ratio_p": 1.73,
+            "perrin_f_over_f0": 1.027,
+            "rh_3d_perrin_a": 14.8,
+            "rh_from_rg_a": 13.8,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.8063,
+          "sds_rf_12pct": 0.843,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 89.23,
+          "sov99_pct": 95.13,
+          "gor4_q3_pct": 60.0,
+          "chou_fasman_q3_pct": 53.85,
+          "obs_helix_pct": 50.77,
+          "obs_strand_pct": 29.23,
+          "obs_coil_pct": 20.0,
+          "pred_helix_pct": 49.23,
+          "pred_strand_pct": 32.31,
+          "pred_coil_pct": 18.46,
+          "obs_fold_class": "Mixed \u03b1/\u03b2",
+          "pred_fold_class": "Mixed \u03b1/\u03b2",
+          "fold_match": true,
+          "mean_confidence": 0.778,
+          "latency_ms": 35.21
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0492,
+          "max_5mer_jaccard_vs_train": 0.0046,
+          "closest_train_protein": "Q8XP19 (Beta-glucuronidase)"
+        }
+      },
+      {
+        "pdb_id": "8T5E",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "RFdiff Bim_fulldiff",
+        "realistic_name": "RFdiffusion binder Bim_fulldiff to bioactive helical peptide",
+        "method_group": "RFdiffusion + ProteinMPNN",
+        "citation": "V\u00e1zquez Torres et al., Nature 2024",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2024",
+        "length_core": 134,
+        "length_eval": 130,
+        "core_sequence": "EERKEKREKVRAGLKRAIAELPAEVAARCLALLDDASDEEFIEAVLEVLEAMREALVAMAREGRLDAVRRATSHINEVLVDAAELALEKGREYFRRLCLIVCDMMIELIRLEPEQTPELRRIRERLEEIRRRLE",
+        "core_ss3": "HHHHHHHHHHHHHHHHHHHCCHHHHHHHHHHHHHHCCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCCCCCCCCHHHHHHHHHHHHHHH",
+        "pred_ss3": "CCCCCHHHHHHHHHHHHHHHCCHHHHHHHHHHHCCCCCHHHHHHHHHHHHHHHHHHHHHHHCCCCHHHHHHHHHHHHHHHHHHHHHHHCCHHHHHHHHHHHHHHHHHHHHCCCCCCHHHHHHHHHHHHHHHHCC",
+        "metrics": {
+          "mw_kda": 15.59,
+          "pi": 5.23,
+          "net_charge_ph74": -5.35,
+          "num_trp": 0,
+          "num_tyr": 1,
+          "num_cys": 3,
+          "eps_280_reduced": 1490,
+          "abs_01_reduced": 0.096,
+          "gravy": -0.328,
+          "aliphatic_index": 111.49,
+          "instability_index": 65.32,
+          "instability_class": "Unstable (potential degradation / short half-life)",
+          "ii_top_dipeptides": [
+            [
+              "RR",
+              5,
+              21.75
+            ],
+            [
+              "EE",
+              3,
+              7.52
+            ],
+            [
+              "IE",
+              2,
+              6.71
+            ]
+          ],
+          "wh_cv": -0.95,
+          "wh_cv_diff": -2.66,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 95.0,
+          "wh_ngps_pct": 6.7,
+          "wh_net_q_per_res": 0.037,
+          "charged_pct": 42.5
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [
+            "cytosolic_free_thiol"
+          ],
+          "named_ai_categories": [
+            "cytosolic_free_thiol"
+          ],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [
+            "cytosolic_free_thiol"
+          ],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: HiTrap Q (Anion Exchange) or (NH4)2SO4 Salting-Out",
+          "named_alerts_count": 2,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": true
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 19.3,
+          "ve_globular_ml": 13.21,
+          "kav_globular": 0.334,
+          "rh_shape_profile_a": 19.3,
+          "ve_shape_profile_ml": 13.21,
+          "ve_from_3d_perrin_ml": 13.13,
+          "geometry_3d": {
+            "n_ca_atoms": 130,
+            "rg_angstrom": 14.27,
+            "semi_axes_a_b_c": [
+              23.2,
+              18.9,
+              11.1
+            ],
+            "max_end_to_end_span_a": 60.0,
+            "prolate_aspect_ratio_p": 1.6,
+            "perrin_f_over_f0": 1.02,
+            "rh_3d_perrin_a": 19.5,
+            "rh_from_rg_a": 18.4,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.6743,
+          "sds_rf_12pct": 0.7399,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 85.38,
+          "sov99_pct": 56.69,
+          "gor4_q3_pct": 83.08,
+          "chou_fasman_q3_pct": 88.46,
+          "obs_helix_pct": 91.54,
+          "obs_strand_pct": 0.0,
+          "obs_coil_pct": 8.46,
+          "pred_helix_pct": 81.54,
+          "pred_strand_pct": 0.0,
+          "pred_coil_pct": 18.46,
+          "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_fold_class": "All-\u03b1 (Helix-Rich)",
+          "fold_match": true,
+          "mean_confidence": 0.7997,
+          "latency_ms": 10.97
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0308,
+          "max_5mer_jaccard_vs_train": 0.0059,
+          "closest_train_protein": "Q55088 (Malto-oligosyltrehalose trehalohydrolase)"
+        }
+      },
+      {
+        "pdb_id": "9FW7",
+        "entity_id": 1,
+        "asym_id": "A",
+        "short_name": "RFdiff RAD32",
+        "realistic_name": "RFdiffusion ProteinMPNN de novo retroaldolase RAD32",
+        "method_group": "RFdiffusion + ProteinMPNN",
+        "citation": "2025",
+        "exp_method": "X-RAY DIFFRACTION",
+        "release_year": "2025",
+        "length_core": 199,
+        "length_eval": 199,
+        "core_sequence": "LEKAKEAIKEAIENRDELVEPYVERAKKLAEEIKKYVEGGVEAIVEAIKNGDLEVLAMLLKGIFYHGFYGEREEAIELLEKLAKAVKNLEQRLMSLLYAELLRYMEEKGISWEEFAPQYLTLITILLPTYEKLKEAGVVTESTSLEELREIIKLVLENLPEPSELEKEATKEVEPINKKMGEYLSFEELKEVVEGVANG",
+        "core_ss3": "CCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCHHHHHHHHHHHHHHHHHHHHHHCHHHHHHHHHHHHHHHHHHHHHHHHHHCCCCCCCHHHHHHHHHHHHHHHCCCCHHHHHHHHHHHHHHHHHHHCCCHHHHHHHHHHHHHHH",
+        "pred_ss3": "CCCHHHHHHHHHHCCHHHHHHHHHHHHHHHHHHHHHHHCCHHHHHHHHHCCCHHHHHHHHHHHHHHCCCCCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHCCCCHHHHHHHHHHHHHHHHHHHHHHHHCCCCCCCCCHHHHHHHHHHHHHCCCCCCCCCCCCCCCCCCCCHHHHHCCCHHHHHHHHHHHCCC",
+        "metrics": {
+          "mw_kda": 22.76,
+          "pi": 4.68,
+          "net_charge_ph74": -17.43,
+          "num_trp": 1,
+          "num_tyr": 9,
+          "num_cys": 0,
+          "eps_280_reduced": 18910,
+          "abs_01_reduced": 0.831,
+          "gravy": -0.274,
+          "aliphatic_index": 110.75,
+          "instability_index": 42.72,
+          "instability_class": "Unstable (potential degradation / short half-life)",
+          "ii_top_dipeptides": [
+            [
+              "EE",
+              6,
+              10.13
+            ],
+            [
+              "IE",
+              2,
+              4.52
+            ],
+            [
+              "FY",
+              2,
+              3.38
+            ]
+          ],
+          "wh_cv": -1.16,
+          "wh_cv_diff": -2.87,
+          "wh_class": "High Solubility Propensity (Heuristic)",
+          "wh_sol_pct": 96.3,
+          "wh_ngps_pct": 14.6,
+          "wh_net_q_per_res": 0.085,
+          "charged_pct": 35.7
+        },
+        "buffer_advisor": {
+          "raw_unnamed_categories": [],
+          "named_ai_categories": [],
+          "full_tagged_detected_tag": "None",
+          "full_tagged_categories": [],
+          "named_tag_conflict": null,
+          "full_tag_conflict": null,
+          "named_step1": "Tagless Capture: HiTrap Q (Anion Exchange) or (NH4)2SO4 Salting-Out",
+          "named_alerts_count": 1,
+          "uv280_invisible_alert_present": false,
+          "ii_denovo_caveat_present": true
+        },
+        "sec_and_sds": {
+          "optimal_analytical_col": "Superdex 75 Increase 10/300 GL",
+          "rh_globular_a": 22.2,
+          "ve_globular_ml": 12.13,
+          "kav_globular": 0.267,
+          "rh_shape_profile_a": 22.2,
+          "ve_shape_profile_ml": 12.13,
+          "ve_from_3d_perrin_ml": 12.13,
+          "geometry_3d": {
+            "n_ca_atoms": 199,
+            "rg_angstrom": 15.88,
+            "semi_axes_a_b_c": [
+              24.8,
+              19.9,
+              15.8
+            ],
+            "max_end_to_end_span_a": 63.5,
+            "prolate_aspect_ratio_p": 1.4,
+            "perrin_f_over_f0": 1.01,
+            "rh_3d_perrin_a": 22.2,
+            "rh_from_rg_a": 20.5,
+            "geometry_class": "Compact Globular",
+            "recommended_sec_conformation": "globular"
+          },
+          "uv_a260_a280_reported": 0.57,
+          "sec_uv280_invisible_flag": false,
+          "sds_rf_15pct": 0.5835,
+          "sds_rf_12pct": 0.6619,
+          "oligomer_n": 1
+        },
+        "secondary_structure": {
+          "q3_pct": 80.9,
+          "sov99_pct": 59.58,
+          "gor4_q3_pct": 77.39,
+          "chou_fasman_q3_pct": 62.81,
+          "obs_helix_pct": 89.95,
+          "obs_strand_pct": 0.0,
+          "obs_coil_pct": 10.05,
+          "pred_helix_pct": 72.86,
+          "pred_strand_pct": 0.0,
+          "pred_coil_pct": 27.14,
+          "obs_fold_class": "All-\u03b1 (Helix-Rich)",
+          "pred_fold_class": "All-\u03b1 (Helix-Rich)",
+          "fold_match": true,
+          "mean_confidence": 0.8007,
+          "latency_ms": 13.71
+        },
+        "zero_leakage": {
+          "max_5mer_containment_vs_train": 0.0256,
+          "max_5mer_jaccard_vs_train": 0.0093,
+          "closest_train_protein": "Q8U4M3 (Dolichol-phosphate mannosyltransferase)"
+        }
+      }
+    ]
+  },
+  "question_b_scaling_and_parameter_audit": {
+    "full_app_parameter_taxonomy": [
+      {
+        "module": "modules/purification_metrics.py",
+        "parameters": [
+          "mw_da",
+          "mw_kda"
+        ],
+        "category": "Exact Closed-Form Physics/Chemistry",
+        "trainable_10x_applicable": false,
+        "rationale": "Exact IUPAC average isotopic residue mass sum + 18.01528 Da (H2O). Zero free parameters; exact to 0.01 Da for both natural and AI-designed polypeptides."
+      },
+      {
+        "module": "modules/purification_metrics.py",
+        "parameters": [
+          "pi",
+          "pi_oxidized",
+          "net_charge_at_ph",
+          "charge_ph_profile"
+        ],
+        "category": "Exact Closed-Form Physics/Chemistry",
+        "trainable_10x_applicable": false,
+        "rationale": "Exact Henderson-Hasselbalch bisection with Bjellqvist et al. (1993, 1994) pKa constants matching ExPASy ProtParam. Not trained on a corpus."
+      },
+      {
+        "module": "modules/purification_metrics.py",
+        "parameters": [
+          "molar_extinction_reduced",
+          "molar_extinction_cystines",
+          "abs_01_reduced",
+          "abs_01_cystines"
+        ],
+        "category": "Exact Closed-Form Spectroscopy",
+        "trainable_10x_applicable": false,
+        "rationale": "Exact Pace et al. (1995) Beer-Lambert sum (5500*nW + 1490*nY + 125*nSS). Zero-Trp/Tyr AI designs are handled via explicit UV-280 blindness warnings (214/205 nm), not retraining."
+      },
+      {
+        "module": "modules/purification_metrics.py",
+        "parameters": [
+          "gravy",
+          "aliphatic_index"
+        ],
+        "category": "Fixed Published Biophysical Scales",
+        "trainable_10x_applicable": false,
+        "rationale": "Kyte & Doolittle (1982) hydropathy average and Ikai (1980) aliphatic index; standardized definitions with zero local training."
+      },
+      {
+        "module": "modules/purification_metrics.py",
+        "parameters": [
+          "instability_index",
+          "solubility_heuristic_wilkinson_harrison"
+        ],
+        "category": "Fixed Published Literature Heuristics",
+        "trainable_10x_applicable": false,
+        "rationale": "Guruprasad (1990) 400-dipeptide DIWV table (44 proteins) and Wilkinson-Harrison/Davis (1991/1999) 2-term discriminant (81 E. coli proteins). Modifying weights would break ExPASy ProtParam parity; instead, Glu/Lys-rich de novo caveats are surfaced directly in workflow alerts."
+      },
+      {
+        "module": "modules/buffer_advisor.py",
+        "parameters": [
+          "custom_buffer_stoichiometry",
+          "pka_buffering_windows",
+          "affinity_recipes",
+          "iex_hic_sec_roadmap",
+          "biochemical_profile_guards"
+        ],
+        "category": "Exact Stoichiometry & Deterministic Biochemical Rules",
+        "trainable_10x_applicable": false,
+        "rationale": "Exact m = C*V*MW and V_liq = m/rho stoichiometry, IUPAC formula weights, Cytiva CIPP chromatography rules, and UniProt ChEBI/keyword guards. AI-designed edge cases (2KL8, 6D0T, 6X1K, zero-A280, Glu/Lys II) are solved deterministically by biophysical rules."
+      },
+      {
+        "module": "modules/sec_simulator.py",
+        "parameters": [
+          "stokes_radius_rh",
+          "ackers_laurent_killander_ve_kav",
+          "plate_theory_sigma",
+          "dual_uv_a260_a280"
+        ],
+        "category": "Low-DOF Calibrated Physical Hydrodynamics & Pore Partitioning",
+        "trainable_10x_applicable": false,
+        "rationale": "3-coeff quadratic log-MW Rh law (R^2 = 0.9950 across 1,254 PDB assemblies, 55 Cytiva calibration standards, MAE 0.17-0.22 mL) + 2-parameter Ackers erfc pore integral per column + Uversky (2002) coil + Tirado-Garcia de la Torre DNA rod equations. Already constrained below column-to-column variance (~0.2 mL); 10x more points cannot reduce physical shape/hydration variance."
+      },
+      {
+        "module": "modules/sds_page_simulator.py",
+        "parameters": [
+          "calculate_sds_rf",
+          "precision_plus_ladder"
+        ],
+        "category": "Low-DOF Physical Sieving Law",
+        "trainable_10x_applicable": false,
+        "rationale": "3-parameter Ferguson / Ogston-Rodbard-Chrambach sigmoidal sieving curve calibrated to Bio-Rad Precision Plus Dual Color markers across 4%-22% polyacrylamide."
+      },
+      {
+        "module": "modules/gel_recipe.py",
+        "parameters": [
+          "laemmli_tricine_gel_recipes",
+          "linear_separation_ranges"
+        ],
+        "category": "Exact Analytical Volumetric Stoichiometry",
+        "trainable_10x_applicable": false,
+        "rationale": "Exact C1*V1 = C2*V2 volumetric dilution with volume conservation (Sambrook/Bio-Rad Laemmli & Schagger 2006 Tricine). Zero learned parameters."
+      },
+      {
+        "module": "modules/protein_3d.py",
+        "parameters": [
+          "offline_3d_backbone_schematic",
+          "pdb_mmcif_parser",
+          "3dmol_viewer"
+        ],
+        "category": "Deterministic 3D Coordinate Geometry & Parser",
+        "trainable_10x_applicable": false,
+        "rationale": "Deterministic helix/strand/coil parametric geometry and exact PDB/mmCIF parser (AlphaFold2/ESMFold/RFdiffusion/X-ray). Zero learned parameters."
+      },
+      {
+        "module": "modules/sequence_parser.py",
+        "parameters": [
+          "genetic_code_translation",
+          "orf_finder",
+          "terminal_tag_detection",
+          "nl_uniprot_ncbi_parser"
+        ],
+        "category": "Exact Genetic Code & Deterministic Parser",
+        "trainable_10x_applicable": false,
+        "rationale": "Exact NCBI Standard Genetic Code (transl_table=1, 64 codons) and deterministic API/regex resolution."
+      },
+      {
+        "module": "modules/secondary_structure.py",
+        "parameters": [
+          "gor4_17mer_tables",
+          "stage1_ensemble_m1_m2_m3",
+          "stage2_context_net",
+          "viterbi_transitions"
+        ],
+        "category": "Locally Machine-Learned Single-Sequence Neural Model (1,138,586 params)",
+        "trainable_10x_applicable": true,
+        "rationale": "THE ONLY machine-learned model in ProPurify Studio (currently trained on 3,751 PDB/DSSP chains out of 14,869 in data/ss_10k_corpus.npz). Evaluated empirically via controlled zero-leakage learning curve (N = 500 -> 1,000 -> 3,751 -> 7,500 -> 11,230) + 2x-width capacity ablation + power-law extrapolation to 10x (37,510 chains)."
+      }
+    ],
+    "zero_leakage_eval_design": {
+      "eval_count": 3639,
+      "max_train_count": 11230,
+      "accession_overlap": 0,
+      "exact_sequence_overlap": 0,
+      "gene_overlap": 0,
+      "max_5mer_jaccard": 0.1592,
+      "max_5mer_containment": 0.2787,
+      "eval_by_stratum": {
+        "Viruses": 365,
+        "Animals": 719,
+        "Bacteria": 1253,
+        "Plants": 377,
+        "Archaea": 432,
+        "Fungi": 370,
+        "Protists": 123
+      }
+    },
+    "learning_curve_full_cascaded_standard": [
+      {
+        "weights_size_mb": 4.04,
+        "nn_param_count": 957583,
+        "mean_inference_ms": 19.22,
+        "median_inference_ms": 16.4,
+        "gor4_pooled_q3_pct": 60.61,
+        "natural_pooled_q3_pct": 66.53,
+        "natural_mean_q3_pct": 66.39,
+        "natural_sov99_pct": 55.2,
+        "natural_mcc_h": 0.5292,
+        "natural_mcc_e": 0.408,
+        "natural_mcc_c": 0.4288,
+        "natural_mean_mcc": 0.4553,
+        "natural_fold_acc_pct": 77.85,
+        "classroom_presets_q3": {
+          "P02769": 71.17,
+          "P02185": 77.92,
+          "P42212": 58.82,
+          "P00918": 55.77,
+          "P00698": 61.22,
+          "P37957": 63.68
+        },
+        "ai_32_pooled_q3_pct": 81.94,
+        "ai_32_mean_q3_pct": 81.13,
+        "ai_32_sov99_pct": 75.04,
+        "ai_32_fold_acc_pct": 93.75,
+        "train_chains": 500,
+        "train_residues": 199811,
+        "capacity": "standard",
+        "train_seconds": 206.9
+      },
+      {
+        "weights_size_mb": 4.04,
+        "nn_param_count": 957583,
+        "mean_inference_ms": 19.67,
+        "median_inference_ms": 17.05,
+        "gor4_pooled_q3_pct": 61.03,
+        "natural_pooled_q3_pct": 67.43,
+        "natural_mean_q3_pct": 67.39,
+        "natural_sov99_pct": 56.43,
+        "natural_mcc_h": 0.5486,
+        "natural_mcc_e": 0.4268,
+        "natural_mcc_c": 0.4419,
+        "natural_mean_mcc": 0.4724,
+        "natural_fold_acc_pct": 79.36,
+        "classroom_presets_q3": {
+          "P02769": 71.33,
+          "P02185": 81.17,
+          "P42212": 60.08,
+          "P00918": 56.54,
+          "P00698": 66.67,
+          "P37957": 62.26
+        },
+        "ai_32_pooled_q3_pct": 81.91,
+        "ai_32_mean_q3_pct": 81.83,
+        "ai_32_sov99_pct": 80.17,
+        "ai_32_fold_acc_pct": 93.75,
+        "train_chains": 1000,
+        "train_residues": 391490,
+        "capacity": "standard",
+        "train_seconds": 253.9
+      },
+      {
+        "weights_size_mb": 4.041,
+        "nn_param_count": 957583,
+        "mean_inference_ms": 21.04,
+        "median_inference_ms": 18.0,
+        "gor4_pooled_q3_pct": 61.31,
+        "natural_pooled_q3_pct": 69.15,
+        "natural_mean_q3_pct": 69.21,
+        "natural_sov99_pct": 59.26,
+        "natural_mcc_h": 0.5787,
+        "natural_mcc_e": 0.452,
+        "natural_mcc_c": 0.4653,
+        "natural_mean_mcc": 0.4987,
+        "natural_fold_acc_pct": 81.07,
+        "classroom_presets_q3": {
+          "P02769": 74.79,
+          "P02185": 80.52,
+          "P42212": 59.66,
+          "P00918": 59.23,
+          "P00698": 48.3,
+          "P37957": 65.09
+        },
+        "ai_32_pooled_q3_pct": 80.87,
+        "ai_32_mean_q3_pct": 81.14,
+        "ai_32_sov99_pct": 81.2,
+        "ai_32_fold_acc_pct": 93.75,
+        "train_chains": 3751,
+        "train_residues": 1449487,
+        "capacity": "standard",
+        "train_seconds": 0.0
+      },
+      {
+        "weights_size_mb": 4.042,
+        "nn_param_count": 957583,
+        "mean_inference_ms": 20.81,
+        "median_inference_ms": 18.33,
+        "gor4_pooled_q3_pct": 61.43,
+        "natural_pooled_q3_pct": 69.34,
+        "natural_mean_q3_pct": 69.45,
+        "natural_sov99_pct": 59.58,
+        "natural_mcc_h": 0.5806,
+        "natural_mcc_e": 0.4512,
+        "natural_mcc_c": 0.4684,
+        "natural_mean_mcc": 0.5001,
+        "natural_fold_acc_pct": 80.35,
+        "classroom_presets_q3": {
+          "P02769": 73.48,
+          "P02185": 80.52,
+          "P42212": 57.14,
+          "P00918": 59.62,
+          "P00698": 51.02,
+          "P37957": 67.45
+        },
+        "ai_32_pooled_q3_pct": 81.53,
+        "ai_32_mean_q3_pct": 82.47,
+        "ai_32_sov99_pct": 81.82,
+        "ai_32_fold_acc_pct": 93.75,
+        "train_chains": 7500,
+        "train_residues": 2800690,
+        "capacity": "standard",
+        "train_seconds": 1468.8
+      }
+    ],
+    "gor4_5point_curve_to_3x": [
+      {
+        "train_chains": 500,
+        "scale_vs_current": 0.13,
+        "gor4_pooled_q3_pct": 60.61
+      },
+      {
+        "train_chains": 1000,
+        "scale_vs_current": 0.27,
+        "gor4_pooled_q3_pct": 61.03
+      },
+      {
+        "train_chains": 3751,
+        "scale_vs_current": 1.0,
+        "gor4_pooled_q3_pct": 61.31
+      },
+      {
+        "train_chains": 7500,
+        "scale_vs_current": 2.0,
+        "gor4_pooled_q3_pct": 61.43
+      },
+      {
+        "train_chains": 11230,
+        "scale_vs_current": 2.99,
+        "gor4_pooled_q3_pct": 61.34
+      }
+    ],
+    "mathematical_extrapolation_to_10x": {
+      "power_law_q3_formula": "Q3(N) = 70.99 - 53.26 * N^(-0.397)",
+      "power_law_q3_r2": 0.9878,
+      "power_law_sov99_formula": "SOV99(N) = 63.28 - 57.13 * N^(-0.313)",
+      "power_law_sov99_r2": 0.9834,
+      "asymptotic_single_seq_ceiling_q3_pct": 70.99,
+      "asymptotic_single_seq_ceiling_sov99_pct": 63.28,
+      "observed_2x_7500_gain_over_3751_q3_pct": 0.19,
+      "observed_2x_7500_gain_over_3751_sov99_pct": 0.32,
+      "extrapolated_3x_11230_q3_power_law_pct": 69.68,
+      "extrapolated_10x_37510_q3_power_law_pct": 70.18,
+      "extrapolated_10x_gain_over_3751_power_law_pct": 1.03,
+      "extrapolated_10x_37510_q3_local_log_pct": 69.78,
+      "extrapolated_10x_gain_local_log_pct": 0.63,
+      "extrapolated_10x_37510_sov99_power_law_pct": 61.16,
+      "extrapolated_10x_gain_sov99_power_law_pct": 1.9,
+      "extrapolated_100x_375100_q3_power_law_pct": 70.66,
+      "global_log10_slope_q3_per_decade_pct": 2.51,
+      "local_post_3751_log10_slope_q3_per_decade_pct": 0.63,
+      "single_sequence_information_ceiling_note": "Classic single-sequence 3-state secondary structure prediction (without evolutionary MSAs/PSSMs or multi-hundred-million-parameter pLMs like ESM-2) has a well-established biophysical information ceiling near ~70-72% Q3 because ~25-30% of residue SS assignments depend on long-range tertiary contacts (beta-sheet pairing partners 50-200 residues apart). Our empirical zero-leakage curve confirms diminishing returns: +0.90% Q3 for 500->1,000 (2x), +1.72% for 1,000->3,751 (3.75x), collapsing to just +0.19% Q3 (69.15%->69.34%) for 3,751->7,500 (2x) and +0.03% for GOR-IV at 3x (11,230)."
+    },
+    "engineering_verdict": {
+      "recommend_10x_training_for_all_params": false,
+      "recommend_retraining_ss_now": false,
+      "summary": "NO \u2014 increasing training size 10x across all parameters is NOT needed and NOT recommended: (1) 11 of 12 parameter families across ProPurify Studio are exact closed-form physics/chemistry formulas, low-DOF calibrated physical laws (SEC R^2=0.9950, MAE 0.17-0.22 mL; SDS-PAGE Ferguson Rf), fixed literature scales (ExPASy ProtParam parity), or deterministic rules \u2014 '10x training data' does not apply to them. (2) For the sole ML model (modules/secondary_structure.py, 1.14M params, 4.04 MB, ~20 ms/protein), our strictly zero-leakage controlled learning curve (3,639 homology-disjoint natural test chains + 32 real experimental AI-designed PDBs) proves asymptotic saturation: doubling training chains from 3,751 (1.45M res) to 7,500 (2.80M res) improves natural pooled Q3 by only +0.19% (69.15% -> 69.34%), SOV_99 by +0.32% (59.26% -> 59.58%), Mean MCC by +0.0014 (0.4987 -> 0.5001), and GOR-IV at 3x (11,230 chains) gains only +0.03% (61.31% -> 61.34%). Power-law saturation (R^2=0.9878) projects 10x data (37,510 chains) would add only +1.03% Q3 (to ~70.18%, local log-linear bound ~69.78%, asymptotic ceiling ~70.99%), which is well below a meaningful +1.5-2.0% jump while destroying the strict >=10,500-protein held-out zero-leakage test benchmark if drawn from the local corpus. (3) Keeping current ss_model_weights.npz (3,751 train / 11,118 test) preserves zero-leakage benchmark integrity, 4.04 MB footprint, <21 ms CPU latency, and already achieves 80.91% Q3 / 80.92% SOV_99 / 93.8% fold-class accuracy on AI-designed proteins. Breaking past ~72% Q3 in a future release would require an architectural paradigm shift (MSA/PSSM profiles or a pretrained pLM like ESM-2), not 10x more single-sequence training rows."
+    }
+  }
+}

@@ -557,6 +557,12 @@ def infer_protein_biochemical_profile(
 
     core_len = max(1, len(core_seq)) if core_seq else int((metrics or {}).get("length") or 1)
     cys_count = core_seq.count("C") if core_seq else int(((metrics or {}).get("counts") or {}).get("cysteines", 0))
+    if core_seq:
+        aromatic_pct = ((core_seq.count("W") + core_seq.count("Y") + core_seq.count("F")) / core_len) * 100.0
+    elif metrics and (metrics.get("counts") or {}).get("aromatic_residues") is not None:
+        aromatic_pct = (float(metrics["counts"]["aromatic_residues"]) / core_len) * 100.0
+    else:
+        aromatic_pct = 0.0
     gravy = float((metrics or {}).get("gravy", 0.0))
     aliphatic_idx = float((metrics or {}).get("aliphatic_index", 75.0))
 
@@ -616,7 +622,10 @@ def infer_protein_biochemical_profile(
         )
     )
     is_fnr_flavo = bool(re.search(r"ferredoxin\s*[-\u2013]+\s*nadp", search_text))
-    has_fes_name = (not is_fnr_flavo) and bool(re.search(
+    # A real [Fe-S] cluster requires >= 3 coordinating Cys residues; metal-free de novo ferredoxin-fold
+    # scaffolds (e.g., 2KL8 with 0 Cys) cannot coordinate an [Fe-S] cluster unless UniProt explicitly annotates one.
+    lacks_fes_cys_ligands = (len(core_seq) >= 20) and (not has_fes_annot) and (core_seq.count("C") < 3)
+    has_fes_name = (not is_fnr_flavo) and (not lacks_fes_cys_ligands) and bool(re.search(
         r"\b(?:ferredoxin|aconitase|rubredoxin|rieske|nitrogenase|\[?fefe\]?[-\s]*hydrogenase|"
         r"radical\s+sam|biotin\s+synthase|lipoyl\s+synthase|lipoate\s+synthase|"
         r"endonuclease\s+iii|sulfhydrogenase|xanthine\s+dehydrogenase)\b",
@@ -809,7 +818,9 @@ def infer_protein_biochemical_profile(
     has_membrane_name = bool(re.search(
         r"\b(?:rhodopsin|bacteriorhodopsin|aquaporin|(?:potassium|sodium|calcium|chloride|ion|urea)\s+channel|"
         r"kcsa|abc\s+transporter|permease|g-?protein\s+coupled\s+receptor|gpcr|adrenergic\s+receptor|"
-        r"porin|ompf|ompc|vdac)\b",
+        r"(?:transmembrane|outer[-\s]+membrane|integral\s+membrane|membrane|tm)[-\s]+(?:beta|β)[-\s]*barrel|"
+        r"transmembrane\s+(?:nanopore|pore|channel|protein)|outer[-\s]+membrane\s+(?:protein|porin)|"
+        r"porin|(?!ompr\b)omp[a-z]|omp85|vdac|bama|tolc)\b",
         search_text,
     ))
     has_membrane_seq = (
@@ -914,10 +925,12 @@ def infer_protein_biochemical_profile(
         categories.append("flavin_dependent")
 
     # --- L. INTRINSICALLY DISORDERED PROTEINS (IDPs) ---
+    # True IDPs are strongly depleted in bulky aromatic fold-core residues (Trp/Tyr/Phe typically < 6–7%),
+    # distinguishing them from polar, aromatic-rich folded de novo beta-barrels (e.g., 6D0T with 12.6% aromatics).
     if (
         acc == "P02686"
         or bool(re.search(r"\b(?:synuclein|microtubule-associated\s+protein\s+tau|myelin\s+basic\s+protein)\b", search_text))
-        or (core_len >= 80 and gravy < -0.85 and aliphatic_idx < 60.0)
+        or (core_len >= 80 and gravy < -0.85 and aliphatic_idx < 60.0 and aromatic_pct < 7.0)
     ):
         categories.append("idp_disordered")
 
@@ -1652,6 +1665,14 @@ def recommend_full_purification_workflow(
             "omit strong reducing agents (DTT/TCEP/β-ME) so structural disulfide bridges stay intact! If it is a cytosolic protein with free thiols, include 0.5 mM TCEP or 1 mM DTT to prevent air oxidation."
         )
 
+    ext_info = metrics.get("extinction") or {}
+    if ext_info.get("molar_extinction_cystines") == 0:
+        alerts.append(
+            "🔭 **UV-280 Invisible Protein (No Trp/Tyr/S–S, ε280 = 0):** Common in short peptides & AI-designed (ProteinMPNN/RFdiffusion) scaffolds! "
+            "Standard 280 nm FPLC traces will stay flat—monitor peptide-bond absorbance at **214 nm / 205 nm** "
+            "(using low-UV buffer like Phosphate/MES rather than Tris/HEPES) or add a single C-terminal Trp/Tyr tag."
+        )
+
     if abs(working_ph - pi) < 0.6:
         alerts.append(
             f"⚠️ **Isoelectric Precipitation Alert:** Your chosen pH ({working_ph:.1f}) is within 0.6 units of the protein's pI ({pi:.2f}). "
@@ -1659,9 +1680,37 @@ def recommend_full_purification_workflow(
         )
     if instab >= 40.0:
         inhib_type = "EDTA-free serine/cysteine" if prof["is_chelator_sensitive"] else ("non-PMSF" if prof["protease_class"] == "serine" else "EDTA-free")
-        alerts.append(
+        instab_tip = (
             f"🧊 **Cold-Room & Protease Inhibitor Tip:** Instability Index is {instab:.1f} (>40). Work at 4°C on ice, include 5–10% (v/v) Glycerol, and use {inhib_type} Protease Inhibitor Cocktail during cell lysis."
         )
+        core_seq_wf = prof.get("core_sequence") or (sequence or "").strip().upper()
+        if core_seq_wf:
+            wf_core_len = len(core_seq_wf)
+            wf_e_frac = core_seq_wf.count("E") / wf_core_len
+            wf_ekr_frac = (core_seq_wf.count("E") + core_seq_wf.count("K") + core_seq_wf.count("R")) / wf_core_len
+        else:
+            wf_core_len = int(metrics.get("length") or 0)
+            aa_pcts = metrics.get("aa_percentages") or {}
+            wf_e_frac = float(aa_pcts.get("E", 0.0)) / 100.0
+            wf_ekr_frac = (float(aa_pcts.get("E", 0.0)) + float(aa_pcts.get("K", 0.0)) + float(aa_pcts.get("R", 0.0))) / 100.0
+        wf_name_low = " ".join(
+            str(x) for x in (
+                protein_name,
+                (metadata or {}).get("protein_name", ""),
+                (metadata or {}).get("identified_protein", ""),
+            ) if x
+        ).lower()
+        is_denovo_saltbridge_ii = (
+            (wf_core_len >= 40 and wf_ekr_frac >= 0.30 and wf_e_frac >= 0.11)
+            or bool(re.search(r"\b(?:de[-\s]*novo|designed|proteinmpnn|mpnn|rfdiffusion|hallucinated)\b", wf_name_low))
+        )
+        if is_denovo_saltbridge_ii:
+            instab_tip += (
+                " (De Novo / ProteinMPNN Caveat: **Guruprasad's 1990 natural-proteome dipeptide index often flags "
+                "Glu/Lys-rich AI-designed/thermostable helical bundles (`II ≥ 40`) even when experimentally hyper-stable**—"
+                "verify stability via nanoDSF/CD rather than assuming instability.)"
+            )
+        alerts.append(instab_tip)
 
     return {
         "roadmap": [

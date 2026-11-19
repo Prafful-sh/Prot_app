@@ -545,7 +545,15 @@ def simulate_chromatogram_peaks(
         prot_mw = float(state.get("prot_mw_kda", mw if conformation not in ("dsdna", "ssrna") else 0.0))
         na_mw = float(state.get("na_mw_kda", mw if conformation in ("dsdna", "ssrna") else 0.0))
         na_type = state.get("na_type", conformation if conformation in ("dsdna", "ssrna") else None)
-        prot_eps01 = float(state.get("prot_eps01", 1.0))
+        raw_prot_eps01 = state.get("prot_eps01", 1.0)
+        prot_eps01 = 1.0 if raw_prot_eps01 is None else float(raw_prot_eps01)
+        uv280_invisible = (
+            "prot_eps01" in state
+            and raw_prot_eps01 is not None
+            and prot_eps01 == 0.0
+            and prot_mw > 0.0
+            and na_mw == 0.0
+        )
 
         rh_override = state.get("rh_override_a")
         if is_aggregate:
@@ -584,6 +592,13 @@ def simulate_chromatogram_peaks(
         sigma = math.sqrt(col_sigma ** 2 + vinj_dispersion ** 2)
         w_base = 4.0 * sigma
         eff_plates = int(round(16.0 * ((ve / max(1e-6, w_base)) ** 2)))
+
+        if uv280_invisible:
+            uv_blind_warn = (
+                "⚠️ Zero Trp/Tyr/S–S (ε280 = 0): invisible at 280 nm on ÄKTA FPLC — "
+                "monitor 214/205 nm or engineer a C-terminal Trp/Tyr!"
+            )
+            note = f"{note} {uv_blind_warn}" if note else uv_blind_warn
 
         uv_info = calculate_dual_uv_ratio(prot_mw, prot_eps01=prot_eps01, na_mw_kda=na_mw, na_type=na_type)
         a260_ratio = uv_info["a260_a280_ratio"]
@@ -633,6 +648,7 @@ def simulate_chromatogram_peaks(
             "peak_height_mau": round(peak_height_280, 1),
             "peak_height_a260_mau": round(peak_height_260, 1),
             "a260_a280_ratio": a260_ratio,
+            "uv280_invisible": uv280_invisible,
             "is_aggregate": is_aggregate,
             "exclusion_limit_kda": excl_kda,
             "exp_ve_ml": state.get("exp_ve_ml"),

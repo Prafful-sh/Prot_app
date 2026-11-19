@@ -14,6 +14,7 @@ Designed for high-school & college classrooms as well as structural biology & bi
 - Simplified Real-World Literature & 1,254-Protein Accuracy Showcase
 """
 
+from datetime import datetime, timezone
 import html
 import importlib
 import json
@@ -27,7 +28,9 @@ _APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 if _APP_ROOT not in sys.path:
     sys.path.insert(0, _APP_ROOT)
 
+import requests
 import streamlit as st
+import streamlit.components.v1 as components
 import plotly.graph_objects as go
 import pandas as pd
 
@@ -38,6 +41,8 @@ _SUBMODULES_IN_ORDER = (
     "modules.buffer_advisor",
     "modules.sds_page_simulator",
     "modules.secondary_structure",
+    "modules.gel_recipe",
+    "modules.protein_3d",
 )
 
 try:
@@ -86,6 +91,23 @@ try:
         predict_secondary_structure,
         generate_secondary_structure_figure,
         format_ss_sequence_blocks,
+    )
+    from modules.gel_recipe import (
+        RECIPE_DISPLAY_COLUMNS,
+        GEL_SYSTEMS,
+        ACRYLAMIDE_STOCK_PRESETS,
+        GEL_FORMAT_PRESETS,
+        calculate_sds_gel_recipe,
+        format_gel_recipe_text,
+        recommend_gel_recipe_params,
+    )
+    from modules.protein_3d import (
+        SCHEMATIC_3D_DISCLAIMER,
+        normalize_uniprot_accession,
+        fetch_3d_structure_for_uniprot,
+        parse_uploaded_structure_file,
+        build_3dmol_viewer_html,
+        build_3d_biophysical_backbone_figure,
     )
 except ImportError:
     # Handle Streamlit Cloud hot-reloading when container has stale in-memory cached modules in sys.modules
@@ -141,6 +163,23 @@ except ImportError:
         predict_secondary_structure,
         generate_secondary_structure_figure,
         format_ss_sequence_blocks,
+    )
+    from modules.gel_recipe import (
+        RECIPE_DISPLAY_COLUMNS,
+        GEL_SYSTEMS,
+        ACRYLAMIDE_STOCK_PRESETS,
+        GEL_FORMAT_PRESETS,
+        calculate_sds_gel_recipe,
+        format_gel_recipe_text,
+        recommend_gel_recipe_params,
+    )
+    from modules.protein_3d import (
+        SCHEMATIC_3D_DISCLAIMER,
+        normalize_uniprot_accession,
+        fetch_3d_structure_for_uniprot,
+        parse_uploaded_structure_file,
+        build_3dmol_viewer_html,
+        build_3d_biophysical_backbone_figure,
     )
 
 # Page configuration
@@ -1408,6 +1447,77 @@ st.markdown("""
         color: #FFFFFF !important;
     }
 
+    /* Interactive 3D Viewer & Pop-Out Dialogs (Botanical-Editorial Theme) */
+    .viewer3d-meta-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 7px;
+        background: var(--bg-surface);
+        border: 1px solid var(--border-soft);
+        border-radius: 11px;
+        padding: 10px 14px;
+        margin: 8px 0 10px 0;
+        box-shadow: 0 1px 4px rgba(11, 34, 28, 0.04);
+    }
+    .viewer3d-disclaimer {
+        background: var(--amber-tint);
+        border: 1px solid var(--amber-border);
+        border-left: 4px solid var(--amber-accent);
+        border-radius: 10px;
+        padding: 9px 13px;
+        margin-top: 8px;
+        font-size: var(--fs-label);
+        color: var(--amber-deep);
+        line-height: 1.48;
+    }
+    .gel-dialog-summary {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        background: var(--teal-tint);
+        border: 1px solid var(--teal-border);
+        border-radius: 11px;
+        padding: 10px 14px;
+        margin: 8px 0 12px 0;
+    }
+    .gel-dialog-buffer-box {
+        background: var(--bg-surface);
+        border: 1px solid var(--border-soft);
+        border-left: 4px solid var(--teal-primary);
+        border-radius: 10px;
+        padding: 12px 15px;
+        margin: 8px 0 12px 0;
+        font-size: var(--fs-body);
+        color: var(--ink-body);
+        line-height: 1.55;
+    }
+    .gel-dialog-buffer-title {
+        font-size: var(--fs-h3);
+        font-weight: 700;
+        color: var(--ink-heading);
+        margin-bottom: 5px;
+    }
+    .feedback-diag-box {
+        background: var(--bg-subtle);
+        border: 1px solid var(--border-soft);
+        border-radius: 10px;
+        padding: 10px 14px;
+        margin: 6px 0 10px 0;
+        font-size: var(--fs-label);
+        color: var(--ink-body);
+        line-height: 1.55;
+    }
+    .feedback-diag-title {
+        font-size: var(--fs-micro);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--teal-deep);
+        margin-bottom: 4px;
+    }
+
     /* Minimize Streamlit chrome & viewer-badge branding inside the app viewport */
     #MainMenu,
     footer,
@@ -1442,6 +1552,8 @@ if "custom_buffer_rows" not in st.session_state:
     st.session_state.active_recipe_key = "his_lysis"
 if "buffer_editor_ver" not in st.session_state:
     st.session_state.buffer_editor_ver = 0
+if "structure_3d_cache" not in st.session_state:
+    st.session_state.structure_3d_cache = {}
 
 
 def _md_inline_to_html(text: str) -> str:
@@ -1484,6 +1596,503 @@ def _apply_classroom_preset():
         },
         construct_parts=p["construct_parts"]
     )
+
+
+def _get_feedback_webhook_url() -> str:
+    """Safely resolves optional FEEDBACK_WEBHOOK_URL from st.secrets or env var."""
+    webhook = ""
+    try:
+        webhook = str(st.secrets.get("FEEDBACK_WEBHOOK_URL", "") or "").strip()
+    except Exception:
+        webhook = ""
+    if not webhook:
+        webhook = str(os.environ.get("PROPURIFY_FEEDBACK_WEBHOOK", "") or "").strip()
+    if webhook and webhook.lower().startswith(("http://", "https://")):
+        return webhook
+    return ""
+
+
+@st.dialog("🧪 SDS-PAGE Gel Casting Calculator", width="large")
+def _open_gel_recipe_dialog(default_gel_pct: float, target_mw_kda: float, protein_name: str) -> None:
+    """Pop-out handcast SDS-PAGE gel recipe calculator (Laemmli & Schägger Tricine)."""
+    rec_params = recommend_gel_recipe_params(float(target_mw_kda))
+    is_low_mw = float(target_mw_kda) < 10.0
+
+    st.caption(
+        f"Active protein: **{protein_name}** (`{target_mw_kda:.2f} kDa`) — "
+        "exact conserved pipetting volumes in **mL** and **µL** with bench safety & running buffer recipes."
+    )
+
+    if is_low_mw:
+        st.info(
+            f"🧬 **Auto-Selected Tricine-SDS-PAGE for <10 kDa Peptide ({target_mw_kda:.2f} kDa):** "
+            f"{rec_params['rationale']} You can freely switch back to Tris-Glycine (Laemmli) below."
+        )
+
+    sys_keys = ["laemmli", "tricine"]
+    sys_labels = {
+        "laemmli": "Tris-Glycine (Laemmli 1970)",
+        "tricine": "Tricine-SDS-PAGE (Schägger 2006 — <10–30 kDa)",
+    }
+    gc_r1c1, gc_r1c2 = st.columns([1.25, 1.0])
+    with gc_r1c1:
+        gel_sys = st.radio(
+            "Gel Buffer System:",
+            options=sys_keys,
+            format_func=lambda k: sys_labels[k],
+            index=1 if is_low_mw else 0,
+            horizontal=True,
+            key="gel_calc_system_radio",
+        )
+    with gc_r1c2:
+        sys_spec = GEL_SYSTEMS[gel_sys]
+        min_pct = float(sys_spec["min_gel_pct"])
+        max_pct = float(sys_spec["max_gel_pct"])
+        init_pct = round(max(min_pct, min(max_pct, float(default_gel_pct))) * 2.0) / 2.0
+        calc_gel_pct = st.slider(
+            f"Resolving Gel %T ({min_pct:g}%–{max_pct:g}%):",
+            min_value=min_pct,
+            max_value=max_pct,
+            value=init_pct,
+            step=0.5,
+            key=f"gel_calc_pct_{gel_sys}",
+        )
+
+    stock_options = [30.0, 40.0, 49.5]
+    stock_labels = {
+        30.0: "30% (37.5:1) — Standard Laemmli",
+        40.0: "40% (29:1) — High-% / Tricine",
+        49.5: "49.5% T (3% C) — Schägger Tricine AB-3",
+    }
+    default_stock_idx = 0
+    if gel_sys == "tricine":
+        default_stock_idx = 1 if calc_gel_pct <= 18.0 else 2
+    elif calc_gel_pct >= 21.5:
+        default_stock_idx = 1
+
+    format_keys = list(GEL_FORMAT_PRESETS.keys())
+    format_labels = {
+        "mini_0.75mm": "0.75 mm Mini-Gel (5.0 / 2.0 mL)",
+        "mini_1.0mm": "1.0 mm Mini-Gel — Standard (7.5 / 2.5 mL)",
+        "mini_1.5mm": "1.5 mm Mini-Gel — High-Load (10.0 / 3.5 mL)",
+        "midi_1.0mm": "1.0 mm Midi-Gel (15.0 / 5.0 mL)",
+        "custom": "Custom Cassette Volume (mL)",
+    }
+
+    gc_r2c1, gc_r2c2, gc_r2c3, gc_r2c4 = st.columns([1.3, 1.3, 0.75, 0.85])
+    with gc_r2c1:
+        stock_pct = st.selectbox(
+            "Acrylamide/Bis Stock:",
+            options=stock_options,
+            format_func=lambda v: stock_labels[v],
+            index=default_stock_idx,
+            key=f"gel_calc_stock_{gel_sys}",
+        )
+    with gc_r2c2:
+        fmt_key = st.selectbox(
+            "Gel Format:",
+            options=format_keys,
+            format_func=lambda k: format_labels.get(k, GEL_FORMAT_PRESETS[k]["label"]),
+            index=1,
+            key="gel_calc_format_select",
+        )
+    with gc_r2c3:
+        num_gels = st.slider(
+            "Number of Gels:",
+            min_value=1,
+            max_value=4,
+            value=1,
+            step=1,
+            key="gel_calc_num_gels",
+        )
+    with gc_r2c4:
+        stacking_pct = st.selectbox(
+            "Stacking %T:",
+            options=[4.0, 5.0],
+            format_func=lambda v: f"{int(v)}% Stacking",
+            index=0,
+            key="gel_calc_stacking_pct",
+        )
+
+    fmt_preset = GEL_FORMAT_PRESETS[fmt_key]
+    res_vol_per_gel = float(fmt_preset["resolving_vol_ml"])
+    stk_vol_per_gel = float(fmt_preset["stacking_vol_ml"])
+    if fmt_key == "custom":
+        cc1, cc2 = st.columns(2)
+        with cc1:
+            res_vol_per_gel = st.number_input(
+                "Resolving Volume per Gel (mL):",
+                min_value=2.0,
+                max_value=100.0,
+                value=7.5,
+                step=0.5,
+                key="gel_calc_custom_res_ml",
+            )
+        with cc2:
+            stk_vol_per_gel = st.number_input(
+                "Stacking Volume per Gel (mL):",
+                min_value=1.0,
+                max_value=40.0,
+                value=2.5,
+                step=0.5,
+                key="gel_calc_custom_stk_ml",
+            )
+
+    include_glycerol = None
+    if gel_sys == "tricine":
+        include_glycerol = st.checkbox(
+            "Include 10% (v/v) Glycerol in Resolving Gel (recommended for ≥16% T Tricine)",
+            value=(calc_gel_pct >= 16.0),
+            key="gel_calc_tricine_glycerol",
+        )
+
+    try:
+        recipe = calculate_sds_gel_recipe(
+            gel_pct=calc_gel_pct,
+            system=gel_sys,
+            acrylamide_stock_pct=stock_pct,
+            resolving_vol_ml=res_vol_per_gel,
+            stacking_vol_ml=stk_vol_per_gel,
+            stacking_pct=stacking_pct,
+            num_gels=int(num_gels),
+            target_mw_kda=float(target_mw_kda),
+            include_glycerol=include_glycerol,
+            auto_upgrade_stock=True,
+        )
+    except ValueError as err:
+        st.error(str(err))
+        return
+
+    low_mw, high_mw = recipe["linear_range_kda"]
+    gel_unit = "gel" if int(num_gels) == 1 else "gels"
+    glyc_tag = (
+        f'<span class="meta-pill meta-pill-amber">+{recipe["glycerol_pct"]:g}% Glycerol</span>'
+        if recipe.get("include_glycerol")
+        else ""
+    )
+    summary_html = (
+        '<div class="gel-dialog-summary">'
+        f'<span class="meta-pill meta-pill-teal">{html.escape(recipe["system_short_name"])}</span>'
+        f'<span class="meta-pill meta-pill-indigo">{recipe["gel_pct"]:g}% Resolving / {recipe["stacking_pct"]:g}% Stacking</span>'
+        f'<span class="meta-pill meta-pill-neutral">Linear Range: ~{low_mw:g}–{high_mw:g} kDa</span>'
+        f'<span class="meta-pill meta-pill-neutral">Scale: {int(num_gels)} {gel_unit} '
+        f'({recipe["resolving_total_vol_ml"]:g} + {recipe["stacking_total_vol_ml"]:g} mL)</span>'
+        f"{glyc_tag}"
+        "</div>"
+    )
+    st.markdown(summary_html, unsafe_allow_html=True)
+
+    for w_msg in recipe.get("warnings") or []:
+        st.warning(w_msg)
+
+    st.markdown(
+        f"##### 1. Resolving Gel — `{recipe['gel_pct']:g}% T` "
+        f"(Total: **{recipe['resolving_total_vol_ml']:g} mL** for {int(num_gels)} {gel_unit})"
+    )
+    res_df = pd.DataFrame(recipe["resolving_rows"])[RECIPE_DISPLAY_COLUMNS]
+    st.dataframe(res_df, hide_index=True, width="stretch")
+
+    st.markdown(
+        f"##### 2. Stacking Gel — `{recipe['stacking_pct']:g}% T` "
+        f"(Total: **{recipe['stacking_total_vol_ml']:g} mL** for {int(num_gels)} {gel_unit})"
+    )
+    stk_df = pd.DataFrame(recipe["stacking_rows"])[RECIPE_DISPLAY_COLUMNS]
+    st.dataframe(stk_df, hide_index=True, width="stretch")
+
+    rb = recipe.get("running_buffer") or {}
+    if rb:
+        rb_extra = ""
+        if not rb.get("single_chamber", True):
+            rb_extra = (
+                f"<br><b>Anode (Lower Tank):</b> {html.escape(str(rb.get('anode_buffer', '')))}"
+                f"<br><b>Cathode (Upper Chamber):</b> {html.escape(str(rb.get('cathode_buffer', '')))}"
+            )
+        else:
+            rb_extra = f"<br><b>10× Stock Prep:</b> {html.escape(str(rb.get('stock_10x_per_1l', '')))}"
+        rb_html = (
+            '<div class="gel-dialog-buffer-box">'
+            f'<div class="gel-dialog-buffer-title">⚡ 3. {html.escape(str(rb.get("name", "1× Running Buffer")))}</div>'
+            f'<b>1× Composition:</b> {html.escape(str(rb.get("composition_1x", "")))}<br>'
+            f'<b>pH:</b> {html.escape(str(rb.get("ph", "")))}'
+            f"{rb_extra}"
+            f'<br><b>Run Conditions:</b> {html.escape(str(rb.get("run_conditions", "")))}'
+            f'<br><b>Note:</b> {html.escape(str(rb.get("notes", "")))}'
+            "</div>"
+        )
+        st.markdown(rb_html, unsafe_allow_html=True)
+
+    safety_notes = recipe.get("safety_notes") or []
+    bench_notes = recipe.get("bench_notes") or []
+    st.warning(
+        "**⚠️ Safety & Polymerization Reminder:** Unpolymerized acrylamide is a potent **neurotoxin** "
+        "(wear nitrile gloves, lab coat, and eye protection; handle stocks in a fume hood). "
+        "**Add 10% APS and TEMED LAST** immediately before gently inverting and pouring — polymerization begins within minutes!"
+    )
+    with st.expander("📋 Detailed Bench Casting Notes, Stock Prep & EHS Checklist", expanded=False):
+        if bench_notes:
+            st.markdown("**Bench Casting Protocol:**")
+            for idx_bn, note in enumerate(bench_notes, start=1):
+                st.markdown(f"{idx_bn}. {note}")
+        if safety_notes:
+            st.markdown("**EHS Safety Notes:**")
+            for s_note in safety_notes:
+                st.markdown(f"- {s_note}")
+        stock_guide = recipe.get("stock_prep_guide") or {}
+        if stock_guide:
+            st.markdown("**Stock Solution Preparation Quick Reference:**")
+            for s_title, s_desc in stock_guide.items():
+                st.markdown(f"- **{s_title}:** {s_desc}")
+
+    recipe_txt = format_gel_recipe_text(recipe)
+    safe_pct_tag = str(recipe["gel_pct"]).replace(".", "p")
+    st.download_button(
+        label="⬇️ Download Recipe Sheet (.txt)",
+        data=recipe_txt.encode("utf-8"),
+        file_name=f"sds_page_{gel_sys}_{safe_pct_tag}pct_{int(num_gels)}gel.txt",
+        mime="text/plain",
+        type="primary",
+        width="stretch",
+        key="btn_download_gel_recipe_txt",
+    )
+
+
+@st.dialog("💬 Report an Error or Suggestion", width="large")
+def _open_feedback_dialog(
+    protein_name: str,
+    uniprot_or_acc: str,
+    seq_len: int,
+    active_input_method: str,
+) -> None:
+    """Anonymous bug report & scientific feedback modal (zero personal data collected)."""
+    diag_metrics = analyze_all_parameters(st.session_state.active_sequence)
+    mw_val = round(float(diag_metrics["mw_kda"]), 2)
+    pi_val = round(float(diag_metrics["pi"]), 2)
+
+    st.caption(
+        "Help improve scientific accuracy and usability. Reports are completely anonymous — "
+        "no name, email, or personal identifiers are collected."
+    )
+
+    fb_category = st.selectbox(
+        "Category:",
+        [
+            "Biochemical / Cofactor Inaccuracy",
+            "Protein Search / Sequence Bug",
+            "SEC / SDS-PAGE / Gel Recipe",
+            "3D Viewer / UI Issue",
+            "AI-Designed Protein Discrepancy",
+            "Feature Request / Other",
+        ],
+        key="fb_category_select",
+    )
+
+    diag_html = (
+        '<div class="feedback-diag-box">'
+        '<div class="feedback-diag-title">Attached Anonymous Diagnostic Context (Read-Only)</div>'
+        f'<b>Active Protein:</b> {html.escape(str(protein_name))} &nbsp;|&nbsp; '
+        f'<b>Accession:</b> <code>{html.escape(str(uniprot_or_acc))}</code><br>'
+        f'<b>Length:</b> {int(seq_len):,} aa &nbsp;|&nbsp; '
+        f'<b>MW:</b> {mw_val:.2f} kDa &nbsp;|&nbsp; '
+        f'<b>pI:</b> {pi_val:.2f} &nbsp;|&nbsp; '
+        f'<b>Input Method:</b> {html.escape(str(active_input_method))}'
+        "</div>"
+    )
+    st.markdown(diag_html, unsafe_allow_html=True)
+
+    fb_description = st.text_area(
+        "What happened & what did you expect?",
+        height=120,
+        placeholder="Describe the discrepancy, unexpected calculation, or suggestion clearly...",
+        key="fb_description_input",
+    )
+    fb_reference = st.text_input(
+        "Expected reference / DOI / UniProt ID (optional):",
+        placeholder="e.g., UniProt P07374, PDB 2VB1, DOI 10.1038/...",
+        key="fb_reference_input",
+    )
+
+    if st.button("📨 Submit Anonymous Report", type="primary", width="stretch", key="fb_submit_btn"):
+        if not fb_description.strip():
+            st.warning("Please enter a brief description of what happened and what you expected before submitting.")
+        else:
+            submitted_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            report_payload = {
+                "schema_version": "1.0",
+                "submitted_utc": submitted_utc,
+                "category": fb_category,
+                "description": fb_description.strip(),
+                "reference": fb_reference.strip(),
+                "diagnostic_context": {
+                    "active_protein_name": str(protein_name),
+                    "uniprot_or_accession_id": str(uniprot_or_acc),
+                    "sequence_length_aa": int(seq_len),
+                    "mw_kda": mw_val,
+                    "pi": pi_val,
+                    "active_input_method": str(active_input_method),
+                },
+            }
+
+            delivery_notes = []
+            webhook_url = _get_feedback_webhook_url()
+            if webhook_url:
+                try:
+                    resp = requests.post(webhook_url, json=report_payload, timeout=6)
+                    if 200 <= resp.status_code < 300:
+                        delivery_notes.append("forwarded via configured webhook")
+                    else:
+                        delivery_notes.append("webhook returned non-2xx (saved locally / downloadable below)")
+                except Exception:
+                    delivery_notes.append("webhook unreachable (saved locally / downloadable below)")
+
+            fb_log_path = os.path.join(_APP_ROOT, "data", "user_feedback_reports.jsonl")
+            try:
+                os.makedirs(os.path.dirname(fb_log_path), exist_ok=True)
+                with open(fb_log_path, "a", encoding="utf-8") as fb_f:
+                    fb_f.write(json.dumps(report_payload, ensure_ascii=False) + "\n")
+                delivery_notes.append("recorded to local report log")
+            except OSError:
+                delivery_notes.append("read-only storage — use the download button below to export")
+
+            st.session_state["last_feedback_report"] = report_payload
+            st.session_state["last_feedback_delivery"] = "; ".join(delivery_notes)
+
+    last_rep = st.session_state.get("last_feedback_report")
+    last_ctx = last_rep.get("diagnostic_context") if isinstance(last_rep, dict) else None
+    if isinstance(last_rep, dict) and isinstance(last_ctx, dict) and last_ctx.get("active_protein_name") == str(protein_name):
+        st.success("✅ Anonymous report captured! Thank you for helping verify and improve the lab.")
+        deliv_str = st.session_state.get("last_feedback_delivery", "")
+        if deliv_str:
+            st.caption(f"Delivery status: {deliv_str}.")
+        rep_json_str = json.dumps(last_rep, indent=2, ensure_ascii=False)
+        st.download_button(
+            label="⬇️ Download Diagnostic Report (.json)",
+            data=rep_json_str.encode("utf-8"),
+            file_name=f"propurify_diagnostic_report_{last_rep.get('submitted_utc', 'report').replace(':', '-')}.json",
+            mime="application/json",
+            width="stretch",
+            key="fb_download_json_btn",
+        )
+        ctx = last_rep.get("diagnostic_context") or {}
+        copy_summary = (
+            f"Category: {last_rep.get('category', '')}\n"
+            f"UTC Time: {last_rep.get('submitted_utc', '')}\n"
+            f"Protein: {ctx.get('active_protein_name', '')} ({ctx.get('uniprot_or_accession_id', 'None')})\n"
+            f"Metrics: {ctx.get('sequence_length_aa', 0)} aa | {ctx.get('mw_kda', 0)} kDa | pI {ctx.get('pi', 0)} | Input: {ctx.get('active_input_method', '')}\n"
+            f"Details: {last_rep.get('description', '')}\n"
+            + (f"Reference: {last_rep.get('reference', '')}\n" if last_rep.get("reference") else "")
+        )
+        with st.expander("📋 Copyable Diagnostic Summary", expanded=True):
+            st.code(copy_summary, language="text")
+
+
+def _render_3dmol_metadata_and_viewer(struct_dict: dict, key_prefix: str) -> None:
+    """Renders interactive WebGL 3Dmol.js controls, structural metadata bar, and embedded viewer."""
+    style_labels = {
+        "cartoon": "Cartoon Ribbon",
+        "surface": "Molecular Surface",
+        "stick": "Atomic Sticks",
+        "sphere": "Space-Fill Spheres",
+    }
+    color_labels = {
+        "ss": "Secondary Structure",
+        "plddt": "pLDDT Confidence",
+        "spectrum": "N→C Rainbow Spectrum",
+        "hydrophobicity": "Hydrophobicity (Kyte–Doolittle)",
+        "charge": "Side-Chain Charge",
+    }
+    has_plddt = bool(struct_dict.get("is_alphafold") or struct_dict.get("looks_like_plddt"))
+    color_opts = ["ss", "plddt", "spectrum", "hydrophobicity", "charge"]
+
+    vc1, vc2, vc3, vc4 = st.columns([1.15, 1.35, 0.75, 1.05])
+    with vc1:
+        v3d_style = st.selectbox(
+            "3D Representation:",
+            options=["cartoon", "surface", "stick", "sphere"],
+            format_func=lambda s: style_labels[s],
+            index=0,
+            key=f"{key_prefix}_style",
+        )
+    with vc2:
+        v3d_color = st.selectbox(
+            "Color Scheme:",
+            options=color_opts,
+            format_func=lambda c: color_labels[c],
+            index=1 if has_plddt else 0,
+            key=f"{key_prefix}_color",
+        )
+    with vc3:
+        v3d_spin = st.checkbox("Auto-Spin", value=False, key=f"{key_prefix}_spin")
+    with vc4:
+        v3d_hetatms = st.checkbox("Show Metals / Cofactors", value=True, key=f"{key_prefix}_hetatms")
+
+    # Build crisp metadata pill bar (strictly zero inline font-size & zero 4-space HTML indent)
+    pills = []
+    src_label = str(struct_dict.get("source") or "3D Structure")
+    entry_label = str(struct_dict.get("pdb_id") or struct_dict.get("entry_id") or "")
+    id_badge = f"{src_label} • {entry_label}" if entry_label else src_label
+    pills.append(f'<span class="meta-pill meta-pill-teal">{html.escape(id_badge)}</span>')
+
+    res_ang = struct_dict.get("resolution_angstrom")
+    mean_plddt = struct_dict.get("mean_plddt")
+    if res_ang is not None:
+        method_str = str(struct_dict.get("experimental_method") or "").strip()
+        res_txt = f"Resolution: {float(res_ang):.2f} Å" + (f" ({method_str})" if method_str else "")
+        pills.append(f'<span class="meta-pill meta-pill-indigo">{html.escape(res_txt)}</span>')
+    elif mean_plddt is not None:
+        plddt_val = float(mean_plddt)
+        plddt_cls = (
+            "meta-pill-teal" if plddt_val >= 80.0 else ("meta-pill-amber" if plddt_val >= 60.0 else "meta-pill-crimson")
+        )
+        pills.append(f'<span class="meta-pill {plddt_cls}">Mean pLDDT: {plddt_val:.1f} / 100</span>')
+
+    chains = list(struct_dict.get("chains") or [])
+    chain_cnt = int(struct_dict.get("chain_count") or len(chains))
+    res_cnt = int(struct_dict.get("residue_count") or 0)
+    atom_cnt = int(struct_dict.get("atom_count") or 0)
+    chain_preview = f" ({', '.join(chains[:4])}{'…' if len(chains) > 4 else ''})" if chains else ""
+    pills.append(
+        f'<span class="meta-pill meta-pill-neutral">'
+        f"{chain_cnt} chain{'s' if chain_cnt != 1 else ''}{html.escape(chain_preview)} • "
+        f"{res_cnt:,} res • {atom_cnt:,} atoms</span>"
+    )
+
+    metals = list(struct_dict.get("metal_ions") or [])
+    if metals:
+        pills.append(f'<span class="meta-pill meta-pill-amber">⚡ Metals: {html.escape(", ".join(metals[:8]))}</span>')
+
+    cofactors = list(struct_dict.get("cofactors") or [])
+    if cofactors:
+        pills.append(f'<span class="meta-pill meta-pill-indigo">🧪 Cofactors: {html.escape(", ".join(cofactors[:8]))}</span>')
+
+    ss_bonds = int(struct_dict.get("disulfide_bonds") or 0)
+    if ss_bonds > 0:
+        pills.append(f'<span class="meta-pill meta-pill-neutral">🔗 {ss_bonds} S–S bond{"s" if ss_bonds != 1 else ""}</span>')
+
+    st.markdown('<div class="viewer3d-meta-bar">' + "".join(pills) + "</div>", unsafe_allow_html=True)
+
+    entry_url = str(struct_dict.get("entry_url") or "").strip()
+    title_str = str(struct_dict.get("title") or "").strip()
+    if title_str or entry_url:
+        cap_parts = []
+        if title_str:
+            cap_parts.append(f"**{title_str}**")
+        if entry_url:
+            cap_parts.append(f"[View source record]({entry_url})")
+        st.caption("  •  ".join(cap_parts))
+
+    viewer_html = build_3dmol_viewer_html(
+        structure_text=struct_dict["data"],
+        fmt=str(struct_dict.get("format") or "pdb"),
+        style=v3d_style,
+        color_scheme=v3d_color,
+        spin=bool(v3d_spin),
+        show_hetatms=bool(v3d_hetatms),
+        height_px=440,
+    )
+    if hasattr(st, "iframe"):
+        st.iframe(viewer_html, width="stretch", height=470)
+    else:
+        components.html(viewer_html, height=470, scrolling=False)
 
 
 # --- HERO HEADER ---
@@ -1702,6 +2311,23 @@ with st.sidebar:
         key="classroom_preset_select",
         on_change=_apply_classroom_preset
     )
+    st.markdown("---")
+    if st.button(
+        "💬 Report Error / Feedback",
+        key="btn_open_feedback_dialog",
+        width="stretch",
+        help="Submit an anonymous error report, biochemical correction, or feature suggestion.",
+    ):
+        _open_feedback_dialog(
+            protein_name=st.session_state.sequence_name,
+            uniprot_or_acc=str(
+                st.session_state.sequence_metadata.get("uniprot_id")
+                or st.session_state.sequence_metadata.get("accession")
+                or "None"
+            ),
+            seq_len=len(st.session_state.active_sequence),
+            active_input_method=input_method,
+        )
     st.caption(
         "Educational simulator & workflow planner — treat outputs as starting hypotheses and verify against experimental data & resin manuals."
     )
@@ -2823,7 +3449,7 @@ with tab_sec:
     # Assemble Simulated Species
     target_states = []
     monomer_mw = metrics["mw_kda"]
-    prot_eps01 = max(0.2, float(ext["abs_01_reduced"]))
+    prot_eps01 = float(ext["abs_01_cystines"])
 
     if partner_mode != "None (Protein Alone)" and partner_mw_kda > 0:
         tot_prot_mw = monomer_mw * stoich_target + (partner_mw_kda * stoich_partner if partner_na_type is None else 0.0)
@@ -2974,6 +3600,14 @@ with tab_sec:
             "from UV light scattering! (Note: On reducing SDS-PAGE below, non-covalent aggregates still unfold back into single monomer chains.)"
         )
 
+    if any(p.get("uv280_invisible") for p in anal_sim["peaks"]):
+        st.warning(
+            "⚠️ **UV-280 Blind Sequence (`ε280 = 0`, zero Trp/Tyr/disulfides):** "
+            "Common in peptides and AI-designed scaffolds (ProteinMPNN / RFdiffusion). "
+            "The SEC chromatogram below displays the **theoretical elution profile**, but this protein is **invisible at 280 nm on an ÄKTA FPLC** — "
+            "monitor peptide-bond absorbance at **214 nm or 205 nm** (in low-UV buffer) or add a single C-terminal **Trp (`W`)** or **Tyr (`Y`)**!"
+        )
+
     def render_elution_strip(target_label, target_mw, target_ve, col_config):
         markers = get_column_marker_elutions(col_config)
         dec = 2 if col_config["bed_volume_vt_ml"] < 5.0 else 1
@@ -3057,6 +3691,18 @@ with tab_sec:
             step=0.5,
             help="Use 16–20% Tricine or Bis-Tris/MES for peptides (<10 kDa); 15% for 10–20 kDa; 12% for 20–100 kDa; 6–8% for >100 kDa."
         )
+        if st.button(
+            "🧪 Gel Recipe Calculator (Pop-Out)",
+            key="btn_open_gel_recipe_dialog",
+            type="primary",
+            width="stretch",
+            help="Open a pop-out handcast gel recipe calculator with exact mL / µL pipetting volumes, Laemmli & Tricine systems, running buffers, and printable .txt recipe sheet.",
+        ):
+            _open_gel_recipe_dialog(
+                default_gel_pct=float(active_gel_pct),
+                target_mw_kda=float(metrics["mw_kda"]),
+                protein_name=st.session_state.sequence_name,
+            )
         stain_type = st.radio(
             "Gel Staining Dye:",
             ["Coomassie Blue (Standard Lab Dye)", "Silver Stain (50–100× More Sensitive)"],
@@ -3712,13 +4358,153 @@ with tab_buffers:
 # TAB 4: AMINO ACIDS, STRUCTURE & SOLUBILITY
 # =====================================================================
 with tab_details:
+    ss_res = get_cached_secondary_structure(current_seq)
+
+    # --- INTERACTIVE 3D PROTEIN STRUCTURE & BIOPHYSICAL VIEWER ---
+    st.markdown("### 🧊 Interactive 3D Protein Viewer")
+    st.caption(
+        "Inspect an instant 100% offline 3D fold schematic, fetch atomic coordinates on demand from **AlphaFold DB / RCSB PDB**, "
+        "or upload your own experimental / AI-designed **`.pdb` / `.cif`** model (AlphaFold3, Boltz, RFdiffusion, ProteinMPNN, ESMFold)."
+    )
+
+    viewer_3d_mode = st.radio(
+        "3D Structure Source:",
+        [
+            "🧬 Instant 3D Fold Schematic (Offline)",
+            "🌐 Live AlphaFold / PDB 3D",
+            "📂 Upload AI / Custom .pdb / .cif",
+        ],
+        index=0,
+        horizontal=True,
+        key="viewer_3d_mode_radio",
+    )
+
+    if viewer_3d_mode == "🧬 Instant 3D Fold Schematic (Offline)":
+        offline_color_labels = {
+            "ss": "Secondary Structure (α-Helix / β-Strand / Coil)",
+            "hydrophobicity": "Hydrophobicity (Kyte–Doolittle)",
+            "charge": "Side-Chain Charge (+K/R, +H, −D/E)",
+        }
+        offline_3d_color = st.radio(
+            "Color 3D Backbone By:",
+            options=["ss", "hydrophobicity", "charge"],
+            format_func=lambda k: offline_color_labels[k],
+            index=0,
+            horizontal=True,
+            key="viewer_3d_offline_color",
+        )
+        fig_3d_offline = build_3d_biophysical_backbone_figure(
+            sequence=current_seq,
+            ss_res=ss_res,
+            metrics=metrics,
+            color_by=offline_3d_color,
+            protein_name=st.session_state.sequence_name,
+            height_px=480,
+        )
+        st.plotly_chart(fig_3d_offline, width="stretch")
+        st.markdown(
+            f'<div class="viewer3d-disclaimer"><b>ℹ️ Schematic 3D Note:</b> {html.escape(SCHEMATIC_3D_DISCLAIMER)}</div>',
+            unsafe_allow_html=True,
+        )
+
+    elif viewer_3d_mode == "🌐 Live AlphaFold / PDB 3D":
+        raw_uid_3d = str(seq_meta.get("uniprot_id") or "").strip()
+        norm_uid_3d = normalize_uniprot_accession(raw_uid_3d) if raw_uid_3d else ""
+        if not norm_uid_3d:
+            raw_acc_3d = str(seq_meta.get("accession") or "").strip()
+            norm_uid_3d = normalize_uniprot_accession(raw_acc_3d) if raw_acc_3d else ""
+
+        if not norm_uid_3d:
+            st.info(
+                "🧬 **No UniProt Accession Linked to This Sequence:** Custom pasted sequences, translated ORFs, "
+                "or de novo AI-designed proteins do not have a deposited UniProt entry.\n\n"
+                "- Switch to **📂 Upload AI / Custom .pdb / .cif** above to inspect your AlphaFold3, Boltz, RFdiffusion, "
+                "or ESMFold model interactively in WebGL.\n"
+                "- Or switch to **🧬 Instant 3D Fold Schematic (Offline)** for an immediate sequence-derived 3D view!"
+            )
+        else:
+            src_pref_labels = {
+                "alphafold": "AlphaFold DB (Predicted Full-Length + pLDDT)",
+                "rcsb": "Experimental RCSB PDB (Holo Cofactors & Metals)",
+            }
+            live_c1, live_c2 = st.columns([1.65, 1.0])
+            with live_c1:
+                prefer_3d_source = st.radio(
+                    f"Preferred 3D Database for UniProt `{norm_uid_3d}`:",
+                    options=["alphafold", "rcsb"],
+                    format_func=lambda s: src_pref_labels[s],
+                    index=0,
+                    horizontal=True,
+                    key="viewer_3d_live_source_pref",
+                )
+            with live_c2:
+                fetch_3d_clicked = st.button(
+                    "🧊 Fetch 3D Structure from AlphaFold / PDB",
+                    key="btn_fetch_3d_structure",
+                    type="primary",
+                    width="stretch",
+                )
+
+            cache_key_3d = (norm_uid_3d, prefer_3d_source)
+            if fetch_3d_clicked:
+                with st.spinner(f"Fetching atomic 3D structure for UniProt {norm_uid_3d}..."):
+                    fetched_3d = fetch_3d_structure_for_uniprot(
+                        norm_uid_3d,
+                        timeout=10.0,
+                        prefer_source=prefer_3d_source,
+                    )
+                st.session_state.structure_3d_cache[cache_key_3d] = fetched_3d
+                if fetched_3d is None:
+                    st.warning(
+                        f"Could not retrieve a 3D structure (≤ 4 MB) for UniProt **{norm_uid_3d}** right now "
+                        "(entry may lack a deposited structure, exceed the 4 MB WebGL cap, or network access may be offline). "
+                        "Try uploading a local `.pdb` / `.cif` file or exploring the **Instant 3D Fold Schematic (Offline)**."
+                    )
+
+            cached_3d = st.session_state.structure_3d_cache.get(cache_key_3d)
+            if isinstance(cached_3d, dict) and cached_3d.get("data"):
+                _render_3dmol_metadata_and_viewer(
+                    cached_3d,
+                    key_prefix=f"live3d_{norm_uid_3d}_{prefer_3d_source}",
+                )
+            elif cache_key_3d not in st.session_state.structure_3d_cache:
+                st.caption(
+                    f"Click **🧊 Fetch 3D Structure from AlphaFold / PDB** above to load interactive atomic coordinates "
+                    f"for **{st.session_state.sequence_name}** (`UniProt {norm_uid_3d}`) on demand."
+                )
+
+    else:
+        st.caption(
+            "Drop any experimental or AI-designed 3D model (AlphaFold3, ColabFold, Boltz, RFdiffusion, ProteinMPNN, ESMFold) "
+            "— supports `.pdb`, `.cif`, `.mmcif`, `.ent`, and `.gz` compressed files up to 10 MB."
+        )
+        uploaded_3d_file = st.file_uploader(
+            "Upload Custom / AI-Designed 3D Structure (.pdb / .cif / .mmcif / .ent / .gz):",
+            type=["pdb", "cif", "mmcif", "ent", "gz"],
+            key="upload_3d_structure_file",
+        )
+        if uploaded_3d_file is not None:
+            parsed_up_3d = parse_uploaded_structure_file(
+                uploaded_3d_file.getvalue(),
+                uploaded_3d_file.name,
+            )
+            if not parsed_up_3d.get("valid"):
+                st.error(parsed_up_3d.get("error") or "Could not parse the uploaded structure file.")
+            else:
+                for up_warn in parsed_up_3d.get("warnings") or []:
+                    st.warning(up_warn)
+                upload_view_dict = dict(parsed_up_3d)
+                upload_view_dict["source"] = f"Uploaded {str(parsed_up_3d.get('format', 'pdb')).upper()}"
+                upload_view_dict["entry_id"] = uploaded_3d_file.name
+                _render_3dmol_metadata_and_viewer(upload_view_dict, key_prefix="upload3d")
+
+    st.markdown("---")
     st.markdown("### 🧭 Predicted Secondary Structure & Topology Diagram")
     st.caption(
         "Before folding into its final 3D shape, a protein chain forms local hydrogen-bonded patterns: "
         "coiled **α-helices (`H`)**, extended **β-strands (`E`)**, and flexible **coils / loops / turns (`C`)**."
     )
 
-    ss_res = get_cached_secondary_structure(current_seq)
     ss_bench_meta = load_ss_benchmark_bundle()
     ss_xref_meta = load_ss_crossref_bundle()
 
