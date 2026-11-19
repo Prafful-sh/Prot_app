@@ -1680,6 +1680,187 @@ def test_interactive_sec_column_visualizer_and_intuitive_plots(root_dir: str) ->
     assert len(re.findall(r"font-size\s*:", non_style_md_sec, flags=re.IGNORECASE)) == 0
 
 
+def test_biochemical_protein_intelligence_and_metalloprotein_safety(root_dir: str) -> None:
+    print("\n=== 12. Testing Biochemical Protein Intelligence, Metalloprotein/Cofactor Guards & Wise Strategy Routing ===")
+    from unittest.mock import patch
+    import requests as _requests
+    from streamlit.testing.v1 import AppTest
+    from modules.sequence_parser import detect_sequence_terminal_tag
+    from modules.buffer_advisor import (
+        infer_protein_biochemical_profile,
+        audit_buffer_compatibility_for_protein,
+    )
+
+    # 1. Exact user scenario: "Urease with 6x His tag" (both online-eligible & forced offline)
+    with patch("modules.sequence_parser.requests.get", side_effect=_requests.ConnectionError("Simulated offline")):
+        nl_urease = parse_natural_language_prompt("Urease with 6x His tag")
+    assert nl_urease["uniprot_id"] == "P07374"
+    assert nl_urease["tag_detected"] == "6xHis"
+    ure_seq = nl_urease["full_construct_sequence"]
+    ure_metrics = analyze_all_parameters(ure_seq)
+    ure_q74 = calculate_net_charge_at_ph(ure_seq, 7.4)
+
+    ure_prof = infer_protein_biochemical_profile(
+        sequence=ure_seq,
+        protein_name=nl_urease["identified_protein"],
+        metadata={
+            "uniprot_id": nl_urease["uniprot_id"],
+            "biochem_annotations": nl_urease.get("biochem_annotations", {}),
+            "tag": "6xHis",
+        },
+        metrics=ure_metrics,
+        tag_detected="6xHis",
+        construct_parts=nl_urease["construct_parts"],
+    )
+    assert "ni_metalloenzyme" in ure_prof["categories"]
+    assert ure_prof["is_metalloprotein"] is True
+    assert ure_prof["avoid_imidazole_imac"] is True
+    assert ure_prof["is_chelator_sensitive"] is True
+    assert ure_prof["tag_conflict"] is not None and ure_prof["tag_conflict"]["severity"] == "critical"
+    assert "Imidazole" in ure_prof["tag_conflict"]["explanation"] and "Ni²⁺" in ure_prof["tag_conflict"]["explanation"]
+
+    wf_urease_his = recommend_full_purification_workflow(
+        ure_metrics, 7.4, ure_q74, tag_detected="6xHis",
+        sequence=ure_seq, protein_name="Urease", protein_profile=ure_prof,
+    )
+    assert "Bypass Ni-NTA" in wf_urease_his["roadmap"][0]["title"]
+    assert "Affinity Capture: Ni-NTA" not in wf_urease_his["roadmap"][0]["title"]
+    assert "Avoid Ni-NTA" in wf_urease_his["all_methods"][0]["Suitability"]
+    assert "IMAC eluate" not in wf_urease_his["roadmap"][1]["detail"]
+    assert any("Nickel Metalloenzyme Protection" in a and "EDTA" in a for a in wf_urease_his["alerts"])
+
+    # Verify Strep-tag & MBP-tag on Urease automatically switch to 0 mM EDTA (EDTA-FREE!)
+    for safe_tag in ("Twin-Strep-tag", "MBP"):
+        wf_ure_safe = recommend_full_purification_workflow(
+            ure_metrics, 7.4, ure_q74, tag_detected=safe_tag,
+            sequence=nl_urease["canonical_sequence"], protein_name="Urease",
+            metadata={"uniprot_id": "P07374"},
+        )
+        assert wf_ure_safe["tag_conflict"] is None
+        assert "0 mM EDTA (EDTA-FREE" in wf_ure_safe["roadmap"][0]["detail"]
+        assert "1 mM EDTA" not in wf_ure_safe["roadmap"][0]["detail"]
+
+    # Verify raw unnamed Urease FASTA with terminal His-tag is STILL caught purely from sequence + active-site motif!
+    raw_mystery_urease = "MHHHHHH" + nl_urease["canonical_sequence"]
+    det_tag = detect_sequence_terminal_tag(raw_mystery_urease)
+    assert det_tag["tag_detected"] == "6xHis" and det_tag["core_sequence"] == nl_urease["canonical_sequence"]
+    mystery_prof = infer_protein_biochemical_profile(
+        sequence=raw_mystery_urease, protein_name="Unnamed_Sample_1", metrics=analyze_all_parameters(raw_mystery_urease)
+    )
+    assert "ni_metalloenzyme" in mystery_prof["categories"] and mystery_prof["tag_conflict"] is not None
+
+    # 2. Broad Metalloprotein & Cofactor Matrix (Zn, Fe-S, Cu/Mn, Heme, Ca2+, Membrane, PLP, Proteases, Non-Metalloprotein Controls)
+    # (a) Zn2+ Carbonic Anhydrase II (P00918) + 6xHis -> Mismetallation & Imidazole block + Citrate warning
+    ca2_seq = "MHHHHHH" + CLASSROOM_PRESET_PROTEINS["carbonic_anhydrase"]["sequence"]
+    ca2_m = analyze_all_parameters(ca2_seq)
+    wf_ca2_his = recommend_full_purification_workflow(
+        ca2_m, 6.0, calculate_net_charge_at_ph(ca2_seq, 6.0),
+        tag_detected="6xHis", sequence=ca2_seq, protein_name="Carbonic Anhydrase 2",
+        metadata={"uniprot_id": "P00918"},
+    )
+    assert wf_ca2_his["tag_conflict"] is not None and wf_ca2_his["tag_conflict"]["severity"] == "critical"
+    assert "Bypass Ni-NTA" in wf_ca2_his["roadmap"][0]["title"]
+    citrate_notes = [b["notes"] for b in wf_ca2_his["iex"]["recommended_buffers"] if "Citrate" in b["name"]]
+    assert citrate_notes and "AVOID" in citrate_notes[0]
+
+    # (b) [Fe-S] O2-sensitive Ferredoxin + 6xHis -> Anaerobic < 2 ppm O2 + IMAC block
+    fd_prof = infer_protein_biochemical_profile(protein_name="Spinach ferredoxin", tag_detected="6xHis")
+    assert "fe_s_cluster" in fd_prof["categories"] and fd_prof["is_o2_sensitive"] is True and fd_prof["avoid_imidazole_imac"] is True
+    assert fd_prof["tag_conflict"] is not None and "anaerobic" in fd_prof["tag_conflict"]["better_strategy"].lower()
+
+    # (c) Cu / Mn Metalloenzymes (Laccase, Arginase)
+    for m_name in ("Fungal laccase", "Human arginase-1", "Matrix metalloproteinase-9"):
+        mp = infer_protein_biochemical_profile(protein_name=m_name, tag_detected="6xHis")
+        assert mp["is_metalloprotein"] is True and mp["avoid_imidazole_imac"] is True and mp["tag_conflict"] is not None
+
+    # (d) Hemoproteins (Myoglobin P02185 & Cytochrome P450) -> Axial Heme-Imidazole coordination caution
+    myo_seq = "MHHHHHH" + CLASSROOM_PRESET_PROTEINS["myoglobin"]["sequence"]
+    myo_m = analyze_all_parameters(myo_seq)
+    wf_myo_his = recommend_full_purification_workflow(
+        myo_m, 7.4, calculate_net_charge_at_ph(myo_seq, 7.4),
+        tag_detected="6xHis", sequence=myo_seq, protein_name="Myoglobin", metadata={"uniprot_id": "P02185"},
+    )
+    assert wf_myo_his["protein_profile"]["is_heme_protein"] is True
+    assert wf_myo_his["tag_conflict"] is not None and wf_myo_his["tag_conflict"]["severity"] == "warning"
+    assert "Heme-Safe" in wf_myo_his["roadmap"][0]["title"]
+
+    # (e) Ca2+-dependent proteins (Calmodulin / Subtilisin) -> No EDTA & No Sodium Phosphate precipitation!
+    lyso_m = analyze_all_parameters(LYSOZYME_MATURE_SEQ)
+    cam_prof = infer_protein_biochemical_profile(protein_name="Calmodulin", metrics=lyso_m)
+    assert cam_prof["needs_calcium"] is True and cam_prof["avoid_phosphate_buffer"] is True and cam_prof["is_chelator_sensitive"] is True
+    hic_cam = advise_hic_strategy(lyso_m, 7.0, -8.0, protein_profile=cam_prof)
+    assert "avoid Sodium Phosphate" in hic_cam["elution_protocol"]
+
+    # (f) Integral Membrane Protein (Bacteriorhodopsin) -> Detergent micelles required, HIC & (NH4)2SO4 forbidden, SEC +70 kDa micelle shift!
+    mem_m = dict(lyso_m, mw_kda=28.0, gravy=0.65)
+    wf_mem = recommend_full_purification_workflow(mem_m, 7.5, -4.0, tag_detected="Twin-Strep-tag", protein_name="Bacteriorhodopsin")
+    assert wf_mem["protein_profile"]["requires_detergent_micelles"] is True
+    assert "DDM" in wf_mem["roadmap"][0]["detail"]
+    assert "Avoid" in wf_mem["all_methods"][2]["Suitability"]  # Ammonium sulfate forbidden
+    assert "Avoid" in wf_mem["all_methods"][4]["Suitability"]  # Aqueous HIC forbidden
+    assert "Superdex 200" in wf_mem["roadmap"][2]["title"]     # 28 kDa + ~70 kDa DDM micelle -> S200, not S75!
+
+    # (g) PLP Holoenzyme (Alanine aminotransferase) -> Avoid primary amine Tris buffer!
+    plp_prof = infer_protein_biochemical_profile(protein_name="Alanine aminotransferase")
+    assert plp_prof["avoid_tris_buffer"] is True
+
+    # (h) Active Serine Protease (Trypsin) vs Cysteine Protease (TEV P04517) vs Non-Protease 6xHis-TEV-Lysozyme Linker Control!
+    tryp_prof = infer_protein_biochemical_profile(protein_name="Trypsin")
+    assert tryp_prof["protease_class"] == "serine"
+    tev_prof = infer_protein_biochemical_profile(protein_name="TEV Protease", metadata={"uniprot_id": "P04517"})
+    assert tev_prof["protease_class"] == "cysteine" and tev_prof["require_reducing_agents"] is True
+
+    # Control: 6xHis-TEV-Lysozyme & 6xHis-GST & 6xHis-GFP MUST NOT trigger false-positive metalloprotein or TEV-protease rules!
+    his_tev_lyso = CLASSROOM_PRESET_PROTEINS["lysozyme_his_tev"]
+    htl_prof = infer_protein_biochemical_profile(
+        sequence=his_tev_lyso["sequence"],
+        protein_name=his_tev_lyso["name"],
+        metadata={"uniprot_id": "P00698", "tag": "6xHis"},
+        metrics=analyze_all_parameters(his_tev_lyso["sequence"]),
+        tag_detected="6xHis",
+        construct_parts=his_tev_lyso["construct_parts"],
+    )
+    assert htl_prof["is_metalloprotein"] is False
+    assert htl_prof["protease_class"] is None
+    assert htl_prof["avoid_reducing_agents"] is True
+    assert htl_prof["tag_conflict"] is None
+
+    for non_metal_ctrl in ("Glutathione S-transferase P", "Green fluorescent protein"):
+        ctrl_p = infer_protein_biochemical_profile(protein_name=non_metal_ctrl, tag_detected="6xHis")
+        assert ctrl_p["is_metalloprotein"] is False and ctrl_p["tag_conflict"] is None
+
+    # 3. Tab 3 Custom Buffer Recipe Compatibility Auditor
+    ure_his_lysis_warns = audit_buffer_compatibility_for_protein(
+        PRESET_RECIPE_TEMPLATES["his_lysis"]["rows"], 8.0, ure_prof, "Urease"
+    )
+    assert any("Metalloprotein–Imidazole Conflict" in w for w in ure_his_lysis_warns)
+    ure_strep_edta_warns = audit_buffer_compatibility_for_protein(
+        PRESET_RECIPE_TEMPLATES["strep_elution"]["rows"], 8.0, ure_prof, "Urease"
+    )
+    assert any("Chelator Stripping Hazard" in w and "EDTA" in w for w in ure_strep_edta_warns)
+    ure_safe_warns = audit_buffer_compatibility_for_protein(
+        PRESET_RECIPE_TEMPLATES["metalloprotein_safe"]["rows"], 7.5, ure_prof, "Urease"
+    )
+    assert len(ure_safe_warns) == 0
+
+    # 4. Headless Streamlit AppTest end-to-end verification of "Urease with 6x His tag"
+    app_path = os.path.join(root_dir, "app.py")
+    with patch("modules.sequence_parser.requests.get", side_effect=_requests.ConnectionError("Simulated offline")):
+        at = AppTest.from_file(app_path).run(timeout=30)
+        at.sidebar.radio[0].set_value("💬 Describe in Plain English").run(timeout=30)
+        at.sidebar.text_area[0].set_value("Urease with 6x His tag").run(timeout=30)
+        at.sidebar.button[0].click().run(timeout=30)
+    assert len(at.exception) == 0, f"AppTest exception on 'Urease with 6x His tag': {at.exception}"
+    assert at.session_state["sequence_metadata"]["uniprot_id"] == "P07374"
+    assert at.session_state["sequence_metadata"]["tag"] == "6xHis"
+    assert len(at.error) >= 1 and any("Metalloprotein–IMAC Conflict" in e.value for e in at.error)
+    assert any("Metalloprotein–Imidazole Conflict" in w.value for w in at.warning)
+    all_ure_md = "\n".join(m.value for m in at.markdown if "<style>" not in m.value)
+    assert "Bypass Ni-NTA / Imidazole" in all_ure_md
+    assert "Affinity Capture: Ni-NTA" not in all_ure_md
+    assert len(re.findall(r"font-size\s*:", all_ure_md, flags=re.IGNORECASE)) == 0
+
+
 def test_pipeline() -> None:
     root_dir = os.path.dirname(os.path.abspath(__file__))
     test_protparam_golden_reference_and_sequences(root_dir)
@@ -1693,7 +1874,8 @@ def test_pipeline() -> None:
     test_secondary_structure_engine_benchmarks_and_ui(root_dir)
     test_giant_multidomain_titin_and_ui(root_dir)
     test_interactive_sec_column_visualizer_and_intuitive_plots(root_dir)
-    print("\n=== ALL 11 GOLDEN PROTPARAM, STOICHIOMETRY, 7-METHOD, SEC, SDS-PAGE, NL PARSER, SECONDARY STRUCTURE, GIANT TITIN & INTERACTIVE SEC COLUMN TESTS PASSED! ===")
+    test_biochemical_protein_intelligence_and_metalloprotein_safety(root_dir)
+    print("\n=== ALL 12 GOLDEN PROTPARAM, STOICHIOMETRY, 7-METHOD, SEC, SDS-PAGE, NL PARSER, SECONDARY STRUCTURE, GIANT TITIN, INTERACTIVE SEC COLUMN & BIOCHEMICAL INTELLIGENCE TESTS PASSED! ===")
 
 
 if __name__ == "__main__":

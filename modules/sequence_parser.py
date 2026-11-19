@@ -385,8 +385,149 @@ def clean_amino_acid_sequence(raw_text: str) -> Tuple[str, Optional[str], List[s
     return full_str, header, warnings
 
 
+def detect_sequence_terminal_tag(sequence: str) -> Dict[str, Any]:
+    """
+    Inspects the N-terminal and C-terminal ends (within 35 residues) of an amino acid sequence
+    to auto-detect engineered affinity tags (6xHis/8xHis/10xHis, Twin-Strep, Strep-tag II, FLAG)
+    even on pasted FASTA or translated ORF sequences, and returns the tag-stripped core sequence
+    so engineered tag residues never bias catalytic motif detection.
+    """
+    seq = (sequence or "").strip().upper()
+    if len(seq) < 20:
+        return {"tag_detected": "None", "tag_position": "N/A", "core_sequence": seq}
+
+    head = seq[:38]
+    tail = seq[-38:]
+
+    # 1. Twin-Strep-tag
+    for ts in ("WSHPQFEKGGGSGGGSGGSAWSHPQFEK", "WSHPQFEKGGGSGGGSGGSWSHPQFEK"):
+        if ts in head:
+            idx_end = head.find(ts) + len(ts)
+            if seq[idx_end:idx_end + 2] == "GS":
+                idx_end += 2
+            return {"tag_detected": "Twin-Strep-tag", "tag_position": "N-terminal", "core_sequence": seq[idx_end:]}
+        if ts in tail:
+            idx_start = len(seq) - len(tail) + tail.find(ts)
+            if idx_start >= 2 and seq[idx_start - 2:idx_start] == "GS":
+                idx_start -= 2
+            return {"tag_detected": "Twin-Strep-tag", "tag_position": "C-terminal", "core_sequence": seq[:idx_start]}
+
+    # 2. Strep-tag II
+    if "WSHPQFEK" in head[:24]:
+        idx_end = head.find("WSHPQFEK") + 8
+        if seq[idx_end:idx_end + 2] == "GS":
+            idx_end += 2
+        return {"tag_detected": "Strep-tag II", "tag_position": "N-terminal", "core_sequence": seq[idx_end:]}
+    if "WSHPQFEK" in tail[-16:]:
+        idx_start = len(seq) - 16 + tail[-16:].find("WSHPQFEK")
+        if idx_start >= 2 and seq[idx_start - 2:idx_start] == "GS":
+            idx_start -= 2
+        return {"tag_detected": "Strep-tag II", "tag_position": "C-terminal", "core_sequence": seq[:idx_start]}
+
+    # 3. FLAG-tag
+    if "DYKDDDDK" in head[:24]:
+        idx_end = head.find("DYKDDDDK") + 8
+        return {"tag_detected": "FLAG-tag", "tag_position": "N-terminal", "core_sequence": seq[idx_end:]}
+    if "DYKDDDDK" in tail[-16:]:
+        idx_start = len(seq) - 16 + tail[-16:].find("DYKDDDDK")
+        return {"tag_detected": "FLAG-tag", "tag_position": "C-terminal", "core_sequence": seq[:idx_start]}
+
+    # 4. Poly-Histidine tags (10xHis, 8xHis, 6xHis) within 18 aa of N- or C-terminus
+    m_n = re.match(r"^(M?[A-Z]{0,10}?(H{6,12})(?:SSGLVPRGSH|SSGENLYFQG|ENLYFQG|LEVLFQGP|SSG|GSG|GS)?)", head)
+    if m_n:
+        hlen = len(m_n.group(2))
+        tname = "10xHis" if hlen >= 10 else ("8xHis" if hlen >= 8 else "6xHis")
+        return {"tag_detected": tname, "tag_position": "N-terminal", "core_sequence": seq[len(m_n.group(1)):]}
+
+    m_c = re.search(r"((?:LE|GS|GGS|AAALE)?(H{6,12}))$", tail[-22:])
+    if m_c:
+        hlen = len(m_c.group(2))
+        tname = "10xHis" if hlen >= 10 else ("8xHis" if hlen >= 8 else "6xHis")
+        cut_len = len(m_c.group(1))
+        return {"tag_detected": tname, "tag_position": "C-terminal", "core_sequence": seq[:-cut_len]}
+
+    return {"tag_detected": "None", "tag_position": "N/A", "core_sequence": seq}
+
+
+def _extract_uniprot_biochem_annotations(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Extracts structured biochemical, cofactor, metal-ligand, redox, and membrane topology
+    annotations from a UniProtKB REST JSON entry (comments, features, keywords, EC numbers).
+    """
+    cofactors: List[str] = []
+    cofactor_notes: List[str] = []
+    subcellular_locations: List[str] = []
+    for comm in (data.get("comments") or []):
+        ctype = comm.get("commentType", "")
+        if ctype == "COFACTOR":
+            for cf in (comm.get("cofactors") or []):
+                cf_name = (cf.get("name") or "").strip()
+                if cf_name and cf_name not in cofactors:
+                    cofactors.append(cf_name)
+            for nt in ((comm.get("note") or {}).get("texts") or []):
+                val = (nt.get("value") or "").strip()
+                if val:
+                    cofactor_notes.append(val)
+        elif ctype == "SUBCELLULAR LOCATION":
+            for sl in (comm.get("subcellularLocations") or []):
+                loc_val = ((sl.get("location") or {}).get("value") or "").strip()
+                if loc_val and loc_val not in subcellular_locations:
+                    subcellular_locations.append(loc_val)
+                top_val = ((sl.get("topology") or {}).get("value") or "").strip()
+                if top_val and top_val not in subcellular_locations:
+                    subcellular_locations.append(top_val)
+
+    metal_ligands: List[str] = []
+    disulfide_count = 0
+    transmembrane_count = 0
+    has_signal_peptide = False
+    zinc_finger_count = 0
+    for feat in (data.get("features") or []):
+        ftype = feat.get("type", "")
+        if ftype == "Disulfide bond":
+            disulfide_count += 1
+        elif ftype in ("Transmembrane", "Intramembrane"):
+            transmembrane_count += 1
+        elif ftype == "Signal peptide":
+            has_signal_peptide = True
+        elif ftype == "Zinc finger":
+            zinc_finger_count += 1
+            if "Zn(2+) [Zinc finger]" not in metal_ligands:
+                metal_ligands.append("Zn(2+) [Zinc finger]")
+        elif ftype in ("Binding site", "Metal binding"):
+            lig_name = ((feat.get("ligand") or {}).get("name") or feat.get("description") or "").strip()
+            if lig_name and lig_name not in metal_ligands:
+                metal_ligands.append(lig_name)
+
+    keywords: List[str] = []
+    for kw in (data.get("keywords") or []):
+        kw_name = (kw.get("name") or "").strip()
+        if kw_name and kw_name not in keywords:
+            keywords.append(kw_name)
+
+    ec_numbers: List[str] = []
+    pdesc = data.get("proteinDescription") or {}
+    for ec_obj in ((pdesc.get("recommendedName") or {}).get("ecNumbers") or []):
+        ec_v = (ec_obj.get("value") or "").strip()
+        if ec_v and ec_v not in ec_numbers:
+            ec_numbers.append(ec_v)
+
+    return {
+        "cofactors": cofactors,
+        "cofactor_notes": cofactor_notes,
+        "metal_ligands": metal_ligands,
+        "disulfide_count": disulfide_count,
+        "transmembrane_count": transmembrane_count,
+        "has_signal_peptide": has_signal_peptide,
+        "zinc_finger_count": zinc_finger_count,
+        "keywords": keywords,
+        "subcellular_locations": subcellular_locations,
+        "ec_numbers": ec_numbers,
+    }
+
+
 def _parse_uniprot_entry_dict(data: Dict[str, Any], fallback_uid: str = "") -> Dict[str, Any]:
-    """Extracts standardized metadata and sequence from a UniProtKB REST JSON entry."""
+    """Extracts standardized metadata, sequence, and biochemical annotations from a UniProtKB REST JSON entry."""
     accession = data.get("primaryAccession", fallback_uid)
     protein_desc = data.get("proteinDescription", {})
     sub_names = protein_desc.get("submissionNames") or [{}]
@@ -418,7 +559,8 @@ def _parse_uniprot_entry_dict(data: Dict[str, Any], fallback_uid: str = "") -> D
         "gene_name": gene_name,
         "organism": organism_name,
         "length": length,
-        "sequence": sequence
+        "sequence": sequence,
+        "biochem_annotations": _extract_uniprot_biochem_annotations(data),
     }
 
 
@@ -873,8 +1015,139 @@ OFFLINE_UNIPROT_REFERENCES: Dict[str, Dict[str, Any]] = {
             "SvaSwQJeZDt5OeRpk/SJhgV508aNihTFP4aNBRJbG5u7F3aDU9YAmwElHwEywwmzcabE0uGvIPLQkNmys+HvydMzeZHaAQxU"
             "WpF0OBrvn5OX8/GHOI9RggTCd9zs6kWr9tSyLz4VrZln32gziZWPPu0f4zNLsA=="
         )
-    }
+    },
+    "P07374": {
+        "accession": "P07374",
+        "protein_name": "Urease",
+        "gene_name": "UREA",
+        "organism": "Canavalia ensiformis",
+        "biochem_annotations": {
+            "cofactors": ["Ni(2+)"],
+            "cofactor_notes": ["Binds 2 Ni(2+) ions per subunit (carbamylated Lys-bridged dinuclear nickel active site)."],
+            "metal_ligands": ["Ni(2+)"],
+            "disulfide_count": 0,
+            "transmembrane_count": 0,
+            "has_signal_peptide": False,
+            "zinc_finger_count": 0,
+            "keywords": ["Hydrolase", "Metal-binding", "Nickel"],
+            "subcellular_locations": ["Cytoplasm"],
+            "ec_numbers": ["3.5.1.5"],
+        },
+        "sequence": _decompress_offline_seq(
+            "eNoVkluOBSEIRNdGGkQCGhTCxP1vZLh/bYdHnaKWWvilIjW2uYGfwdFrcLmu7ZcEBSYQRxY9uMikWXBsfcZnmvG9p8yhvB8b"
+            "6hRBDkdOtcqa6BKXNpMdAhscZl4ehjqAUgn3FWcS+wjps7QtfBVKTCtDGa/LKY755hCq7c9y4O2Sx6sVCgAn1B3kjJ9GpVUI"
+            "8daSy7xBANlrU24jgDW7tscOnkSkCEE8fjJ8fz52DplXG3TrY89kVLnG2M0GJN3wwB630hrM/NuBvPjEx9MdpLmyJNsHEXzJ"
+            "IgooLIr8M1FYgbejrM01Yi8Rhp1UAkxdUQkMgt+s+eTzY/WohwZLNlYvTPYf74XMLz08T3uw7EQimtseDcPKEaGOZJN+AhgW"
+            "m/YD/ziyBwjudlqA5kQ5smUmtvEEPIpmtKVD+Wb/frP9gV48oVWL1tcsu+8dkdvzumXsFKRpuGzVN/vjkjihwYAZV65qrwLC"
+            "st1WNI40EcZpVbe42ePm30lAXQqnCU0/7IqNe3T7fQL6UnbbC5tHnNdxKCpWA7Raf+oxRufNaZUo8yr4+7neN23LPZ28dF1f"
+            "j9N+F2CwhhwVCmB4bjXRY9t6O7wVu65axxeXtmQwJ8lCp3hZfc7ea19FxzzLLe5+w8Y/mVH35w=="
+        ),
+    },
 }
+
+_LOCAL_CORPUS_CACHE: Optional[List[Dict[str, Any]]] = None
+_LOCAL_CORPUS_BY_ACC: Optional[Dict[str, Dict[str, Any]]] = None
+
+
+def _ensure_local_corpus_loaded() -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    """Lazily loads the 14,869-protein local PDB/Swiss-Prot corpus (data/ss_10k_corpus.npz) for offline fallback."""
+    global _LOCAL_CORPUS_CACHE, _LOCAL_CORPUS_BY_ACC
+    if _LOCAL_CORPUS_CACHE is not None and _LOCAL_CORPUS_BY_ACC is not None:
+        return _LOCAL_CORPUS_CACHE, _LOCAL_CORPUS_BY_ACC
+
+    import os as _os
+    import numpy as _np
+
+    npz_path = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "data", "ss_10k_corpus.npz")
+    records: List[Dict[str, Any]] = []
+    by_acc: Dict[str, Dict[str, Any]] = {}
+    if _os.path.exists(npz_path):
+        try:
+            with _np.load(npz_path, allow_pickle=False) as d:
+                accs = d["accessions"]
+                pnames = d["protein_names"]
+                gnames = d["gene_names"]
+                orgs = d["organisms"]
+                tids = d["tax_ids"]
+                seqs = d["sequences"]
+                for idx in range(len(accs)):
+                    acc_s = str(accs[idx]).strip()
+                    seq_s = str(seqs[idx]).strip()
+                    if not acc_s or not seq_s:
+                        continue
+                    rec = {
+                        "accession": acc_s,
+                        "primaryAccession": acc_s,
+                        "reviewed": True,
+                        "annotationScore": 5.0,
+                        "is_fragment": False,
+                        "recommended_name": str(pnames[idx]).strip(),
+                        "protein_name": str(pnames[idx]).strip(),
+                        "gene_primary": str(gnames[idx]).strip(),
+                        "gene_name": str(gnames[idx]).strip() or "N/A",
+                        "organism_scientific": str(orgs[idx]).strip(),
+                        "organism": str(orgs[idx]).strip(),
+                        "tax_id": int(tids[idx]) if int(tids[idx]) > 0 else None,
+                        "length": len(seq_s),
+                        "sequence": seq_s,
+                    }
+                    records.append(rec)
+                    if acc_s not in by_acc:
+                        by_acc[acc_s] = rec
+        except Exception:
+            pass
+
+    _LOCAL_CORPUS_CACHE = records
+    _LOCAL_CORPUS_BY_ACC = by_acc
+    return records, by_acc
+
+
+def _search_local_corpus_offline(comp: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Searches the 14,869-protein local corpus when network access is unavailable."""
+    records, by_acc = _ensure_local_corpus_loaded()
+    if not records:
+        return None
+    pref_accs = comp.get("preferred_accessions") or []
+    for pa in pref_accs:
+        if pa in by_acc:
+            r = by_acc[pa]
+            return {
+                "source": "Built-in Local Reference Corpus (UniProt)",
+                "accession": r["accession"],
+                "protein_name": r["protein_name"],
+                "gene_name": r["gene_name"],
+                "organism": r["organism"],
+                "length": r["length"],
+                "sequence": r["sequence"],
+            }
+
+    pq_toks = _tokenize_for_matching(comp.get("protein_name_hint") or comp.get("protein_query") or "")
+    gh = (comp.get("gene_hint") or "").strip().lower()
+    if not pq_toks and not gh:
+        return None
+
+    shortlist: List[Dict[str, Any]] = []
+    for r in records:
+        pn_low = r["protein_name"].lower()
+        gn_low = r["gene_primary"].lower()
+        if (gh and gn_low == gh) or any(tok in pn_low or tok == gn_low for tok in pq_toks if len(tok) >= 3):
+            shortlist.append(r)
+
+    if not shortlist:
+        return None
+    ranked = rank_uniprot_candidates(shortlist, comp)
+    best = ranked[0]
+    if score_uniprot_candidate(best, comp) < 120.0:
+        return None
+    return {
+        "source": "Built-in Local Reference Corpus (UniProt)",
+        "accession": best["accession"],
+        "protein_name": best["protein_name"],
+        "gene_name": best["gene_name"],
+        "organism": best["organism"],
+        "length": best["length"],
+        "sequence": best["sequence"],
+    }
 
 
 def fetch_uniprot_by_id(uniprot_id: str) -> Dict[str, Any]:
@@ -903,7 +1176,8 @@ def fetch_uniprot_by_id(uniprot_id: str) -> Dict[str, Any]:
                 "gene_name": uid,
                 "organism": preset["organism"],
                 "length": len(preset["sequence"]),
-                "sequence": preset["sequence"]
+                "sequence": preset["sequence"],
+                "biochem_annotations": preset.get("biochem_annotations", {}),
             }
 
     if uid in OFFLINE_UNIPROT_REFERENCES:
@@ -915,7 +1189,22 @@ def fetch_uniprot_by_id(uniprot_id: str) -> Dict[str, Any]:
             "gene_name": ref["gene_name"],
             "organism": ref["organism"],
             "length": len(ref["sequence"]),
-            "sequence": ref["sequence"]
+            "sequence": ref["sequence"],
+            "biochem_annotations": ref.get("biochem_annotations", {}),
+        }
+
+    _, by_acc = _ensure_local_corpus_loaded()
+    if uid in by_acc:
+        r = by_acc[uid]
+        return {
+            "source": "Built-in Local Reference Corpus (UniProt)",
+            "accession": r["accession"],
+            "protein_name": r["protein_name"],
+            "gene_name": r["gene_name"],
+            "organism": r["organism"],
+            "length": r["length"],
+            "sequence": r["sequence"],
+            "biochem_annotations": {},
         }
 
     raise ValueError(
@@ -1171,6 +1460,8 @@ _ORGANISM_CATALOG: List[Tuple[str, int, int, str, Tuple[int, ...], bool]] = [
     (r"m(?:\.\s*|\s+)genitalium", 243273, 2097, "Mycoplasma genitalium", (243273, 2097), False),
     (r"chlamydia\s+trachomatis", 272561, 813, "Chlamydia trachomatis", (272561, 813), False),
     (r"c(?:\.\s*|\s+)trachomatis", 272561, 813, "Chlamydia trachomatis", (272561, 813), False),
+    (r"(?:klebsiella|enterobacter)\s+aerogenes", 548, 548, "Klebsiella aerogenes", (548,), False),
+    (r"(?:sporosarcina|bacillus)\s+pasteurii", 1474, 1474, "Sporosarcina pasteurii", (1474,), False),
 
     # --- Archaea ---
     (r"pyrococcus\s+furiosus", 186497, 2261, "Pyrococcus furiosus", (186497, 2261), False),
@@ -1309,6 +1600,8 @@ _ORGANISM_CATALOG: List[Tuple[str, int, int, str, Tuple[int, ...], bool]] = [
     (r"m(?:\.\s*|\s+)truncatula", 3880, 3880, "Medicago truncatula", (3880,), False),
     (r"vitis\s+vinifera", 29760, 29760, "Vitis vinifera", (29760,), False),
     (r"brassica\s+napus", 3708, 3708, "Brassica napus", (3708,), False),
+    (r"canavalia\s+ensiformis", 3823, 3823, "Canavalia ensiformis", (3823,), False),
+    (r"jack\s+bean", 3823, 3823, "Canavalia ensiformis", (3823,), False),
     (r"chlamydomonas\s+reinhardtii", 3055, 3055, "Chlamydomonas reinhardtii", (3055,), False),
     (r"c(?:\.\s*|\s+)reinhardtii", 3055, 3055, "Chlamydomonas reinhardtii", (3055,), False),
     (r"chlamydomonas", 3055, 3055, "Chlamydomonas reinhardtii", (3055,), True),
@@ -2622,6 +2915,21 @@ def _get_canonical_preferences(
             preferred_accs = ["P02769"]
         preferred_genes = ["ALB"]
         specific_field_clause = '(gene_exact:ALB OR protein_name:"Serum albumin" OR protein_name:"Albumin")'
+    elif pq_low in {"urease", "jack bean urease", "urea amidohydrolase"}:
+        if not has_any_org or organism_taxid == 3823:
+            preferred_accs = ["P07374"]
+        elif organism_taxid in (85962, 210):
+            preferred_accs = ["P69996", "P14916"]
+        elif organism_taxid == 548:
+            preferred_accs = ["P18314"]
+        elif organism_taxid == 1474:
+            preferred_accs = ["P41020"]
+        preferred_genes = ["UREA", "UREB", "UREC"]
+        acc_hint = "accession:P07374 OR " if (not has_any_org or organism_taxid == 3823) else ""
+        specific_field_clause = (
+            f'({acc_hint}protein_name:"Urease" OR protein_name:"Urease subunit alpha" '
+            'OR protein_name:"Urease subunit beta" OR gene:ureC OR gene:ureB OR gene:ureA)'
+        )
     elif pq_low in {"if1", "if-1", "initiation factor 1", "initiation factor if1", "initiation factor if-1", "translation initiation factor 1"}:
         if is_ecoli or not has_any_org:
             preferred_accs = ["P69222"]
@@ -3045,6 +3353,8 @@ def _match_offline_classroom_target(
         return dict(OFFLINE_UNIPROT_REFERENCES["Q8WZ42"])
     if pq in {"dystrophin", "dmd"} and _org_compatible(9606, "Homo sapiens"):
         return dict(OFFLINE_UNIPROT_REFERENCES["P11532"])
+    if pq in {"urease", "jack bean urease", "urea amidohydrolase"} and _org_compatible(3823, "Canavalia ensiformis"):
+        return dict(OFFLINE_UNIPROT_REFERENCES["P07374"])
     return None
 
 
@@ -3851,6 +4161,9 @@ def parse_natural_language_prompt(prompt: str) -> Dict[str, Any]:
         target_data = offline_match
 
     if target_data is None:
+        target_data = _search_local_corpus_offline(comp)
+
+    if target_data is None:
         raise ValueError(
             f"Could not find a matching protein sequence on UniProt for query: '{clean_query}'. "
             "Please check the organism/protein spelling or choose a Classroom Example / UniProt ID directly."
@@ -3891,6 +4204,7 @@ def parse_natural_language_prompt(prompt: str) -> Dict[str, Any]:
         "uniprot_id": uniprot_id,
         "accession": uniprot_id,
         "gene_name": target_data.get("gene_name") or "N/A",
+        "biochem_annotations": target_data.get("biochem_annotations", {}),
         "tag_detected": detected_tag["name"] if detected_tag else "None",
         "tag_position": tag_position if detected_tag else "N/A",
         "cleavage_detected": detected_cleavage["name"] if detected_cleavage else "None",

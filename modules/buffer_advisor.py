@@ -15,7 +15,11 @@ Recommends & Calculates:
   solubility/pH bench warnings, and weights in BOTH grams (g) and milligrams (mg).
 """
 
-from typing import Dict, Any, List
+import re
+from typing import Dict, Any, List, Optional, Tuple
+
+from modules.purification_metrics import KYTE_DOOLITTLE
+from modules.sequence_parser import detect_sequence_terminal_tag
 
 # Authoritative Biological & Chromatographic Buffer Systems (25°C reference constants;
 # IUPAC/PubChem formula weights with explicit hydration & protonation state).
@@ -313,6 +317,16 @@ PRESET_RECIPE_TEMPLATES: Dict[str, Dict[str, Any]] = {
             {"Reagent": "TCEP-HCl", "MW (g/mol)": 286.65, "Value": 0.5, "Unit": "mM"}
         ]
     },
+    "metalloprotein_safe": {
+        "label": "🪙 Metalloprotein-Safe — EDTA-Free & Imidazole-Free Buffer (Urease / Zn / Cu / Fe)",
+        "target_ph": 7.5,
+        "notes": "Non-chelating Good's buffer (HEPES) + 150 mM NaCl + 5% Glycerol — ZERO Imidazole, ZERO EDTA, ZERO Citrate so catalytic Ni²⁺/Zn²⁺/Cu²⁺/Fe²⁺ cofactors remain intact!",
+        "rows": [
+            {"Reagent": "HEPES (Free Acid)", "MW (g/mol)": 238.30, "Value": 50.0, "Unit": "mM"},
+            {"Reagent": "NaCl (Sodium Chloride)", "MW (g/mol)": 58.44, "Value": 150.0, "Unit": "mM"},
+            {"Reagent": "Glycerol (Liquid, ρ = 1.261 g/mL)", "MW (g/mol)": 92.09, "Value": 5.0, "Unit": "% (v/v)"}
+        ]
+    },
     "strep_elution": {
         "label": "🧲 Strep-Tactin — Elution Buffer E (2.5 mM Desthiobiotin)",
         "target_ph": 8.0,
@@ -438,17 +452,508 @@ def advise_iex_strategy(pi: float, working_ph: float, net_charge: float) -> Dict
     }
 
 
-def advise_hic_strategy(metrics: Dict[str, Any], working_ph: float, net_charge: float) -> Dict[str, Any]:
+def _count_internal_tm_helices(core_seq: str) -> int:
+    """
+    Scans sequence (skipping N-terminal 25-aa signal-peptide window when length > 60)
+    for non-overlapping 19-residue transmembrane helices with mean Kyte-Doolittle >= 1.65.
+    """
+    s = core_seq[25:] if len(core_seq) > 60 else core_seq
+    cnt, idx = 0, 0
+    while idx <= len(s) - 19:
+        mean_kd = sum(KYTE_DOOLITTLE.get(aa, 0.0) for aa in s[idx:idx + 19]) / 19.0
+        if mean_kd >= 1.65:
+            cnt += 1
+            idx += 19
+        else:
+            idx += 1
+    return cnt
+
+
+def _strip_construct_tag_phrases_from_name(raw_name: str) -> str:
+    """
+    Removes engineered tag/protease-site phrases (e.g., '6xHis-TEV-', 'with N-terminal GST tag')
+    from a construct display name so linker tags/proteases never misclassify the target protein.
+    """
+    s = (raw_name or "").lower()
+    s = re.sub(r"\bwith\s+(?:an?\s+)?(?:n|c)[-\s]*terminal\b.*$", " ", s)
+    s = re.sub(r"\((?:recombinant|synthetic)[^)]*\)", " ", s)
+    s = re.sub(r"\b(?:6xhis|8xhis|10xhis|his6|his8|his10|polyhis|twin-?strep|strep-?tag(?:\s*ii)?|flag-?tag)\b", " ", s)
+    s = re.sub(r"(?:^|[\s\-_/])(?:his|gst|mbp|sumo)[-\s]+(?:tev|3c|prescission|thrombin|factor\s*xa)[-\s]+", " ", s)
+    s = re.sub(r"[-\s]+(?:tev|3c|prescission)[-\s]+(?:6xhis|8xhis|10xhis|his6|his|strep|flag)\b", " ", s)
+    s = re.sub(r"\b(?:gst|mbp|his|flag|strep|myc|ha)-tagged\b", " ", s)
+    return " ".join(s.split())
+
+
+def infer_protein_biochemical_profile(
+    sequence: str = "",
+    protein_name: str = "",
+    metadata: Optional[Dict[str, Any]] = None,
+    metrics: Optional[Dict[str, Any]] = None,
+    tag_detected: str = "None",
+    construct_parts: Optional[List[Tuple[str, str]]] = None,
+) -> Dict[str, Any]:
+    """
+    Multi-evidence biochemical protein intelligence engine combining:
+    1. UniProtKB structured annotations (cofactors, metal binding sites, Fe-S clusters, heme,
+       disulfide bonds, transmembrane segments, Swiss-Prot keywords, subcellular locations, EC numbers)
+    2. Curated enzyme/protein family & accession knowledge base across metalloproteins (Ni2+, Zn2+,
+       Cu+/2+, Mn2+, Co2+, Mo, non-heme Fe), Fe-S clusters, hemoproteins, Ca2+/Mg2+ proteins,
+       secreted disulfide proteins, cytosolic thiol proteins, integral membrane proteins,
+       nucleic-acid-binding proteins, PLP/flavin holoenzymes, active proteases, and IDPs
+    3. High-precision sequence motifs & biophysical properties evaluated on the tag-stripped core sequence.
+    """
+    meta = metadata or {}
+    annot = meta.get("biochem_annotations") or {}
+
+    # 1. Isolate canonical target sequence (excluding engineered affinity tags & protease linkers)
+    raw_seq = (sequence or "").strip().upper()
+    term_tag_info = detect_sequence_terminal_tag(raw_seq) if raw_seq else {"tag_detected": "None", "tag_position": "N/A", "core_sequence": ""}
+    core_seq = term_tag_info["core_sequence"]
+    if construct_parts:
+        target_segs = [seg for lbl, seg in construct_parts if "target" in lbl.lower() and seg]
+        if target_segs:
+            core_seq = "".join(target_segs).strip().upper()
+
+    effective_tag = tag_detected if (tag_detected and tag_detected.lower() not in ("none", "n/a", "")) else term_tag_info["tag_detected"]
+    tag_low = (effective_tag or "none").lower()
+    has_tag = tag_low not in ("none", "n/a", "")
+
+    acc = str(meta.get("uniprot_id") or meta.get("accession") or "").strip().upper()
+    gene_str = str(meta.get("gene_name") or "").strip().lower()
+    if gene_str in ("n/a", "none", acc.lower()):
+        gene_str = ""
+
+    raw_title = " ".join(
+        str(x) for x in (protein_name, meta.get("protein_name", ""), meta.get("identified_protein", "")) if x
+    )
+    clean_name = _strip_construct_tag_phrases_from_name(raw_title)
+    search_text = f"{clean_name} {gene_str}".strip()
+
+    cofactors_low = " | ".join(str(x).lower() for x in (annot.get("cofactors") or []) + (annot.get("cofactor_notes") or []))
+    ligands_low = " | ".join(str(x).lower() for x in (annot.get("metal_ligands") or []))
+    keywords_low = {str(k).lower() for k in (annot.get("keywords") or [])}
+    locs_low = " | ".join(str(x).lower() for x in (annot.get("subcellular_locations") or []))
+    ecs = set(annot.get("ec_numbers") or [])
+    metal_blob = f"{cofactors_low} | {ligands_low}"
+
+    core_len = max(1, len(core_seq)) if core_seq else int((metrics or {}).get("length") or 1)
+    cys_count = core_seq.count("C") if core_seq else int(((metrics or {}).get("counts") or {}).get("cysteines", 0))
+    gravy = float((metrics or {}).get("gravy", 0.0))
+    aliphatic_idx = float((metrics or {}).get("aliphatic_index", 75.0))
+
+    categories: List[str] = []
+    metal_labels: List[str] = []
+
+    # --- A. NICKEL METALLOENZYMES & MATURATION CHAPERONES (e.g. Urease, [NiFe]-Hydrogenase, CODH, Ni-SOD) ---
+    ni_accs = {
+        "P07374", "E6Y5X0", "P18314", "P18315", "P18316", "P18317",
+        "P41020", "P41022", "P50049", "P69996", "P69997", "P14916",
+        "P9WFF1", "P17086", "O25560", "P0A0U4", "Q09065", "Q09066",
+    }
+    has_ni_annot = (
+        "nickel" in keywords_low
+        or bool(re.search(r"\bni\s*\(\s*2\+\s*\)|\bni2\+|\bnickel\b|\[nife\]|\bf430\b", metal_blob))
+        or "3.5.1.5" in ecs
+    )
+    has_ni_name = bool(re.search(
+        r"\b(?:urease|urea\s+amidohydrolase|ure[a-g]|hyp[ab]|\[?nife\]?[-\s]*hydrogenase|"
+        r"nickel\s+superoxide\s+dismutase|sodn|carbon\s+monoxide\s+dehydrogenase|coos|"
+        r"methyl[-\s]*coenzyme\s+m\s+reductase)\b",
+        search_text,
+    ))
+    has_urease_motif = bool(core_seq and re.search(r"EH[LM]DMLMVCHHL|[MVLI][VLI]CHHL[DNSK]", core_seq))
+    if acc in ni_accs or has_ni_annot or has_ni_name or has_urease_motif:
+        categories.append("ni_metalloenzyme")
+        if "urease" in search_text or acc in {"P07374", "E6Y5X0", "P18314", "P41020", "P69996", "P9WFF1"} or has_urease_motif:
+            metal_labels.append("Ni²⁺ (Dinuclear Active Site)")
+        else:
+            metal_labels.append("Ni²⁺ Cofactor")
+
+    # --- B. O2-SENSITIVE IRON-SULFUR ([2Fe-2S], [3Fe-4S], [4Fe-4S]) & RADICAL SAM ENZYMES ---
+    has_fes_annot = (
+        "iron-sulfur" in keywords_low
+        or bool(re.search(r"\[?[234]fe-[234]s\]?|iron-sulfur|fe-s\s+cluster", metal_blob))
+    )
+    is_fnr_flavo = bool(re.search(r"ferredoxin\s*[-\u2013]+\s*nadp", search_text))
+    has_fes_name = (not is_fnr_flavo) and bool(re.search(
+        r"\b(?:ferredoxin|aconitase|rubredoxin|rieske|nitrogenase|\[?fefe\]?[-\s]*hydrogenase|"
+        r"radical\s+sam|biotin\s+synthase|lipoyl\s+synthase|lipoate\s+synthase|"
+        r"endonuclease\s+iii|sulfhydrogenase|xanthine\s+dehydrogenase)\b",
+        search_text,
+    ))
+    has_fes_motif = bool(core_seq and re.search(r"C.{2}C.{2}C.{3}CP", core_seq))
+    if has_fes_annot or has_fes_name or has_fes_motif:
+        categories.append("fe_s_cluster")
+        metal_labels.append("[Fe–S] Cluster (O₂-Labile)")
+
+    # --- C. HEME PROTEINS / HEMOPROTEINS (Globins, Cytochromes, P450s, Catalases, Heme Peroxidases) ---
+    has_heme_annot = (
+        "heme" in keywords_low
+        or bool(re.search(r"\bheme\b|\bprotoheme\b|\bsiroheme\b|\bhemin\b", metal_blob))
+    )
+    is_thiol_peroxidase = bool(re.search(r"\b(?:glutathione\s+peroxidase|peroxiredoxin|thioredoxin\s+peroxidase)\b", search_text))
+    is_p450_reductase = bool(re.search(r"cytochrome\s+p450\s+reductase", search_text))
+    has_heme_name = (not is_thiol_peroxidase and not is_p450_reductase) and bool(re.search(
+        r"\b(?:myoglobin|hemoglobin|neuroglobin|cytoglobin|leghemoglobin|cytochrome|cyp\d+[a-z]\d*|"
+        r"catalase|(?:horseradish|myelo|lacto|ascorbate|lignin|manganese|heme)\s+peroxidase|"
+        r"nitric\s+oxide\s+synthase|indoleamine\s+2,3-dioxygenase|tryptophan\s+2,3-dioxygenase)\b",
+        search_text,
+    ))
+    has_cyp_motif = bool(core_seq and re.search(r"F[SGNH].[GD][^F][RKHPT][^P]C[LIVMFAP][GAD]", core_seq))
+    if acc == "P02185" or has_heme_annot or has_heme_name or has_cyp_motif:
+        categories.append("heme_protein")
+        metal_labels.append("Heme Fe (Porphyrin)")
+
+    # --- D. ZINC METALLOENZYMES & STRUCTURAL ZINC-FINGER PROTEINS ---
+    has_zn_annot = (
+        "zinc" in keywords_low
+        or "zinc-finger" in keywords_low
+        or "metalloprotease" in keywords_low
+        or int(annot.get("zinc_finger_count") or 0) > 0
+        or bool(re.search(r"\bzn\s*\(\s*2\+\s*\)|\bzn2\+|\bzinc\b", metal_blob))
+    )
+    has_zn_name = bool(re.search(
+        r"\b(?:carbonic\s+anhydrase|metalloproteinase|metalloprotease|matrix\s+metalloproteinase|mmp-?\d+|"
+        r"thermolysin|collagenase|stromelysin|gelatinase|matrilysin|astacin|adamalysin|serralysin|"
+        r"carboxypeptidase\s*[ab]|alkaline\s+phosphatase|alcohol\s+dehydrogenase|metallo-?beta-?lactamase|"
+        r"ndm-?\d+|aminopeptidase|histone\s+deacetylase|hdac\d*|superoxide\s+dismutase\s*\[?cu-?zn\]?|sod1|"
+        r"zinc[-\s]+finger|cellular\s+tumor\s+antigen\s+p53|tumor\s+protein\s+p53|tp53)\b",
+        search_text,
+    ))
+    has_zn_motif = bool(
+        core_seq
+        and "ni_metalloenzyme" not in categories
+        and (
+            re.search(r"HE[LIVMFYW]{2}H[A-Z]{2}[GSTA][LIVMFYW]|HE[A-Z]{2}H[A-Z]{2}G[A-Z]{2}[HD]", core_seq)
+            or re.search(r"QFHFHW|HFHWG.{10,35}LHLVHW", core_seq)
+            or len(re.findall(r"C[A-Z]{2,4}C[A-Z]{12}H[A-Z]{3,5}H", core_seq)) >= 2
+        )
+    )
+    if acc in {"P00918", "P04637"} or has_zn_annot or has_zn_name or has_zn_motif:
+        categories.append("zn_metalloprotein")
+        if "Zn²⁺" not in " ".join(metal_labels):
+            metal_labels.append("Zn²⁺ Cofactor")
+
+    # --- E. COPPER, MANGANESE, COBALT, MOLYBDENUM & NON-HEME IRON METALLOENZYMES ---
+    has_other_tm_annot = (
+        bool({"copper", "manganese", "cobalt", "molybdenum", "tungsten", "vanadium"} & keywords_low)
+        or bool(re.search(
+            r"\bcu\s*\(\s*[12]?\+\s*\)|\bcopper\b|\bmn\s*\(\s*2\+\s*\)|\bmanganese\b|"
+            r"\bco\s*\(\s*2\+\s*\)|\bcobalt\b|\bcobalamin\b|\bmolybd|\btungsten\b",
+            metal_blob,
+        ))
+        or (
+            ("iron" in keywords_low or bool(re.search(r"\bfe\s*\(\s*[23]\+\s*\)|\bfe\s+cation\b|\bdiiron\b", metal_blob)))
+            and "heme_protein" not in categories
+            and "fe_s_cluster" not in categories
+        )
+    )
+    has_other_tm_name = bool(re.search(
+        r"\b(?:laccase|tyrosinase|plastocyanin|azurin|ceruloplasmin|ascorbate\s+oxidase|hemocyanin|"
+        r"arginase|superoxide\s+dismutase\s*\[?(?:mn|fe)\]?|sod[23ab]|ribonucleotide\s+reductase|"
+        r"lipoxygenase|phenylalanine-?4-?hydroxylase|tyrosine\s+3-?monooxygenase|nitrile\s+hydratase|"
+        r"nitrate\s+reductase|sulfite\s+oxidase|xanthine\s+oxidase|metallothionein|metalloenzyme|metalloprotein)\b",
+        search_text,
+    ))
+    if has_other_tm_annot or has_other_tm_name:
+        categories.append("cu_mn_co_mo_metalloprotein")
+        if "cu" in metal_blob or "copper" in keywords_low or re.search(r"\b(?:laccase|tyrosinase|plastocyanin|azurin|ceruloplasmin|hemocyanin|sod1)\b", search_text):
+            metal_labels.append("Cu⁺/²⁺ Cofactor")
+        elif "mn" in metal_blob or "manganese" in keywords_low or re.search(r"\b(?:arginase|sod2|soda)\b", search_text):
+            metal_labels.append("Mn²⁺ Cofactor")
+        elif "co" in metal_blob or "cobalt" in keywords_low or "cobalamin" in metal_blob:
+            metal_labels.append("Co²⁺ / Cobalamin")
+        elif "molybd" in metal_blob or "molybdenum" in keywords_low or re.search(r"\b(?:nitrate\s+reductase|sulfite\s+oxidase|xanthine\s+oxidase)\b", search_text):
+            metal_labels.append("Mo Cofactor")
+        else:
+            metal_labels.append("Non-Heme Fe / Transition Metal")
+
+    # --- F. CALCIUM / MAGNESIUM COFACTOR PROTEINS (EF-Hand, Gla-Domain, Polymerases, Kinases, Subtilisin/Amylase) ---
+    needs_calcium = (
+        acc == "P00734"
+        or "calcium" in keywords_low
+        or bool(re.search(r"\bca\s*\(\s*2\+\s*\)|\bcalcium\b", metal_blob))
+        or bool(re.search(
+            r"\b(?:calmodulin|troponin\s+c|parvalbumin|annexin|cadherin|prothrombin|subtilisin|"
+            r"alpha-?amylase|deoxyribonuclease-?1|dnase\s+i|thermolysin)\b",
+            search_text,
+        ))
+    )
+    needs_magnesium = (
+        "magnesium" in keywords_low
+        or bool(re.search(r"\bmg\s*\(\s*2\+\s*\)|\bmagnesium\b", metal_blob))
+        or bool(re.search(
+            r"\b(?:dna\s+polymerase|rna\s+polymerase|reverse\s+transcriptase|hexokinase|enolase|"
+            r"pyrophosphatase|atpase|gtpase|cas9|cas12|topoisomerase|gyrase)\b",
+            search_text,
+        ))
+    )
+    if needs_calcium or needs_magnesium:
+        categories.append("ca_mg_cofactor")
+        if needs_calcium:
+            metal_labels.append("Ca²⁺ Cofactor")
+        if needs_magnesium and not needs_calcium:
+            metal_labels.append("Mg²⁺ Cofactor")
+
+    is_metalloprotein = any(
+        c in categories for c in ("ni_metalloenzyme", "fe_s_cluster", "zn_metalloprotein", "cu_mn_co_mo_metalloprotein")
+    )
+    is_heme_protein = "heme_protein" in categories
+    is_o2_sensitive = "fe_s_cluster" in categories or bool(
+        re.search(r"\b(?:nitrogenase|hydrogenase|methyl[-\s]*coenzyme\s+m\s+reductase|carbon\s+monoxide\s+dehydrogenase)\b", search_text)
+    )
+    is_chelator_sensitive = is_metalloprotein or ("ca_mg_cofactor" in categories)
+
+    # --- G. INTEGRAL MEMBRANE PROTEINS ---
+    tm_annot_cnt = int(annot.get("transmembrane_count") or 0)
+    tm_seq_cnt = _count_internal_tm_helices(core_seq) if core_seq else 0
+    has_membrane_annot = tm_annot_cnt >= 1 or ("transmembrane" in keywords_low) or ("multi-pass membrane" in locs_low)
+    has_membrane_name = bool(re.search(
+        r"\b(?:rhodopsin|bacteriorhodopsin|aquaporin|(?:potassium|sodium|calcium|chloride|ion)\s+channel|"
+        r"kcsa|abc\s+transporter|permease|g-?protein\s+coupled\s+receptor|gpcr|adrenergic\s+receptor|"
+        r"porin|ompf|ompc|vdac)\b",
+        search_text,
+    ))
+    has_membrane_seq = (
+        not annot
+        and ((tm_seq_cnt >= 2 and (tm_seq_cnt * 19.0 / core_len) >= 0.10 and gravy >= -0.10) or gravy >= 0.45)
+    )
+    if has_membrane_annot or has_membrane_name or has_membrane_seq:
+        categories.append("membrane_integral")
+
+    # --- H. REDOX ARCHITECTURE: DISULFIDE-BONDED SECRETED vs. CYTOSOLIC FREE-THIOL PROTEINS ---
+    disulf_annot_cnt = int(annot.get("disulfide_count") or 0)
+    has_disulf_name = bool(re.search(
+        r"\b(?:lysozyme|serum\s+albumin|albumin|immunoglobulin|antibody|igg\d*|fab|scfv|nanobody|"
+        r"insulin|ribonuclease\s+a|rnase\s+a|trypsin|chymotrypsin|elastase|prothrombin|thrombin|"
+        r"interleukin|interferon|erythropoietin|bone\s+morphogenetic\s+protein)\b",
+        search_text,
+    ))
+    has_secreted_cys = (
+        ("secreted" in keywords_low or "extracellular" in locs_low or bool(annot.get("has_signal_peptide")))
+        and cys_count >= 2
+    )
+    # High cysteine density (>= 4.5% Cys & >= 6 Cys) on unannotated non-metalloprotein sequences (e.g. raw HEWL/BSA FASTA)
+    has_high_cys_density = (
+        not annot
+        and not is_metalloprotein
+        and "membrane_integral" not in categories
+        and cys_count >= 6
+        and (cys_count / core_len) >= 0.045
+    )
+    if acc in {"P00698", "P61626", "P02769", "P00734"} or disulf_annot_cnt >= 1 or ("disulfide bond" in keywords_low) or has_disulf_name or has_secreted_cys or has_high_cys_density:
+        categories.append("disulfide_structural")
+    elif (
+        acc in {"P04517", "P09211", "P08263", "P09488", "P08515", "P04637"}
+        or "thiol protease" in keywords_low
+        or bool(re.search(r"\b(?:tev\s+protease|nuclear\s+inclusion\s+protein\s+a|3c\s+protease|caspase|papain|cathepsin\s+[blks]|calpain|main\s+protease|3clpro|deubiquitinase|tyrosine-?protein\s+phosphatase|ptp1b)\b", search_text))
+        or (cys_count >= 3 and "secreted" not in keywords_low)
+    ):
+        categories.append("cytosolic_free_thiol")
+
+    # --- I. NUCLEIC-ACID-BINDING PROTEINS (Host DNA/RNA Co-Purification Risk) ---
+    if (
+        acc in {"P04637", "P01106", "P0A707"}
+        or bool({"dna-binding", "rna-binding", "ribonucleoprotein"} & keywords_low)
+        or bool(re.search(
+            r"\b(?:cas9|cas12[a-z]?|cas13[a-z]?|crispr|histone|transcription\s+factor|homeobox|"
+            r"helicase|topoisomerase|gyrase|dna\s+polymerase|rna\s+polymerase|dna\s+ligase|rna\s+ligase|"
+            r"ribosomal\s+protein|initiation\s+factor|reverse\s+transcriptase|integrase|argonaute|"
+            r"cellular\s+tumor\s+antigen\s+p53|myc\s+proto-oncogene)\b",
+            search_text,
+        ))
+    ):
+        categories.append("nucleic_acid_binding")
+
+    # --- J. ORGANIC COFACTOR HOLOENZYMES (PLP Vitamin B6 & Flavin FAD/FMN) ---
+    if (
+        "pyridoxal phosphate" in keywords_low
+        or "pyridoxal" in metal_blob
+        or bool(re.search(
+            r"\b(?:aminotransferase|transaminase|(?:glutamate|ornithine|lysine|histidine|dopa|aromatic-l-amino-acid)\s+decarboxylase|"
+            r"serine\s+hydroxymethyltransferase|cystathionine|tryptophan\s+synthase|glycogen\s+phosphorylase)\b",
+            search_text,
+        ))
+    ):
+        categories.append("plp_dependent")
+
+    if (
+        "flavoprotein" in keywords_low
+        or bool(re.search(r"\bfad\b|\bfmn\b|\bflavin\b", metal_blob))
+        or bool(re.search(
+            r"\b(?:glucose\s+oxidase|d-amino-acid\s+oxidase|glutathione\s+reductase|thioredoxin\s+reductase|"
+            r"flavodoxin|monoamine\s+oxidase|cryptochrome|ferredoxin\s*[-\u2013]+\s*nadp|cytochrome\s+p450\s+reductase)\b",
+            search_text,
+        ))
+    ):
+        categories.append("flavin_dependent")
+
+    # --- K. ACTIVE PROTEASES (Autolysis & Self-Inhibition Guard) ---
+    protease_class: Optional[str] = None
+    if "metalloprotease" in keywords_low or bool(re.search(r"\b(?:metalloproteinase|metalloprotease|mmp-?\d+|thermolysin|collagenase|stromelysin|gelatinase|astacin|serralysin|carboxypeptidase\s*[ab])\b", search_text)):
+        protease_class = "metallo"
+    elif "thiol protease" in keywords_low or acc == "P04517" or bool(re.search(r"\b(?:tev\s+protease|nuclear\s+inclusion\s+protein\s+a|3c\s+protease|caspase|papain|cathepsin\s+[blks]|calpain|main\s+protease|3clpro)\b", search_text)):
+        protease_class = "cysteine"
+    elif "serine protease" in keywords_low or acc == "P00734" or bool(re.search(r"\b(?:trypsin|chymotrypsin|elastase|thrombin|prothrombin|subtilisin|enteropeptidase|proteinase\s+k|coagulation\s+factor\s+x)\b", search_text)):
+        protease_class = "serine"
+    elif "aspartyl protease" in keywords_low or bool(re.search(r"\b(?:pepsin|renin|hiv-?1\s+protease|cathepsin\s+d|bace1)\b", search_text)):
+        protease_class = "aspartic"
+    if protease_class:
+        categories.append("active_protease")
+
+    # --- L. INTRINSICALLY DISORDERED PROTEINS (IDPs) ---
+    if (
+        acc == "P02686"
+        or bool(re.search(r"\b(?:synuclein|microtubule-associated\s+protein\s+tau|myelin\s+basic\s+protein)\b", search_text))
+        or (core_len >= 80 and gravy < -0.85 and aliphatic_idx < 60.0)
+    ):
+        categories.append("idp_disordered")
+
+    avoid_imidazole_imac = is_metalloprotein or is_o2_sensitive
+    caution_imidazole_imac = is_heme_protein and not avoid_imidazole_imac
+    avoid_reducing_agents = "disulfide_structural" in categories
+    require_reducing_agents = ("cytosolic_free_thiol" in categories or "fe_s_cluster" in categories) and not avoid_reducing_agents
+    avoid_tris_buffer = "plp_dependent" in categories
+    avoid_phosphate_buffer = needs_calcium or ("Mn²⁺ Cofactor" in metal_labels)
+    requires_detergent_micelles = "membrane_integral" in categories
+
+    metal_summary = ", ".join(metal_labels) if metal_labels else "catalytic metal"
+
+    # --- M. DETECT SPECIFIC TAG <-> PROTEIN BIOCHEMICAL CONFLICTS ---
+    tag_conflict: Optional[Dict[str, str]] = None
+    if has_tag and "his" in tag_low and avoid_imidazole_imac:
+        if "ni_metalloenzyme" in categories:
+            tag_conflict = {
+                "severity": "critical",
+                "headline": f"🛑 Metalloprotein–IMAC Conflict: Do NOT Use Ni-NTA & Imidazole for {effective_tag}-Tagged {metal_summary} Enzyme!",
+                "explanation": (
+                    f"This protein is a **{metal_summary} metalloenzyme** (like Urease). Running it on a **Ni-NTA IMAC** column "
+                    "causes two severe biochemical failures: **(1)** apo/surface metal-binding pockets & accessory sites chelate and strip "
+                    "Ni²⁺ off the column resin (causing Ni²⁺ leaching & protein precipitation), and **(2)** wash/elution **Imidazole (20–500 mM)** "
+                    "directly coordinates and competes with the protein-bound Ni²⁺ center—inhibiting catalysis or stripping the active site into inactive apoprotein!"
+                ),
+                "better_strategy": (
+                    "Bypass Ni-NTA & Imidazole! Purify natively using **EDTA-free Ion-Exchange (HiTrap Q / SP) + HIC + SEC** in a non-chelating "
+                    "Good's buffer (`HEPES` or `MOPS`, **0 mM EDTA**, **0 mM Imidazole**), OR switch the affinity tag to **Twin-Strep-tag / Strep-tag II** "
+                    "or **MBP-tag** run strictly in **EDTA-free** buffer."
+                ),
+            }
+        elif "fe_s_cluster" in categories:
+            tag_conflict = {
+                "severity": "critical",
+                "headline": f"🛑 [Fe–S] Metalloenzyme Conflict: Avoid Aerobic Ni-NTA & Imidazole for {effective_tag}-Tagged Construct!",
+                "explanation": (
+                    "Iron–sulfur (`[2Fe-2S]` / `[4Fe-4S]`) clusters are destroyed by dissolved O₂, disrupted by millimolar **Imidazole**, "
+                    "and poisoned when leached **Ni²⁺** displaces Fe in Cys-coordination pockets (while DTT reduces Ni-NTA resin brown)."
+                ),
+                "better_strategy": (
+                    "Purify inside an **anaerobic glovebox (< 2 ppm O₂)** using **EDTA-free Strep-Tactin** or **anaerobic Anion-Exchange (HiTrap Q / DEAE) + SEC** "
+                    "in N₂-sparged `HEPES`/`Tris` + `1–2 mM DTT` or `Sodium Dithionite`, monitoring cluster integrity at `A410/A280`."
+                ),
+            }
+        else:
+            tag_conflict = {
+                "severity": "critical",
+                "headline": f"🛑 Metalloprotein–IMAC Conflict: Avoid Ni-NTA & Imidazole for {effective_tag}-Tagged {metal_summary} Protein!",
+                "explanation": (
+                    f"This protein coordinates **{metal_summary}**. On **Ni-NTA**, leached Ni²⁺ substitutes into native metal sites via the "
+                    "Irving–Williams series (**mismetallation**, permanently killing enzymatic activity) or protein sites strip metal from the column, "
+                    f"while **20–500 mM Imidazole** competes with and extracts bound **{metal_summary}** into inactive apoprotein!"
+                ),
+                "better_strategy": (
+                    "Bypass Ni-NTA & Imidazole! Purify via **EDTA-free Ion-Exchange + HIC + SEC** in non-chelating `HEPES`/`MOPS` buffer, "
+                    "OR use **Twin-Strep-tag**, **MBP-tag**, or **FLAG-tag** in **EDTA-free** buffer (never add EDTA, EGTA, or Citrate!)."
+                ),
+            }
+    elif has_tag and "his" in tag_low and caution_imidazole_imac:
+        tag_conflict = {
+            "severity": "warning",
+            "headline": f"⚠️ Heme–Imidazole Coordination Caution ({effective_tag} on Hemoprotein)!",
+            "explanation": (
+                "High **Imidazole (50–500 mM)** in standard Ni-NTA elution binds directly to the **6th axial coordination site of heme iron** "
+                "(shifting the Soret band ~410 ➜ ~426 nm and competitively inhibiting P450s, peroxidases, and globins)."
+            ),
+            "better_strategy": (
+                "Prefer **native IEX/HIC** or **EDTA-free Strep/MBP affinity**; if using IMAC (`TALON Co²⁺` / `Ni-NTA`), elute via "
+                "**imidazole-free on-column TEV/3C protease cleavage** or immediately desalt out Imidazole on SEC and verify the heme **Soret/A280 (Rz)** ratio!"
+            ),
+        }
+    elif has_tag and "gst" in tag_low and avoid_reducing_agents:
+        tag_conflict = {
+            "severity": "warning",
+            "headline": "⚠️ Disulfide–Glutathione Conflict: GST Elution Risks Reducing Structural S–S Bridges!",
+            "explanation": (
+                "Standard GST purification uses `1–5 mM DTT` in binding buffer and `10–20 mM Reduced L-Glutathione (GSH)` for elution, "
+                "which can reduce and scramble essential structural disulfide (`S–S`) bonds in secreted/extracellular proteins."
+            ),
+            "better_strategy": (
+                "Omit DTT completely, keep GSH elution brief at 4°C followed by immediate desalting, OR prefer a redox-inert tag "
+                "such as **Twin-Strep-tag**, **FLAG-tag**, or **reductant-free HisTrap**."
+            ),
+        }
+
+    # Compact UI pills summarizing detected biochemical traits
+    profile_badges: List[str] = []
+    if is_metalloprotein:
+        profile_badges.append(f"🪙 Metalloprotein ({metal_labels[0]})")
+        profile_badges.append("🚫 No Ni-NTA / Imidazole / EDTA")
+    elif is_heme_protein:
+        profile_badges.append("🩸 Heme Cofactor (Avoid High Imidazole)")
+    elif needs_calcium:
+        profile_badges.append("🦴 Ca²⁺-Dependent (No EDTA / No Phosphate)")
+    elif needs_magnesium:
+        profile_badges.append("⚡ Mg²⁺ Cofactor (No EDTA)")
+
+    if is_o2_sensitive:
+        profile_badges.append("🫧 O₂-Sensitive (Anaerobic)")
+    if requires_detergent_micelles:
+        profile_badges.append("🧴 Integral Membrane (Detergent Required)")
+    if avoid_reducing_agents:
+        profile_badges.append("🔗 Disulfide-Stabilized (Omit DTT/TCEP)")
+    if "plp_dependent" in categories:
+        profile_badges.append("💊 PLP Cofactor (Avoid Tris!)")
+    if "flavin_dependent" in categories:
+        profile_badges.append("💛 Flavin FAD/FMN Cofactor")
+    if "nucleic_acid_binding" in categories:
+        profile_badges.append("🧬 DNA/RNA-Binding (1 M NaCl Wash)")
+
+    return {
+        "categories": categories,
+        "effective_tag": effective_tag,
+        "core_sequence": core_seq,
+        "metal_labels": metal_labels,
+        "metal_summary": metal_summary,
+        "is_metalloprotein": is_metalloprotein,
+        "is_heme_protein": is_heme_protein,
+        "is_o2_sensitive": is_o2_sensitive,
+        "is_chelator_sensitive": is_chelator_sensitive,
+        "needs_calcium": needs_calcium,
+        "needs_magnesium": needs_magnesium,
+        "avoid_imidazole_imac": avoid_imidazole_imac,
+        "caution_imidazole_imac": caution_imidazole_imac,
+        "avoid_reducing_agents": avoid_reducing_agents,
+        "require_reducing_agents": require_reducing_agents,
+        "avoid_tris_buffer": avoid_tris_buffer,
+        "avoid_phosphate_buffer": avoid_phosphate_buffer,
+        "requires_detergent_micelles": requires_detergent_micelles,
+        "protease_class": protease_class,
+        "tag_conflict": tag_conflict,
+        "profile_badges": profile_badges,
+    }
+
+
+def advise_hic_strategy(
+    metrics: Dict[str, Any],
+    working_ph: float,
+    net_charge: float,
+    protein_profile: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """
     Evaluates protein suitability and exact conditions for Hydrophobic Interaction Chromatography (HIC)
-    per the Cytiva HIC Handbook:
-    - Sepharose ligand hydrophobicity series (lowest -> highest):
-      Butyl-S FF < Butyl HP (C4 alkyl) < Phenyl HP (mixed aromatic π–π / hydrophobic) < Octyl FF (C8 alkyl)
-      (note: high-substitution Phenyl FF / Capto Phenyl [high sub] exceeds Octyl due to high ligand density,
-      whereas Phenyl HP / Capto Phenyl ImpRes provides moderate mixed aromatic/hydrophobic retention).
-    - Inverse rule: More hydrophobic proteins require MILDER ligands (Butyl-S / Butyl) and lower starting salt
-      so they elute natively without on-column unfolding; polar proteins require stronger ligands (Octyl) + higher salt.
+    per the Cytiva HIC Handbook, while honoring membrane-protein detergent rules, Ca2+/phosphate
+    precipitation avoidance, and metalloprotein IMAC-bypass guidance.
     """
+    prof = protein_profile or {}
     gravy = float(metrics["gravy"])
     aliphatic = float(metrics["aliphatic_index"])
     pi = float(metrics["pi"])
@@ -460,12 +965,17 @@ def advise_hic_strategy(metrics: Dict[str, Any], working_ph: float, net_charge: 
     near_pi = (abs(working_ph - pi) < 0.9) or (abs(net_charge) < 2.2)
 
     # 1. Decide Priority / When HIC is Required
-    if gravy > 0.35:
-        status_badge = "⚠️ Caution: Membrane / Very Hydrophobic"
+    if prof.get("requires_detergent_micelles") or gravy > 0.35:
+        status_badge = "🚫 Avoid Aqueous HIC (Membrane / Very Hydrophobic)" if prof.get("requires_detergent_micelles") else "⚠️ Caution: Membrane / Very Hydrophobic"
         is_required = False
         when_why = (
-            f"GRAVY is positive ({gravy:+.2f}), typical of transmembrane or poorly water-soluble proteins. "
-            "Standard HIC resins risk irreversible binding without detergents—prefer Affinity + Detergent SEC, or screen Cytiva's mildest HiTrap Butyl-S FF resin."
+            "Integral membrane proteins require detergent micelles (e.g., DDM / LMNG) to stay soluble; high Ammonium Sulfate causes "
+            "detergent phase-separation/aggregation and transmembrane helices bind irreversibly to HIC resins! Use Detergent Affinity + IEX + Detergent SEC instead."
+            if prof.get("requires_detergent_micelles")
+            else (
+                f"GRAVY is positive ({gravy:+.2f}), typical of transmembrane or poorly water-soluble proteins. "
+                "Standard HIC resins risk irreversible binding without detergents—prefer Affinity + Detergent SEC, or screen Cytiva's mildest HiTrap Butyl-S FF resin."
+            )
         )
     elif near_pi:
         status_badge = "⭐ REQUIRED HERE (Rescues Purification Near pI!)"
@@ -474,13 +984,28 @@ def advise_hic_strategy(metrics: Dict[str, Any], working_ph: float, net_charge: 
             f"At pH {working_ph:.1f}, your protein is close to its pI ({pi:.2f}) with weak net charge ({net_charge:+.1f}), "
             "where Ion-Exchange (IEX) fails! HIC separates by surface hydrophobic patches in kosmotropic salt—independent of net charge—making HIC essential here."
         )
+    elif "idp_disordered" in (prof.get("categories") or []):
+        status_badge = "🔹 Secondary Option (IDP Lacks Compact Hydrophobic Core)"
+        is_required = False
+        when_why = (
+            f"Intrinsically disordered proteins (GRAVY {gravy:+.2f}) have few stable hydrophobic patches and can nucleate fibrils in high Ammonium Sulfate. "
+            "Prefer high-resolution Ion-Exchange (HiTrap Q / SP) + SEC first!"
+        )
     elif gravy >= -0.35 or (gravy >= -0.58 and (aromatic_pct >= 7.5 or aliphatic >= 78.0 or hydrophobic_pct >= 38.0)):
         status_badge = "✅ Strongly Recommended Orthogonal Method"
         is_required = True
+        upstream_note = (
+            "especially right after Ammonium Sulfate fractionation or high-salt Ion-Exchange elution with ZERO dialysis needed!"
+            if (prof.get("avoid_imidazole_imac") or prof.get("caution_imidazole_imac"))
+            else "especially right after Ammonium Sulfate precipitation or high-salt IMAC/IEX elution with ZERO dialysis needed!"
+        )
+        flavin_caution = (
+            " *(Note: monitor yellow FAD/FMN retention at A450, as >1.3 M salt can partially strip non-covalent flavins.)*"
+            if "flavin_dependent" in (prof.get("categories") or []) else ""
+        )
         when_why = (
             f"Your protein has an ideal amphipathic balance (GRAVY {gravy:+.2f}, {aromatic_pct:.1f}% aromatic Trp/Tyr/Phe, "
-            f"{hydrophobic_pct:.1f}% hydrophobic residues). HIC gives crisp orthogonal resolution—especially right after Ammonium Sulfate precipitation "
-            "or high-salt IMAC elution with ZERO dialysis needed!"
+            f"{hydrophobic_pct:.1f}% hydrophobic residues). HIC gives crisp orthogonal resolution—{upstream_note}{flavin_caution}"
         )
     else:
         status_badge = "🔹 Optional Secondary Method (Very Polar Protein)"
@@ -523,10 +1048,14 @@ def advise_hic_strategy(metrics: Dict[str, Any], working_ph: float, net_charge: 
             "plus higher kosmotropic salt is needed to promote binding."
         )
 
-    if working_ph < 5.8:
+    if prof.get("avoid_phosphate_buffer"):
+        hic_buf_name = f"50 mM HEPES (pH {min(8.0, max(6.8, working_ph)):.1f} — avoid Sodium Phosphate so Ca²⁺/Mn²⁺ cofactors never precipitate!)"
+    elif working_ph < 5.8:
         hic_buf_name = f"50 mM Sodium Acetate (pH {working_ph:.1f}; or run HIC at neutral pH 7.0 in 50 mM Sodium Phosphate)"
     elif working_ph <= 8.0:
-        hic_buf_name = f"50 mM Sodium Phosphate (pH {working_ph:.1f})"
+        hic_buf_name = f"50 mM Sodium Phosphate or HEPES (pH {working_ph:.1f}, EDTA-free)" if prof.get("is_chelator_sensitive") else f"50 mM Sodium Phosphate (pH {working_ph:.1f})"
+    elif prof.get("avoid_tris_buffer"):
+        hic_buf_name = f"50 mM Bicine or Sodium Borate/HEPES (pH {working_ph:.1f} — avoid Tris with PLP enzymes & use Na2SO4 above pH 8.0)"
     else:
         hic_buf_name = (
             f"50 mM Tris-HCl (pH {working_ph:.1f} — avoid (NH4)2SO4 above pH 8.0 as NH4+ [pKa 9.25] releases NH3; "
@@ -563,132 +1092,313 @@ def recommend_full_purification_workflow(
     metrics: Dict[str, Any],
     working_ph: float,
     net_charge: float,
-    tag_detected: str = "None"
+    tag_detected: str = "None",
+    sequence: str = "",
+    protein_name: str = "",
+    metadata: Optional[Dict[str, Any]] = None,
+    construct_parts: Optional[List[Tuple[str, str]]] = None,
+    protein_profile: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    Builds a complete, textbook-grade 3-Step Purification Roadmap (Capture -> Intermediate -> Polishing)
-    and evaluates ALL 7 major protein purification methods per Cytiva CIPP (Capture, Intermediate, Polishing) principles.
+    Builds a context-aware, textbook-grade 3-Step Purification Roadmap (Capture -> Intermediate -> Polishing)
+    and evaluates ALL 7 major protein purification methods per Cytiva CIPP principles—adapting wisely to
+    metalloproteins (Ni2+, Zn2+, Cu, Mn, Co, Mo, Fe-S), hemoproteins, Ca2+/Mg2+ cofactors, disulfide bridges,
+    integral membrane topology, nucleic-acid binding, PLP/flavin cofactors, proteases, and IDPs.
     """
+    prof = protein_profile or infer_protein_biochemical_profile(
+        sequence=sequence,
+        protein_name=protein_name,
+        metadata=metadata,
+        metrics=metrics,
+        tag_detected=tag_detected,
+        construct_parts=construct_parts,
+    )
+    cats = set(prof["categories"])
+
     mw_kda = float(metrics["mw_kda"])
     pi = float(metrics["pi"])
     gravy = float(metrics["gravy"])
     cys_count = int(metrics["counts"]["cysteines"])
     instab = float(metrics["instability_index"])
 
+    effective_tag = prof["effective_tag"] if (not tag_detected or tag_detected.lower() in ("none", "n/a", "")) else tag_detected
+    has_tag = bool(effective_tag and effective_tag.lower() not in ("none", "n/a", ""))
+    tag_low = (effective_tag or "").lower()
+
     iex = advise_iex_strategy(pi, working_ph, net_charge)
-    hic = advise_hic_strategy(metrics, working_ph, net_charge)
+    # Annotate IEX buffer table notes with active-protein cofactor/chelator warnings
+    adapted_buffers: List[Dict[str, Any]] = []
+    for b in iex["recommended_buffers"]:
+        b_copy = dict(b)
+        b_nm = b_copy["name"].lower()
+        if prof["is_chelator_sensitive"] and "citrate" in b_nm:
+            b_copy["notes"] = f"🚫 AVOID for {prof['metal_summary']} proteins — Citrate chelates & strips divalent metal cofactors! ({b_copy['notes']})"
+        elif prof["is_chelator_sensitive"] and "bicine" in b_nm:
+            b_copy["notes"] = f"⚠️ Caution: Bicine weakly coordinates divalent metals; prefer HEPES/MOPS/CHES for {prof['metal_summary']} proteins."
+        elif prof["avoid_tris_buffer"] and ("tris" in b_nm):
+            b_copy["notes"] = "🚫 AVOID for PLP-dependent enzymes — primary/amine buffer forms Schiff-base adduct with PLP! Use HEPES or Phosphate."
+        elif prof["avoid_phosphate_buffer"] and "phosphate" in b_nm:
+            b_copy["notes"] = "🚫 AVOID when Ca²⁺/Mn²⁺ is required — orthophosphate precipitates insoluble metal phosphate!"
+        elif prof["is_chelator_sensitive"] and any(g in b_nm for g in ("hepes", "mops", "mes", "pipes")):
+            b_copy["notes"] = f"⭐ Ideal non-chelating Good's buffer for {prof['metal_summary']} metalloproteins! {b_copy['notes']}"
+        adapted_buffers.append(b_copy)
+    iex["recommended_buffers"] = adapted_buffers
 
-    has_tag = bool(tag_detected and tag_detected.lower() not in ("none", "n/a", ""))
-    tag_low = (tag_detected or "").lower()
+    hic = advise_hic_strategy(metrics, working_ph, net_charge, protein_profile=prof)
 
-    # --- STEP 1: CAPTURE ---
-    if has_tag:
-        if "his" in tag_low:
-            step1_title = f"Affinity Capture: Ni-NTA / HisTrap HP ({tag_detected})"
-            step1_detail = "Bind clarified lysate in 20–40 mM Imidazole + 300–500 mM NaCl (pH 7.4–8.0); wash at 50 mM Imidazole; elute at 250–500 mM Imidazole."
-        elif "strep" in tag_low:
-            step1_title = f"Affinity Capture: Strep-Tactin / Strep-Tactin XT ({tag_detected})"
+    # Helper strings for buffer components tailored to protein biochemistry
+    base_buf_chem = "HEPES" if (prof["is_chelator_sensitive"] or prof["avoid_tris_buffer"]) else "Tris-HCl"
+    edta_clause = "0 mM EDTA (EDTA-FREE to protect bound metal!)" if prof["is_chelator_sensitive"] else "1 mM EDTA"
+    na_wash_clause = " Include a **0.8–1.0 M NaCl high-salt wash** on-column to strip co-purifying host DNA/RNA (`A260/A280 < 0.60`)." if "nucleic_acid_binding" in cats else ""
+    det_clause = " Include **0.03% (w/v) DDM** (or `0.005% LMNG + 0.001% CHS`) in all buffers after `1% DDM` membrane solubilization." if prof["requires_detergent_micelles"] else ""
+    anaerobic_clause = " Perform **anaerobically (< 2 ppm O₂)** in N₂/Ar-sparged degassed buffer + `1–2 mM DTT / Dithionite`." if prof["is_o2_sensitive"] else ""
+    imac_reductant_note = (
+        " *(Omit DTT/TCEP/β-ME to preserve native disulfide bridges!)*"
+        if prof["avoid_reducing_agents"]
+        else (" *(Use 0.5 mM TCEP rather than >1 mM DTT on Ni-NTA.)*" if prof["require_reducing_agents"] else "")
+    )
+
+    imac_bypassed = False
+
+    # --- STEP 1: CAPTURE (WISE PROTEIN-AWARE ROUTING) ---
+    if prof["requires_detergent_micelles"] and not has_tag:
+        step1_title = "Membrane Solubilization (1% DDM / LMNG) + Detergent Ion-Exchange Capture"
+        step1_detail = (
+            "Solubilize isolated membranes in `1% (w/v) DDM` (or `LMNG + CHS`) at 4°C, clear unsolubilized debris at `100,000 × g`, "
+            f"and capture in `0.03% DDM` on {'HiTrap Q (AEX)' if net_charge < 0 else 'HiTrap SP (CEX)'} (never use Ammonium Sulfate salting-out!)."
+        )
+    elif has_tag:
+        if "his" in tag_low and prof["avoid_imidazole_imac"]:
+            # CRITICAL FIX: NEVER recommend Ni-NTA + Imidazole for Urease or other metalloproteins / Fe-S enzymes!
+            imac_bypassed = True
+            if abs(net_charge) >= 2.2:
+                native_cap = "HiTrap Q (Anion Exchange)" if net_charge < 0 else "HiTrap SP (Cation Exchange)"
+                native_proto = f"capture clarified lysate directly on **{native_cap}** in EDTA-free `25–50 mM {base_buf_chem}` (pH {working_ph:.1f}, `20–30 mM NaCl`)"
+            else:
+                native_cap = f"{hic['recommended_resin'].split('(')[0].strip()} (HIC)"
+                native_proto = f"capture on **{native_cap}** in EDTA-free `{base_buf_chem}` + `{hic['starting_salt']}`"
+            step1_title = f"🛑 Bypass Ni-NTA / Imidazole ➜ Metal-Safe {native_cap} (or EDTA-Free Strep/MBP)"
             step1_detail = (
-                "Bind in 100 mM Tris-HCl, 150 mM NaCl, 1 mM EDTA (pH 8.0); elute classic Strep-Tactin with 2.5 mM D-Desthiobiotin (Buffer E) "
-                "OR high-affinity Strep-Tactin XT with 50 mM D-Biotin (Buffer BXT)."
+                f"**Avoid Ni-NTA & Imidazole** for this **{prof['metal_summary']}** protein: protein metal sites chelate resin Ni²⁺ "
+                "(or suffer Irving–Williams Ni²⁺ mismetallation), and `20–500 mM Imidazole` competes with/strips bound metal! "
+                f"Instead, {native_proto}, OR re-clone with **Twin-Strep-tag / MBP-tag** in **EDTA-free** buffer.{anaerobic_clause}{det_clause}{na_wash_clause}"
+            )
+        elif "his" in tag_low and prof["caution_imidazole_imac"]:
+            step1_title = f"⚠️ Heme-Safe Capture: {effective_tag} (On-Column Protease Elution) or Native IEX"
+            step1_detail = (
+                "High Imidazole (`250–500 mM`) coordinates axial heme Fe (shifting Soret & inhibiting catalysis)! "
+                "Prefer **on-column TEV/3C cleavage** (0 mM Imidazole elution), **immediate SEC desalting**, or **EDTA-free Strep/IEX**; monitor `A_Soret/A280`."
+                f"{det_clause}{na_wash_clause}"
+            )
+        elif "his" in tag_low:
+            step1_title = f"Affinity Capture: Ni-NTA / HisTrap HP ({effective_tag})"
+            step1_detail = (
+                f"Bind clarified lysate in `50 mM {base_buf_chem}`, `300–500 mM NaCl`, `20 mM Imidazole` (pH 7.4–8.0); "
+                f"wash at `40–50 mM Imidazole`; elute at `250–300 mM Imidazole`.{imac_reductant_note}{det_clause}{na_wash_clause}"
+            )
+        elif "strep" in tag_low:
+            step1_title = f"Affinity Capture: Strep-Tactin / Strep-Tactin XT ({effective_tag})"
+            step1_detail = (
+                f"Bind in `100 mM {base_buf_chem}`, `150 mM NaCl`, **{edta_clause}** (pH 8.0); elute classic Strep-Tactin with "
+                f"`2.5 mM D-Desthiobiotin` OR Strep-Tactin XT with `50 mM D-Biotin`.{anaerobic_clause}{det_clause}{na_wash_clause}"
             )
         elif "gst" in tag_low:
-            step1_title = "Affinity Capture: Glutathione Sepharose 4B (GST-Tag)"
-            step1_detail = "Bind in PBS (pH 7.4) + 1–5 mM DTT; elute natively in 50 mM Tris-HCl, 150 mM NaCl + 10–20 mM Reduced L-Glutathione (re-titrated to pH 8.0)."
+            if prof["avoid_reducing_agents"]:
+                step1_title = "⚠️ Caution Affinity Capture: Glutathione Sepharose 4B (GST-Tag — GSH Risk on Disulfides!)"
+                step1_detail = (
+                    "Omit DTT from binding buffer and keep `10 mM Reduced L-Glutathione (GSH)` elution brief at 4°C followed by immediate desalting "
+                    "so structural `S–S` disulfide bonds are not reduced/scrambled (prefer Twin-Strep or FLAG when cloning secreted proteins)."
+                )
+            else:
+                buf_gst = "50 mM HEPES (pH 7.4), 150 mM NaCl" if prof["avoid_phosphate_buffer"] else "PBS (pH 7.4)"
+                step1_title = "Affinity Capture: Glutathione Sepharose 4B (GST-Tag)"
+                step1_detail = f"Bind in `{buf_gst}` + `1–2 mM DTT`; elute natively in `50 mM {base_buf_chem}`, `150 mM NaCl` + `10–20 mM Reduced L-Glutathione` (re-titrated to pH 8.0).{det_clause}{na_wash_clause}"
         elif "mbp" in tag_low:
             step1_title = "Affinity Capture: Amylose Resin / MBPTrap HP (MBP-Tag)"
-            step1_detail = "Bind in 20 mM Tris-HCl (pH 7.4), 200 mM NaCl, 1 mM EDTA; elute natively with 10 mM D-Maltose."
+            step1_detail = (
+                f"Bind in `20 mM {base_buf_chem}` (pH 7.4), `200 mM NaCl`, **{edta_clause}**; "
+                f"elute gently under native conditions with `10 mM D-Maltose`.{anaerobic_clause}{det_clause}{na_wash_clause}"
+            )
         elif "flag" in tag_low:
-            step1_title = f"Affinity Capture: Anti-FLAG M2 Resin ({tag_detected})"
-            step1_detail = "Bind in TBS (50 mM Tris-HCl pH 7.4, 150 mM NaCl); elute competitively under native conditions with 100–150 µg/mL 3× FLAG peptide."
+            ca_note = " (use Ca²⁺-independent Anti-FLAG M2, NOT Ca²⁺/EDTA-dependent M1!)" if prof["is_chelator_sensitive"] else ""
+            step1_title = f"Affinity Capture: Anti-FLAG M2 Resin ({effective_tag})"
+            step1_detail = f"Bind in `50 mM {base_buf_chem}` (pH 7.4), `150 mM NaCl`{ca_note}; elute competitively under native conditions with `100–150 µg/mL 3× FLAG peptide`.{det_clause}{na_wash_clause}"
         else:
-            step1_title = f"Affinity Capture ({tag_detected})"
-            step1_detail = "Capture recombinant tagged protein directly from clarified cell lysate using anti-epitope affinity resin."
+            step1_title = f"Affinity Capture ({effective_tag})"
+            step1_detail = f"Capture recombinant tagged protein from clarified lysate in `{base_buf_chem}` ({edta_clause}).{det_clause}{na_wash_clause}"
     else:
-        # Tagless Native Capture Logic
-        if pi >= 8.4 and net_charge >= 4.0:
+        # Tagless Native Capture Logic (respecting metalloprotein/anaerobic/nucleic-acid/chelator constraints)
+        edta_free_tag = " in EDTA-free buffer" if prof["is_chelator_sensitive"] else ""
+        if "nucleic_acid_binding" in cats and net_charge >= 1.5:
+            step1_title = "Tagless Capture: HiTrap Heparin HP (Biomimetic DNA-Mimic) or Cation Exchange"
+            step1_detail = (
+                f"Clear host nucleic acids (`0.8–1.0 M NaCl` / PEI cut), then capture on **HiTrap Heparin HP**{edta_free_tag} "
+                "and elute with a `0.15 ➜ 1.5 M NaCl` gradient."
+            )
+        elif pi >= 8.4 and net_charge >= 4.0:
             step1_title = "Tagless Capture: Cation Exchange (HiTrap SP) or Heparin Sepharose"
             step1_detail = (
                 f"Because your protein is strongly basic (pI {pi:.2f}, charge {net_charge:+.1f}), most host proteins are anionic and flow straight through! "
-                "Capture directly on SP Sepharose (CEX) or HiTrap Heparin HP (DNA-mimic / sulfated GAG)."
+                f"Capture directly on SP Sepharose (CEX) or HiTrap Heparin HP{edta_free_tag}.{anaerobic_clause}"
+            )
+        elif prof["is_o2_sensitive"]:
+            col_short = "HiTrap Q / DEAE (Anion Exchange)" if net_charge <= 0 else "HiTrap SP (Cation Exchange)"
+            step1_title = f"Anaerobic Tagless Capture: {col_short} (< 2 ppm O₂)"
+            step1_detail = (
+                f"Load clarified anaerobic lysate onto **{col_short}** in N₂-sparged, EDTA-free `{base_buf_chem}` + `1–2 mM DTT / Dithionite` "
+                "(avoid open-beaker Ammonium Sulfate stirring in air so `[Fe–S]` clusters do not oxidize!)."
             )
         elif abs(net_charge) >= 3.5:
             col_short = "HiTrap Q (Anion Exchange)" if net_charge < 0 else "HiTrap SP (Cation Exchange)"
             step1_title = f"Tagless Capture: {col_short} or (NH4)2SO4 Salting-Out"
             step1_detail = (
-                f"Optional 35–65% Ammonium Sulfate cut to concentrate lysate, or load low-conductivity clarified extract directly onto {col_short}."
+                f"Load low-conductivity clarified extract directly onto {col_short}{edta_free_tag} (`25 mM {base_buf_chem}`), "
+                "or perform a gentle 35–65% Ammonium Sulfate cut."
             )
         else:
             step1_title = "Tagless Capture: Ammonium Sulfate (NH4)2SO4 Fractionation (40–70% Cut)"
             step1_detail = (
-                "Salt out bulk contaminants first; redissolve your target pellet and load DIRECTLY onto a Hydrophobic Interaction (HIC) column with zero dialysis!"
+                f"Salt out bulk contaminants first{edta_free_tag}; redissolve your target pellet and load DIRECTLY onto a Hydrophobic Interaction (HIC) column with zero dialysis!"
             )
 
     # --- STEP 2: INTERMEDIATE ORTHOGONAL CLEANUP ---
-    if abs(net_charge) < 2.2 or abs(working_ph - pi) < 0.9:
-        step2_title = f"Intermediate Cleanup: Hydrophobic Interaction — {hic['recommended_resin'].split('(')[0].strip()}"
+    iex_short = "Anion Exchange (HiTrap Q)" if net_charge < 0 else "Cation Exchange (HiTrap SP)"
+    if prof["requires_detergent_micelles"]:
+        step2_title = f"Intermediate Cleanup: Detergent {iex_short} or Protease Tag-Cleavage"
         step2_detail = (
-            f"Net charge ({net_charge:+.1f}) is weak near pI, so HIC ({hic['starting_salt']} ➜ 0 M salt) is your best orthogonal step to remove co-eluting contaminants."
+            f"Run {iex_short} in `0.03% DDM` (or `0.005% LMNG`)—never aqueous HIC!—or cleave the affinity tag (3C/TEV) "
+            "and pass back over affinity resin (optional reconstitution into amphipols or lipid nanodiscs)."
         )
-    elif hic["is_required_or_strong"] and not has_tag:
+    elif "nucleic_acid_binding" in cats and abs(net_charge) >= 1.5:
+        step2_title = f"Intermediate Cleanup: HiTrap Heparin HP OR {iex_short}"
+        step2_detail = (
+            f"Heparin Sepharose mimics the polyanionic DNA/RNA backbone—giving ultra-selective purification (`0.15 ➜ 1.2 M NaCl`) "
+            f"while stripping residual host nucleic acids (`A260/A280 < 0.60`), or polish by charge on {iex_short}."
+        )
+    elif abs(net_charge) < 2.2 or abs(working_ph - pi) < 0.9:
         step2_title = f"Intermediate Cleanup: Hydrophobic Interaction — {hic['recommended_resin'].split('(')[0].strip()}"
         step2_detail = (
-            f"Separates by surface hydrophobicity ({hic['starting_salt']} ➜ 0 M gradient)—completely orthogonal to charge-based Step 1 capture!"
+            f"Net charge ({net_charge:+.1f}) is weak near pI, so HIC (`{hic['starting_salt']}` ➜ `0 M` salt) is your best orthogonal step to remove co-eluting contaminants."
+        )
+    elif hic["is_required_or_strong"] and (not has_tag or imac_bypassed):
+        step2_title = f"Intermediate Cleanup: Hydrophobic Interaction — {hic['recommended_resin'].split('(')[0].strip()}"
+        step2_detail = (
+            f"Separates by surface hydrophobicity (`{hic['starting_salt']}` ➜ `0 M` gradient)—completely orthogonal to charge-based Step 1 capture!"
         )
     elif hic["is_required_or_strong"] and has_tag:
-        iex_short = "Anion Exchange (HiTrap Q)" if net_charge < 0 else "Cation Exchange (HiTrap SP)"
         step2_title = f"Intermediate Cleanup: {iex_short} OR {hic['recommended_resin'].split('(')[0].strip()} (HIC)"
+        eluate_src = "Step 1 affinity eluate" if (prof["caution_imidazole_imac"] or "his" not in tag_low) else "high-salt IMAC eluate"
         step2_detail = (
-            f"Both work well! Use {iex_short} after diluting NaCl to <30 mM, OR adjust high-salt IMAC eluate into {hic['starting_salt']} for HIC with zero dialysis to strip misfolded/clipped species."
+            f"Both work well! Use {iex_short} after diluting NaCl to `<30 mM`, OR adjust {eluate_src} into `{hic['starting_salt']}` for HIC with zero dialysis to strip misfolded/clipped species."
         )
     else:
-        iex_short = "Anion Exchange (HiTrap Q)" if net_charge < 0 else "Cation Exchange (HiTrap SP)"
         step2_title = f"Intermediate Cleanup: {iex_short}"
-        step2_detail = f"High-resolution charge separation (Q = {net_charge:+.1f} at pH {working_ph:.1f}) using a 25 mM ➜ 1,000 mM NaCl gradient."
+        step2_detail = f"High-resolution charge separation (Q = {net_charge:+.1f} at pH {working_ph:.1f}) using a `25 mM ➜ 1,000 mM NaCl` gradient."
 
-    # --- STEP 3: FINAL POLISHING (SEC) ---
-    if mw_kda < 45.0:
+    # --- STEP 3: FINAL POLISHING (SEC — ACCOUNTING FOR DETERGENT MICELLES, IDP RADIUS & COFACTORS) ---
+    effective_sec_mw = mw_kda + 70.0 if prof["requires_detergent_micelles"] else (mw_kda * 1.6 if "idp_disordered" in cats else mw_kda)
+    if effective_sec_mw < 45.0:
         sec_col = "Superdex 75 Increase 10/300 GL (or HiLoad 16/600 S75)"
         sec_window = "3 – 70 kDa"
-    elif mw_kda <= 400.0:
+    elif effective_sec_mw <= 400.0:
         sec_col = "Superdex 200 Increase 10/300 GL (or HiLoad 16/600 S200)"
         sec_window = "10 – 600 kDa"
     else:
         sec_col = "Superose 6 Increase 10/300 GL"
         sec_window = "5 kDa – 5 MDa"
 
+    sec_tail_notes: List[str] = []
+    if prof["requires_detergent_micelles"]:
+        sec_tail_notes.append(f"includes ~70 kDa detergent micelle belt (`{mw_kda:.1f} kDa` protein + micelle ≈ `{effective_sec_mw:.0f} kDa` in `0.03% DDM` / `0.003% LMNG`)")
+    if prof["is_chelator_sensitive"]:
+        sec_tail_notes.append(f"run in **EDTA-free, Imidazole-free** `25–50 mM {base_buf_chem}` + `150 mM NaCl` to retain bound {prof['metal_summary']}")
+    elif prof["avoid_tris_buffer"]:
+        sec_tail_notes.append("run in `25–50 mM HEPES` (never Tris!) + `150 mM NaCl` + `10–20 µM PLP`")
+    elif prof["avoid_reducing_agents"]:
+        sec_tail_notes.append("omit DTT/TCEP so structural disulfide bridges remain oxidized")
+    elif prof["require_reducing_agents"]:
+        sec_tail_notes.append("include `0.5 mM TCEP` (or `1 mM DTT`) to protect free thiols")
+    sec_extra_str = f" ({'; '.join(sec_tail_notes)})" if sec_tail_notes else ""
+
     step3_title = f"Final Polish: Size-Exclusion (SEC) on {sec_col.split('(')[0].strip()}"
     step3_detail = (
-        f"Optimal for your {mw_kda:.1f} kDa protein ({sec_window} globular window). Removes soluble aggregates, resolves oligomers, "
-        "and exchanges sample (<2% of column bed volume) into final storage/assay buffer (≥150 mM NaCl)."
+        f"Optimal for your {mw_kda:.1f} kDa protein ({sec_window} globular window). Removes soluble aggregates, resolves native oligomers, "
+        f"and exchanges sample (<2% of column bed volume) into final storage/assay buffer (`≥150 mM NaCl`){sec_extra_str}."
     )
 
-    # --- COMPLETE 7-METHOD EVALUATION MATRIX ---
+    # --- COMPLETE 7-METHOD EVALUATION MATRIX (TAILORED TO ACTIVE PROTEIN BIOCHEMISTRY) ---
+    if prof["avoid_imidazole_imac"]:
+        if has_tag and "his" in tag_low:
+            m1_suit = "🚫 Avoid Ni-NTA / Imidazole"
+            m1_resin = f"Bypass {effective_tag}/Ni-NTA ➜ Switch to Twin-Strep / MBP (EDTA-Free!)"
+            m1_when = (
+                f"Active-site/apo {prof['metal_summary']} pockets chelate resin Ni²⁺ (or suffer Ni²⁺ mismetallation) and 20–500 mM Imidazole "
+                "competes with/strips the catalytic metal! Use EDTA-free Twin-Strep, MBP, FLAG, or native IEX/HIC instead."
+            )
+        elif has_tag:
+            m1_suit = "⭐ Best Step 1 (EDTA-Free!)"
+            m1_resin = f"{effective_tag} Resin (Strictly 0 mM EDTA / 0 mM Imidazole)"
+            m1_when = f"Selective 1-step capture—MUST omit standard 1 mM EDTA from Strep/MBP buffers so bound {prof['metal_summary']} is never stripped!"
+        else:
+            m1_suit = "⚠️ Metal-Safe Tags Only"
+            m1_resin = "Clone Twin-Strep, MBP, or FLAG (EDTA-Free — NEVER 6xHis / Ni-NTA!)"
+            m1_when = (
+                f"Do NOT fuse 6xHis or run Ni-NTA/Imidazole on {prof['metal_summary']} metalloproteins! "
+                "If cloning an affinity tag, choose Twin-Strep or MBP in EDTA-free buffer."
+            )
+    elif prof["caution_imidazole_imac"] and has_tag and "his" in tag_low:
+        m1_suit = "⚠️ Caution (Imidazole–Heme)"
+        m1_resin = f"{effective_tag} (Use On-Column TEV/3C Cleavage or Immediate Desalting)"
+        m1_when = "250–500 mM Imidazole coordinates axial heme Fe! Elute by protease cleavage (0 mM Imidazole) or switch to EDTA-free Strep/MBP."
+    elif prof["avoid_reducing_agents"] and has_tag and "gst" in tag_low:
+        m1_suit = "⚠️ Caution (GSH vs S–S Bonds)"
+        m1_resin = "Glutathione Sepharose (Omit DTT; Brief 4°C GSH Elution)"
+        m1_when = "10–20 mM Reduced Glutathione can scramble structural disulfides—Twin-Strep, FLAG, or reductant-free HisTrap is safer."
+    else:
+        m1_suit = "⭐ Best Step 1" if has_tag else "➕ Requires Tag"
+        if has_tag:
+            m1_resin = f"{effective_tag} Affinity Resin" + (" (EDTA-Free!)" if prof["is_chelator_sensitive"] else "")
+        elif prof["is_heme_protein"]:
+            m1_resin = "Prefer Twin-Strep, MBP, or Cleavable Tag (Avoid High Imidazole on Heme)"
+        elif prof["avoid_reducing_agents"]:
+            m1_resin = "Add Twin-Strep, FLAG, or Reductant-Free 6xHis (Avoid GST/DTT)"
+        else:
+            m1_resin = "Add Twin-Strep or 6xHis in sidebar prompt if cloning"
+        m1_when = "Captures ~80–95% pure protein straight out of clarified cell lysate in one selective step."
+
+    heparin_favored = (pi >= 8.3 and net_charge >= 3.5) or ("nucleic_acid_binding" in cats)
     all_methods = [
         {
-            "Method": "1. Tag Affinity (Ni-NTA / Strep / GST / MBP)",
+            "Method": "1. Tag Affinity (Strep / MBP / FLAG / IMAC)",
             "Separates By": "Engineered Affinity Tag",
-            "Suitability": "⭐ Best Step 1" if has_tag else "➕ Requires Tag",
-            "Resin / Reagent": f"{tag_detected} Affinity Resin" if has_tag else "Add 6xHis or Twin-Strep in sidebar prompt if cloning",
-            "When to Use It": "Captures ~80–95% pure protein straight out of clarified cell lysate in one selective step."
+            "Suitability": m1_suit,
+            "Resin / Reagent": m1_resin,
+            "When to Use It": m1_when,
         },
         {
             "Method": "2. Heparin / Blue Pseudo-Affinity",
             "Separates By": "DNA-Mimic GAG / Dinucleotide Fold",
-            "Suitability": "✅ Great Tagless Option" if (pi >= 8.3 and net_charge >= 3.5) else "🔹 Specialized",
+            "Suitability": "⭐ Premier Bio-Affinity" if "nucleic_acid_binding" in cats else ("✅ Great Tagless Option" if heparin_favored else "🔹 Specialized"),
             "Resin / Reagent": "HiTrap Heparin HP / HiTrap Blue HP",
             "When to Use It": (
-                "Ideal for tagless basic or DNA/RNA-binding proteins (Lysozyme, Cas9, Polymerases, Transcription Factors; elute with 0.1 ➜ 1.5 M NaCl)."
-                if (pi >= 8.3 and net_charge >= 3.5)
+                "Ideal for DNA/RNA-binding & basic proteins (Lysozyme, Cas9, Polymerases, p53, Transcription Factors; elute with 0.15 ➜ 1.5 M NaCl)."
+                if heparin_favored
                 else "Use for tagless DNA/RNA-binding proteins, coagulation factors (Heparin), or NAD+/ATP Rossmann-fold enzymes & albumin (Cibacron Blue)."
-            )
+            ),
         },
         {
             "Method": "3. Ammonium Sulfate Salting-Out",
             "Separates By": "Bulk Solubility in Kosmotropic Salt",
-            "Suitability": "✅ Classic Native Step" if not has_tag else "🔹 Optional Bulk Step",
+            "Suitability": (
+                "🚫 Avoid (Membrane Protein)" if prof["requires_detergent_micelles"]
+                else ("⚠️ Avoid Aerobic Stirring" if prof["is_o2_sensitive"] else ("✅ Classic Native Step" if not has_tag else "🔹 Optional Bulk Step"))
+            ),
             "Resin / Reagent": "Solid (NH4)2SO4 (typically 35% ➜ 70% saturation cut; 100% ≈ 4.1 M at 20°C)",
-            "When to Use It": "Inexpensive classroom & native extract concentration step; redissolved pellet feeds DIRECTLY into HIC without dialysis!"
+            "When to Use It": (
+                "Avoid on integral membrane proteins—kosmotropic salt causes detergent micelle phase separation & irreversible aggregation!"
+                if prof["requires_detergent_micelles"]
+                else "Inexpensive classroom & native extract concentration step; redissolved pellet feeds DIRECTLY into HIC without dialysis!"
+            ),
         },
         {
             "Method": "4. Ion-Exchange (IEX: AEX / CEX)",
@@ -699,62 +1409,251 @@ def recommend_full_purification_workflow(
             ),
             "Resin / Reagent": iex["recommended_resins"].split(" or ")[0],
             "When to Use It": (
-                f"Protein is {'negative ➜ Anion Exchange (Q)' if net_charge < 0 else 'positive ➜ Cation Exchange (SP)'} at pH {working_ph:.1f}."
+                f"Protein is {'negative ➜ Anion Exchange (Q)' if net_charge < 0 else 'positive ➜ Cation Exchange (SP)'} at pH {working_ph:.1f}"
+                + (f" (use EDTA-free {base_buf_chem})." if prof["is_chelator_sensitive"] else ".")
                 if abs(net_charge) >= 2.0
                 else f"Net charge is too close to zero at pH {working_ph:.1f}; shift pH ≥1 unit from pI or use HIC instead!"
-            )
+            ),
         },
         {
             "Method": "5. Hydrophobic Interaction (HIC)",
             "Separates By": f"Surface Hydrophobicity (GRAVY {gravy:+.2f})",
             "Suitability": hic["status_badge"].split("(")[0].strip(),
             "Resin / Reagent": hic["recommended_resin"],
-            "When to Use It": hic["when_why"]
+            "When to Use It": hic["when_why"],
         },
         {
             "Method": "6. Hydroxyapatite / Multimodal (CHT / MMC)",
             "Separates By": "Ca²⁺ & PO₄³⁻ Sites / Charge + Hydrophobic",
-            "Suitability": "✅ Orthogonal Polish",
-            "Resin / Reagent": "Ceramic Hydroxyapatite CHT [Ca10(PO4)6(OH)2] or Capto MMC",
-            "When to Use It": "Salt-tolerant capture (Capto MMC) or phosphate-gradient CHT polish for antibodies, nucleic acid removal & clipped isoforms (avoid EDTA/citrate on CHT!)."
+            "Suitability": "⚠️ Caution (Metal/PO₄³⁻)" if prof["is_metalloprotein"] else "✅ Orthogonal Polish",
+            "Resin / Reagent": "Capto MMC (Multimodal)" if prof["is_metalloprotein"] else "Ceramic Hydroxyapatite CHT [Ca10(PO4)6(OH)2] or Capto MMC",
+            "When to Use It": (
+                f"Prefer Capto MMC over CHT for {prof['metal_summary']} enzymes, as CHT's Ca²⁺/PO₄³⁻ lattice & phosphate gradients can perturb active-site metals."
+                if prof["is_metalloprotein"]
+                else "Salt-tolerant capture (Capto MMC) or phosphate-gradient CHT polish for antibodies, nucleic acid removal & clipped isoforms (avoid EDTA/citrate on CHT!)."
+            ),
         },
         {
             "Method": "7. Size-Exclusion (SEC / Gel Filtration)",
             "Separates By": f"Hydrodynamic Size ({mw_kda:.1f} kDa)",
             "Suitability": "⭐ Essential Final Step",
             "Resin / Reagent": sec_col,
-            "When to Use It": "Always run last on concentrated sample (0.5–2% of column bed volume) in ≥150 mM NaCl to remove aggregates and exchange into final buffer."
-        }
+            "When to Use It": "Always run last on concentrated sample (0.5–2% of column bed volume) in ≥150 mM NaCl to remove aggregates and exchange into final buffer.",
+        },
     ]
 
-    # --- PRACTICAL BIOCHEMICAL ALERTS FOR STUDENTS & RESEARCHERS ---
-    alerts = []
-    if cys_count >= 4:
+    # --- PRACTICAL, PROTEIN-SPECIFIC BIOCHEMICAL ALERTS ---
+    alerts: List[str] = []
+    if prof["is_metalloprotein"]:
+        if "ni_metalloenzyme" in cats:
+            alerts.append(
+                f"🪙 **Nickel Metalloenzyme Protection ({prof['metal_summary']}):** Never use **Ni-NTA IMAC**, **Imidazole**, **EDTA**, **EGTA**, or **Citrate**! "
+                "Apo/accessory sites chelate Ni²⁺ from IMAC beads, while millimolar Imidazole competes directly with active-site Ni²⁺ (and EDTA strips it). "
+                "Use non-chelating Good's buffers (`HEPES`, `MOPS`, `MES`), **EDTA-free** protease inhibitors, and native IEX/HIC or EDTA-free Strep/MBP affinity."
+            )
+        elif "fe_s_cluster" in cats:
+            alerts.append(
+                "🫧 **Oxygen-Sensitive [Fe–S] Cluster Alert:** Purify strictly **anaerobically (< 2 ppm O₂)** using N₂/Ar-sparged degassed buffers + `1–2 mM DTT` "
+                "(or `Sodium Dithionite`). Avoid **Ni-NTA**, **Imidazole**, and **EDTA** (which destroy/mismetallate `[Fe–S]` clusters), and track holoenzyme purity via `A410/A280`!"
+            )
+        else:
+            alerts.append(
+                f"🪙 **Metalloprotein Cofactor Protection ({prof['metal_summary']}):** Avoid **Ni-NTA IMAC** (leached Ni²⁺ causes irreversible Irving–Williams "
+                "**mismetallation** of Zn²⁺/Cu/Mn/Fe active sites) and avoid **Imidazole**, **EDTA**, **EGTA**, `1,10-Phenanthroline`, and **Citrate** (which strip or inhibit "
+                f"catalytic {prof['metal_summary']})! Use **EDTA-free** Good's buffers (`HEPES`, `MOPS`, `MES`) and EDTA-free protease inhibitors."
+            )
+
+    if prof["is_heme_protein"]:
+        alerts.append(
+            "🩸 **Hemoprotein / Soret Band Tip:** High **Imidazole (50–500 mM)** binds the 6th axial position of heme iron (shifting the Soret band ~410 ➜ ~426 nm "
+            "and inhibiting catalysis). Avoid high-imidazole elution (use native IEX/HIC, EDTA-free Strep/MBP, or on-column protease cleavage), supplement `δ-ALA + Fe³⁺/hemin` "
+            "during expression, and monitor holoprotein incorporation via the **Reinheitszahl (`Rz = A_Soret / A280`)**!"
+        )
+
+    if prof["needs_calcium"]:
+        alerts.append(
+            "🦴 **Ca²⁺ Cofactor & Phosphate Precipitation Alert:** Omit **EDTA / EGTA / Citrate**, include `1–2 mM CaCl2` if required for fold stability, "
+            "and **NEVER combine Ca²⁺ with Sodium/Potassium Phosphate buffer** (precipitates insoluble `Ca3(PO4)2` chalk inside FPLC columns—use `HEPES` or `Tris-HCl` instead!)."
+        )
+    elif prof["needs_magnesium"] and not prof["is_metalloprotein"]:
+        alerts.append(
+            "⚡ **Mg²⁺ Cofactor Tip:** Omit **EDTA** from final polishing/assay buffers and include `1–5 mM MgCl2` in `HEPES` or `Tris-HCl` to stabilize nucleotide/catalytic binding."
+        )
+
+    if prof["requires_detergent_micelles"]:
+        alerts.append(
+            "🧴 **Integral Membrane Protein Protocol:** Keep a mild detergent **above its CMC** in EVERY buffer (e.g., extract in `1% w/v DDM`, purify in `0.03–0.05% DDM` "
+            "or `0.005% LMNG + 0.001% CHS`, or reconstitute into nanodiscs). Never use aqueous Ammonium Sulfate salting-out or HIC!"
+        )
+
+    if prof["avoid_tris_buffer"]:
+        alerts.append(
+            "💊 **PLP (Vitamin B6) Cofactor Alert — Avoid Tris Buffer!** Primary amine buffers like **`Tris`** react covalently with the aldehyde of pyridoxal 5'-phosphate "
+            "(forming a Schiff-base adduct that strips/quenches PLP). Always use **`HEPES` or `Phosphate`** + `10–50 µM PLP` and monitor the ~390–425 nm internal aldimine peak!"
+        )
+
+    if "flavin_dependent" in cats:
+        alerts.append(
+            "💛 **Flavoprotein (FAD / FMN) Tip:** Protect columns/fractions from bright light, avoid harsh chaotropes, optionally spike `10–50 µM FAD/FMN` before SEC "
+            "if yellow cofactor partially dissociates during high-salt chromatography, and track holoenzyme ratio at `A450/A280`."
+        )
+
+    if "nucleic_acid_binding" in cats:
+        alerts.append(
+            "🧬 **Host DNA/RNA Co-Purification Guard:** Electropositive nucleic-acid-binding surfaces tightly pull down host DNA/RNA (`A260/A280 > 1.0`). "
+            "Include a **`0.8–1.0 M NaCl` wash** during capture (or `HiTrap Heparin HP` chromatography) and verify **`A260/A280 < 0.60`** prior to SEC!"
+        )
+
+    if prof["protease_class"] == "serine":
+        alerts.append(
+            "✂️ **Active Serine Protease Caution:** If purifying catalytically active enzyme, **DO NOT add `PMSF` or `AEBSF`** (they irreversibly sulfonylate the catalytic Ser)! "
+            "Purify at 4°C (or as inactive zymogen) to prevent autolysis."
+        )
+    elif prof["protease_class"] == "cysteine":
+        alerts.append(
+            "✂️ **Active Cysteine Protease Caution:** Do NOT add thiol-alkylating/epoxide inhibitors (`E-64`, `Iodoacetamide`, `NEM`), and include `0.5 mM TCEP` or `1 mM DTT` "
+            "so the catalytic Cys thiol stays reduced and active!"
+        )
+    elif prof["protease_class"] == "metallo":
+        alerts.append(
+            "✂️ **Active Metalloprotease Caution:** Never add `EDTA`, `EGTA`, or `1,10-Phenanthroline` (use **EDTA-free** serine/cysteine protease inhibitor tablets only), "
+            "and work at 4°C to prevent autoproteolysis!"
+        )
+
+    if prof["avoid_reducing_agents"]:
+        alerts.append(
+            f"🔗 **Disulfide Bridge Protection ({cys_count} Cysteines):** Structural `S–S` disulfide bonds stabilize this fold—**omit strong reducing agents (`DTT`, `TCEP`, `β-ME`)** "
+            "from lysis, affinity, IEX, and SEC buffers so native disulfides stay intact!"
+        )
+    elif prof["require_reducing_agents"] and "fe_s_cluster" not in cats:
+        alerts.append(
+            f"🔗 **Free-Thiol Redox Tip ({cys_count} Cysteines):** Include `0.5 mM TCEP` (preferred on IMAC) or `1–2 mM DTT` (in IEX/SEC) to prevent unwanted air oxidation "
+            "and intermolecular disulfide crosslinking."
+        )
+    elif cys_count >= 4:
         alerts.append(
             f"🔗 **Disulfide / Cysteine Alert ({cys_count} Cysteines detected):** If this is an extracellular/secreted protein (like Egg-White Lysozyme with 4 native disulfide bonds), "
             "omit strong reducing agents (DTT/TCEP/β-ME) so structural disulfide bridges stay intact! If it is a cytosolic protein with free thiols, include 0.5 mM TCEP or 1 mM DTT to prevent air oxidation."
         )
+
     if abs(working_ph - pi) < 0.6:
         alerts.append(
             f"⚠️ **Isoelectric Precipitation Alert:** Your chosen pH ({working_ph:.1f}) is within 0.6 units of the protein's pI ({pi:.2f}). "
             "Adjust your buffer pH at least 1.0 unit higher or lower so molecules carry sufficient net charge to repel one another!"
         )
     if instab >= 40.0:
+        inhib_type = "EDTA-free serine/cysteine" if prof["is_chelator_sensitive"] else ("non-PMSF" if prof["protease_class"] == "serine" else "EDTA-free")
         alerts.append(
-            f"🧊 **Cold-Room & Protease Inhibitor Tip:** Instability Index is {instab:.1f} (>40). Work at 4°C on ice, include 5–10% (v/v) Glycerol, and add EDTA-free Protease Inhibitor Cocktail during cell lysis."
+            f"🧊 **Cold-Room & Protease Inhibitor Tip:** Instability Index is {instab:.1f} (>40). Work at 4°C on ice, include 5–10% (v/v) Glycerol, and use {inhib_type} Protease Inhibitor Cocktail during cell lysis."
         )
 
     return {
         "roadmap": [
             {"step": "Step 1 • Capture", "title": step1_title, "detail": step1_detail},
             {"step": "Step 2 • Intermediate (Orthogonal)", "title": step2_title, "detail": step2_detail},
-            {"step": "Step 3 • Final Polishing", "title": step3_title, "detail": step3_detail}
+            {"step": "Step 3 • Final Polishing", "title": step3_title, "detail": step3_detail},
         ],
         "iex": iex,
         "hic": hic,
         "all_methods": all_methods,
-        "alerts": alerts
+        "alerts": alerts,
+        "protein_profile": prof,
+        "tag_conflict": prof["tag_conflict"],
     }
+
+
+def audit_buffer_compatibility_for_protein(
+    rows: List[Dict[str, Any]],
+    target_ph: float,
+    protein_profile: Optional[Dict[str, Any]],
+    protein_name: str = "Active Protein",
+) -> List[str]:
+    """
+    Audits a custom buffer composition (Tab 3) against BOTH internal chemical incompatibilities
+    (e.g., Phosphate + Ca2+/Zn2+ precipitation, >1 mM DTT in IMAC buffer) AND the active protein's
+    biochemical profile (metalloprotein vs Imidazole/EDTA/Citrate, disulfide protein vs DTT/TCEP,
+    PLP enzyme vs Tris, serine protease vs PMSF, membrane protein missing detergent).
+    """
+    prof = protein_profile or {}
+    warnings: List[str] = []
+    if not rows:
+        return warnings
+
+    reagent_names_low = [str(r.get("Reagent") or "").lower().strip() for r in rows if float(r.get("Value") or 0.0) > 0]
+    has_imidazole = any("imidazole" in n for n in reagent_names_low)
+    chelators_found = [r["Reagent"] for r in rows if float(r.get("Value") or 0.0) > 0 and any(k in str(r.get("Reagent") or "").lower() for k in ("edta", "egta", "citrate", "citric acid", "phenanthroline"))]
+    reductants_found = [r["Reagent"] for r in rows if float(r.get("Value") or 0.0) > 0 and any(k in str(r.get("Reagent") or "").lower() for k in ("dtt", "dithiothreitol", "tcep", "mercaptoethanol", "β-me", "b-me", "glutathione", "gsh"))]
+    has_dtt = any("dtt" in n or "dithiothreitol" in n for n in reagent_names_low)
+    has_tris = any("tris" in n and "citrate" not in n for n in reagent_names_low)
+    has_phosphate = any(k in n for n in reagent_names_low for k in ("hpo4", "h2po4", "phosphate"))
+    has_divalent_salt = any(k in n for n in reagent_names_low for k in ("cacl2", "calcium", "znso4", "zncl2", "zinc", "mncl2", "mnso4"))
+    has_detergent = any(k in n for n in reagent_names_low for k in ("ddm", "maltoside", "lmng", "triton", "tween", "polysorbate", "chaps", "octyl glucoside", "digitonin"))
+    has_pmsf = any("pmsf" in n or "aebsf" in n for n in reagent_names_low)
+
+    # 1. Metalloprotein / Heme vs Imidazole
+    if has_imidazole and prof.get("avoid_imidazole_imac"):
+        warnings.append(
+            f"🛑 **Metalloprotein–Imidazole Conflict ({protein_name} — {prof.get('metal_summary', 'Metal Cofactor')}):** "
+            "This recipe contains **Imidazole**, which coordinates/competes with the protein's bound metal cofactor (and Ni-NTA resin risks "
+            "metal stripping or Ni²⁺ mismetallation)! Load the **🪙 Metalloprotein-Safe (EDTA-Free & Imidazole-Free)** template instead."
+        )
+    elif has_imidazole and prof.get("caution_imidazole_imac"):
+        warnings.append(
+            f"⚠️ **Hemoprotein–Imidazole Caution ({protein_name}):** Millimolar **Imidazole** binds axially to heme iron (shifting the Soret peak & "
+            "inhibiting catalysis). Desalt out Imidazole immediately after elution or use an Imidazole-free purification buffer."
+        )
+
+    # 2. Metalloprotein / Ca2+ / Mg2+ vs EDTA / EGTA / Citrate
+    if chelators_found and prof.get("is_chelator_sensitive"):
+        ch_list = ", ".join(f"`{c}`" for c in chelators_found)
+        warnings.append(
+            f"🛑 **Chelator Stripping Hazard ({protein_name} — {prof.get('metal_summary', 'Divalent Cofactor')}):** "
+            f"{ch_list} strongly chelates divalent cations and will strip essential **{prof.get('metal_summary')}**, converting your enzyme into inactive apoprotein! "
+            "Remove chelators from the table above."
+        )
+
+    # 3. Secreted Disulfide Protein vs Reducing Agents
+    if reductants_found and prof.get("avoid_reducing_agents"):
+        red_list = ", ".join(f"`{c}`" for c in reductants_found)
+        warnings.append(
+            f"⚠️ **Disulfide Reduction Warning ({protein_name}):** {red_list} cleaves structural `S–S` disulfide bridges and can unfold secreted/extracellular proteins! "
+            "Delete reducing agents unless intentionally denaturing."
+        )
+
+    # 4. PLP Enzyme vs Primary Amine Tris Buffer
+    if has_tris and prof.get("avoid_tris_buffer"):
+        warnings.append(
+            f"🛑 **PLP–Tris Schiff-Base Conflict ({protein_name}):** Primary amine **`Tris`** reacts covalently with pyridoxal 5'-phosphate (PLP), quenching/stripping the cofactor! "
+            "Replace `Tris` with `HEPES` or `Sodium/Potassium Phosphate`."
+        )
+
+    # 5. Phosphate + Ca2+/Zn2+ Insoluble Salt Precipitation
+    if has_phosphate and (has_divalent_salt or prof.get("avoid_phosphate_buffer")):
+        warnings.append(
+            "⚠️ **Insoluble Metal-Phosphate Precipitation Hazard:** Mixing orthophosphate (`Na2HPO4`/`KH2PO4`) with `Ca²⁺`, `Zn²⁺`, or `Mn²⁺` precipitates insoluble "
+            "`Ca3(PO4)2` / `Zn3(PO4)2` crystals that clog 0.22 µm filters and FPLC columns! Switch buffer to `HEPES` or `Tris-HCl`."
+        )
+
+    # 6. DTT + Imidazole (Ni-NTA resin reduction)
+    if has_imidazole and has_dtt:
+        warnings.append(
+            "⚠️ **IMAC Resin Reduction Warning:** `DTT` reduces immobilized Ni²⁺ beads to brown/black metallic Ni⁰ (stripping the column)! "
+            "Replace `DTT` with `0.5 mM TCEP-HCl` (or `≤ 5 mM 2-Mercaptoethanol`) if IMAC is used on a non-metalloprotein."
+        )
+
+    # 7. Active Serine Protease vs PMSF
+    if has_pmsf and prof.get("protease_class") == "serine":
+        warnings.append(
+            f"🛑 **Self-Inhibition Hazard ({protein_name}):** `PMSF` irreversibly sulfonylates the active-site Serine of serine proteases—omit `PMSF` if you need catalytically active enzyme!"
+        )
+
+    # 8. Integral Membrane Protein without Detergent
+    if prof.get("requires_detergent_micelles") and not has_detergent:
+        warnings.append(
+            f"🧴 **Missing Detergent Micelle ({protein_name}):** Integral membrane proteins aggregate immediately in detergent-free aqueous buffer—include a mild detergent above CMC (e.g., `0.03% w/v DDM` or `0.05% Tween-20` / `Triton X-100`)."
+        )
+
+    return warnings
 
 
 def _build_reagent_bench_warning(name_low: str, molarity_m: float, is_liquid: bool, liquid_ml: float, vol_ml: float, density: float, mw: float) -> str:

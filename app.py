@@ -19,6 +19,7 @@ import importlib
 import json
 import math
 import os
+import re
 import sys
 
 # Ensure root directory is top of search path across container environments
@@ -34,6 +35,7 @@ from modules.sequence_parser import (
     LYSOZYME_MATURE_SEQ,
     CLASSROOM_PRESET_PROTEINS,
     clean_amino_acid_sequence,
+    detect_sequence_terminal_tag,
     fetch_uniprot_by_id,
     fetch_ncbi_by_id,
     find_longest_orf,
@@ -74,7 +76,9 @@ from modules.buffer_advisor import (
     COMMON_LAB_REAGENTS,
     REAGENT_LOOKUP,
     PRESET_RECIPE_TEMPLATES,
+    infer_protein_biochemical_profile,
     recommend_full_purification_workflow,
+    audit_buffer_compatibility_for_protein,
     compute_custom_buffer_recipe,
     convert_weight_and_molarity
 )
@@ -500,6 +504,43 @@ st.markdown("""
         background: var(--bg-subtle);
         color: #334155;
         border: 1px solid #CBD5E1;
+    }
+    .meta-pill-amber {
+        background: var(--amber-pill);
+        color: var(--amber-deep);
+        border: 1px solid var(--amber-border);
+    }
+    .meta-pill-crimson {
+        background: var(--crimson-tint);
+        color: var(--crimson-deep);
+        border: 1px solid var(--crimson-border);
+    }
+    .biochem-conflict-box {
+        margin-top: 10px;
+        background: var(--crimson-tint);
+        border: 1px solid var(--crimson-border);
+        border-left: 4px solid var(--crimson-accent);
+        border-radius: 10px;
+        padding: 11px 14px;
+    }
+    .biochem-conflict-warn {
+        background: var(--amber-tint);
+        border-color: var(--amber-border);
+        border-left-color: var(--amber-accent);
+    }
+    .biochem-conflict-title {
+        font-size: var(--fs-label);
+        font-weight: 800;
+        color: var(--crimson-deep);
+        margin-bottom: 4px;
+    }
+    .biochem-conflict-warn .biochem-conflict-title {
+        color: var(--amber-deep);
+    }
+    .biochem-conflict-body {
+        font-size: var(--fs-body);
+        color: var(--ink-body);
+        line-height: 1.5;
     }
     .construct-parts-row {
         margin-top: 8px;
@@ -1245,14 +1286,26 @@ if "buffer_editor_ver" not in st.session_state:
     st.session_state.buffer_editor_ver = 0
 
 
+def _md_inline_to_html(text: str) -> str:
+    """Safely converts simple **bold** and `code` spans to HTML for custom ribbon cards."""
+    esc = html.escape(str(text or ""))
+    esc = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", esc)
+    esc = re.sub(r"`([^`]+)`", r"<code>\1</code>", esc)
+    return esc
+
+
 def set_new_sequence(seq: str, name: str, metadata: dict, construct_parts=None) -> bool:
     clean_seq, header, warnings = clean_amino_acid_sequence(seq)
     if not clean_seq:
         st.error("No valid amino acid sequence found! Please check your input.")
         return False
+    meta_copy = dict(metadata or {})
+    if "tag" not in meta_copy:
+        term_tag = detect_sequence_terminal_tag(clean_seq)
+        meta_copy["tag"] = term_tag["tag_detected"]
     st.session_state.active_sequence = clean_seq
     st.session_state.sequence_name = name or header or "Custom Protein"
-    st.session_state.sequence_metadata = metadata
+    st.session_state.sequence_metadata = meta_copy
     st.session_state.construct_parts = construct_parts
     for w in warnings:
         st.warning(w)
@@ -1358,6 +1411,9 @@ with st.sidebar:
                         metadata={
                             "source": source_label,
                             "uniprot_id": res["uniprot_id"],
+                            "gene_name": res.get("gene_name", "N/A"),
+                            "protein_name": res["identified_protein"],
+                            "biochem_annotations": res.get("biochem_annotations", {}),
                             "tag": res["tag_detected"],
                             "tag_position": res["tag_position"],
                             "cleavage": res["cleavage_detected"],
@@ -1369,6 +1425,18 @@ with st.sidebar:
                             st.success(f"Construct ready: {res['identified_protein']} ({res['length']} aa)!")
                         else:
                             st.success(f"Loaded: {res['identified_protein']} [{res['uniprot_id']}] ({res['length']} aa)!")
+                        chk_prof = infer_protein_biochemical_profile(
+                            sequence=res["full_construct_sequence"],
+                            protein_name=display_name,
+                            metadata=st.session_state.sequence_metadata,
+                            tag_detected=res["tag_detected"],
+                            construct_parts=st.session_state.construct_parts,
+                        )
+                        if chk_prof.get("tag_conflict"):
+                            st.warning(
+                                f"{chk_prof['tag_conflict']['headline']}\n\n"
+                                f"👉 Open **Tab 2 (Purification Strategy)** for the metal/cofactor-safe roadmap."
+                            )
                 except Exception as e:
                     st.error(f"Could not build construct: {e}")
 
@@ -1463,14 +1531,22 @@ with st.sidebar:
                     st.success(f"Translated {len(seq)} amino acids!")
 
 
-# --- COMPUTE ALL PHYSICOCHEMICAL PARAMETERS ---
+# --- COMPUTE ALL PHYSICOCHEMICAL PARAMETERS & BIOCHEMICAL PROTEIN INTELLIGENCE ---
 current_seq = st.session_state.active_sequence
 metrics = analyze_all_parameters(current_seq)
 ext = metrics["extinction"]
+seq_meta = st.session_state.sequence_metadata
+protein_profile = infer_protein_biochemical_profile(
+    sequence=current_seq,
+    protein_name=st.session_state.sequence_name,
+    metadata=seq_meta,
+    metrics=metrics,
+    tag_detected=seq_meta.get("tag", "None"),
+    construct_parts=st.session_state.construct_parts,
+)
 
 
 # --- ACTIVE PROTEIN & CLASSROOM SPOTLIGHT RIBBON ---
-seq_meta = st.session_state.sequence_metadata
 student_story = seq_meta.get("student_story", "")
 story_html = (
     f'<div class="spotlight-strip">'
@@ -1489,6 +1565,21 @@ source_pill_html = (
     f'<span class="meta-pill meta-pill-neutral">{clean_source}</span>'
     if clean_source else ""
 )
+biochem_pills_html = "".join(
+    f'<span class="meta-pill {"meta-pill-crimson" if "🚫" in b else "meta-pill-amber"}">{html.escape(b)}</span>'
+    for b in protein_profile.get("profile_badges", [])[:3]
+)
+conflict_info = protein_profile.get("tag_conflict")
+conflict_html = ""
+if conflict_info:
+    c_cls = "biochem-conflict-box" if conflict_info.get("severity") == "critical" else "biochem-conflict-box biochem-conflict-warn"
+    conflict_html = (
+        f'<div class="{c_cls}">'
+        f'<div class="biochem-conflict-title">{_md_inline_to_html(conflict_info["headline"])}</div>'
+        f'<div class="biochem-conflict-body">{_md_inline_to_html(conflict_info["explanation"])} '
+        f'<b>Wise Strategy:</b> {_md_inline_to_html(conflict_info["better_strategy"])}</div>'
+        f'</div>'
+    )
 
 has_multipart_construct = bool(
     st.session_state.construct_parts
@@ -1514,10 +1605,12 @@ if has_multipart_construct:
             <div class="ribbon-pill-group">
                 <span class="meta-pill meta-pill-teal">{metrics['length']} aa</span>
                 {uid_pill_html}
+                {biochem_pills_html}
                 {source_pill_html}
             </div>
         </div>
         <div class="construct-parts-row">{parts_html}</div>
+        {conflict_html}
         {story_html}
     </div>
     """, unsafe_allow_html=True)
@@ -1529,9 +1622,11 @@ else:
             <div class="ribbon-pill-group">
                 <span class="meta-pill meta-pill-teal">{metrics['length']} aa</span>
                 {uid_pill_html}
+                {biochem_pills_html}
                 {source_pill_html}
             </div>
         </div>
+        {conflict_html}
         {story_html}
     </div>
     """, unsafe_allow_html=True)
@@ -2794,13 +2889,27 @@ with tab_strategy:
     with ph_col1:
         working_ph = st.slider("Choose Working Buffer pH:", min_value=3.5, max_value=10.5, value=7.4, step=0.1)
     curr_charge = calculate_net_charge_at_ph(current_seq, working_ph)
-    tag_detected = st.session_state.sequence_metadata.get("tag", "None")
-    workflow = recommend_full_purification_workflow(metrics, working_ph, curr_charge, tag_detected=tag_detected)
+    tag_detected = protein_profile.get("effective_tag") or st.session_state.sequence_metadata.get("tag", "None")
+    workflow = recommend_full_purification_workflow(
+        metrics,
+        working_ph,
+        curr_charge,
+        tag_detected=tag_detected,
+        sequence=current_seq,
+        protein_name=st.session_state.sequence_name,
+        metadata=seq_meta,
+        construct_parts=st.session_state.construct_parts,
+        protein_profile=protein_profile,
+    )
 
     with ph_col2:
         near_pi_warn = abs(working_ph - metrics["pi"]) < 0.5
         charge_chip_cls = "stat-chip stat-chip-crimson" if near_pi_warn else "stat-chip stat-chip-teal"
-        tag_chip_cls = "stat-chip stat-chip-indigo" if tag_detected != "None" else "stat-chip"
+        has_tag_conflict = workflow.get("tag_conflict") is not None
+        tag_chip_cls = (
+            "stat-chip stat-chip-crimson" if has_tag_conflict
+            else ("stat-chip stat-chip-indigo" if tag_detected != "None" else "stat-chip")
+        )
         st.markdown(f"""
         <div class="ph-stat-bar">
             <div class="stat-chip stat-chip-amber">
@@ -2826,28 +2935,42 @@ with tab_strategy:
         </div>
         """, unsafe_allow_html=True)
 
-    # Smart Biochemical Alerts (Disulfides, pI Clumping, Cold-room tips)
+    # Prominent Tag <-> Cofactor/Biochemistry Conflict Banner (e.g. 6xHis on Urease / Metalloprotein!)
+    t_conf = workflow.get("tag_conflict")
+    if t_conf:
+        conf_msg = (
+            f"**{t_conf['headline']}**\n\n"
+            f"{t_conf['explanation']}\n\n"
+            f"✅ **Recommended Strategy:** {t_conf['better_strategy']}"
+        )
+        if t_conf.get("severity") == "critical":
+            st.error(conf_msg)
+        else:
+            st.warning(conf_msg)
+
+    # Smart Biochemical Alerts (Metalloproteins, Heme, Fe-S, Ca2+/PO4, PLP/Tris, Membrane, Disulfides, pI, Cold-room)
     for alert_msg in workflow["alerts"]:
         st.info(alert_msg)
 
     # --- 3-STEP VISUAL PURIFICATION ROADMAP ---
     rm = workflow["roadmap"]
+    step1_border = "#DC2626" if rm[0]["title"].startswith("🛑") else ("#D97706" if rm[0]["title"].startswith("⚠️") else "#0D9488")
     st.markdown(f"""
     <div class="roadmap-grid">
-        <div class="roadmap-card" style="border-top: 4px solid #0D9488;">
-            <div class="roadmap-step-tag">{rm[0]['step']}</div>
-            <div class="roadmap-title">{rm[0]['title']}</div>
-            <div class="roadmap-body">{rm[0]['detail']}</div>
+        <div class="roadmap-card" style="border-top: 4px solid {step1_border};">
+            <div class="roadmap-step-tag">{html.escape(rm[0]['step'])}</div>
+            <div class="roadmap-title">{_md_inline_to_html(rm[0]['title'])}</div>
+            <div class="roadmap-body">{_md_inline_to_html(rm[0]['detail'])}</div>
         </div>
         <div class="roadmap-card" style="border-top: 4px solid #D97706;">
-            <div class="roadmap-step-tag roadmap-step-amber">{rm[1]['step']}</div>
-            <div class="roadmap-title">{rm[1]['title']}</div>
-            <div class="roadmap-body">{rm[1]['detail']}</div>
+            <div class="roadmap-step-tag roadmap-step-amber">{html.escape(rm[1]['step'])}</div>
+            <div class="roadmap-title">{_md_inline_to_html(rm[1]['title'])}</div>
+            <div class="roadmap-body">{_md_inline_to_html(rm[1]['detail'])}</div>
         </div>
         <div class="roadmap-card" style="border-top: 4px solid #059669;">
-            <div class="roadmap-step-tag">{rm[2]['step']}</div>
-            <div class="roadmap-title">{rm[2]['title']}</div>
-            <div class="roadmap-body">{rm[2]['detail']}</div>
+            <div class="roadmap-step-tag">{html.escape(rm[2]['step'])}</div>
+            <div class="roadmap-title">{_md_inline_to_html(rm[2]['title'])}</div>
+            <div class="roadmap-body">{_md_inline_to_html(rm[2]['detail'])}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -3166,7 +3289,16 @@ with tab_buffers:
             return f"{ul:.2f} µL" if ul < 10.0 else f"{ul:,.1f} µL"
         return f"{liq_ml:,.2f} mL"
 
-    # 4. Live Calculated Recipe Sheet Showing BOTH Grams (g) AND Milligrams (mg)!
+    # 4. Live Active-Protein Compatibility Check + Calculated Recipe Sheet Showing BOTH Grams (g) AND Milligrams (mg)!
+    buffer_compat_warnings = audit_buffer_compatibility_for_protein(
+        sanitized_rows,
+        custom_ph,
+        protein_profile,
+        protein_name=st.session_state.sequence_name,
+    )
+    for bw in buffer_compat_warnings:
+        st.warning(bw)
+
     computed_recipe = compute_custom_buffer_recipe(sanitized_rows, total_volume_ml)
 
     if not computed_recipe:
