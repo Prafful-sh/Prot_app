@@ -1640,17 +1640,23 @@ def test_interactive_sec_column_visualizer_and_intuitive_plots(root_dir: str) ->
     # Parse SVG with XML ElementTree to guarantee 100% well-formed XML (no unescaped > or &!)
     svg_root = ET.fromstring(svg_match.group(1))
 
-    # Verify sidebar ordering: "Load Your Own Protein" -> "Choose an Example:" -> ID / Sequence / Plain English search
+    # Verify cohesive sidebar ordering:
+    # Load Your Protein -> Input Method radio -> active input dialog & action button -> Try an Example -> Choose an Example
     sidebar_md_vals = [m.value for m in at.sidebar.markdown]
-    assert sidebar_md_vals[0] == "### 📥 Load Your Own Protein", f"Expected 'Load Your Own Protein' first in sidebar, got {sidebar_md_vals[0]!r}"
+    assert sidebar_md_vals[0] == "### 📥 Load Your Protein", f"Expected 'Load Your Protein' first in sidebar, got {sidebar_md_vals[0]!r}"
+    assert at.sidebar.radio[0].label == "Input Method:"
     assert at.sidebar.selectbox[0].label == "Choose an Example:", f"Unexpected example selectbox label: {at.sidebar.selectbox[0].label!r}"
-    assert at.sidebar.radio[0].label == "Search by ID, Sequence, or Plain English:"
-    # Verify exact vertical sequence inside sidebar element tree
     sidebar_elem_types = [getattr(el, "type", type(el).__name__) for el in at.sidebar]
-    idx_sb_hdr = next(i for i, el in enumerate(at.sidebar) if getattr(el, "type", "") == "markdown" and "Load Your Own Protein" in el.value)
+    idx_sb_hdr = next(i for i, el in enumerate(at.sidebar) if getattr(el, "type", "") == "markdown" and "Load Your Protein" in el.value)
+    idx_sb_rad = next(i for i, el in enumerate(at.sidebar) if getattr(el, "type", "") == "radio" and el.label == "Input Method:")
+    idx_sb_inp = next(i for i, el in enumerate(at.sidebar) if getattr(el, "type", "") == "text_input" and el.label == "UniProt Accession ID:")
+    idx_sb_btn = next(i for i, el in enumerate(at.sidebar) if getattr(el, "type", "") == "button" and el.label == "Fetch from UniProt")
+    idx_sb_ex_hdr = next(i for i, el in enumerate(at.sidebar) if getattr(el, "type", "") == "markdown" and "Try an Example" in el.value)
     idx_sb_ex = next(i for i, el in enumerate(at.sidebar) if getattr(el, "type", "") == "selectbox" and el.label == "Choose an Example:")
-    idx_sb_rad = next(i for i, el in enumerate(at.sidebar) if getattr(el, "type", "") == "radio" and el.label == "Search by ID, Sequence, or Plain English:")
-    assert idx_sb_hdr < idx_sb_ex < idx_sb_rad, f"Unexpected sidebar ordering: hdr={idx_sb_hdr}, ex={idx_sb_ex}, rad={idx_sb_rad} ({sidebar_elem_types})"
+    assert idx_sb_hdr < idx_sb_rad < idx_sb_inp < idx_sb_btn < idx_sb_ex_hdr < idx_sb_ex, (
+        f"Unexpected sidebar ordering: hdr={idx_sb_hdr}, rad={idx_sb_rad}, inp={idx_sb_inp}, "
+        f"btn={idx_sb_btn}, ex_hdr={idx_sb_ex_hdr}, ex={idx_sb_ex} ({sidebar_elem_types})"
+    )
     sidebar_opts = list(at.sidebar.radio[0].options)
     assert sidebar_opts[0] == "🔍 UniProt ID", f"Expected UniProt ID first, got {sidebar_opts}"
     assert sidebar_opts[-1] == "💬 Describe in Plain English", f"Expected Plain English last, got {sidebar_opts}"

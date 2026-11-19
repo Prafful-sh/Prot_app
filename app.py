@@ -1487,21 +1487,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# --- SIDEBAR: LOAD YOUR OWN PROTEIN (EXAMPLE PICKER + ID/SEQUENCE/NL SEARCH) ---
+# --- SIDEBAR: COHESIVE PROTEIN LOADER (CUSTOM INPUT AT TOP, STARTER EXAMPLES BELOW) ---
 with st.sidebar:
-    st.markdown("### 📥 Load Your Own Protein")
-    st.selectbox(
-        "Choose an Example:",
-        options=list(CLASSROOM_PRESET_PROTEINS.keys()),
-        format_func=lambda k: CLASSROOM_PRESET_PROTEINS[k]["label"],
-        index=0,
-        key="classroom_preset_select",
-        on_change=_apply_classroom_preset
-    )
-
-    st.markdown("---")
+    st.markdown("### 📥 Load Your Protein")
     input_method = st.radio(
-        "Search by ID, Sequence, or Plain English:",
+        "Input Method:",
         [
             "🔍 UniProt ID",
             "🏛️ NCBI Accession",
@@ -1511,16 +1501,100 @@ with st.sidebar:
         ]
     )
 
-    # 1. Natural Language Prompt (Lysozyme & untagged lookup examples)
-    if input_method == "💬 Describe in Plain English":
-        st.caption(
-            "Examples: `GST human`, `Chicken egg white lysozyme with N-terminal 6xHis tag and TEV site`, "
-            "or `Green fluorescent protein with C-terminal Strep tag`"
+    # 1. UniProt Accession (Lysozyme P00698 default)
+    if input_method == "🔍 UniProt ID":
+        uid_input = st.text_input(
+            "UniProt Accession ID:",
+            value="P00698",
+            help="Live UniProt entries store full precursors (e.g., 147 aa with signal peptide for P00698); use an example below for cleaved mature chains."
         )
+        if st.button("Fetch from UniProt", type="primary", width="stretch"):
+            with st.spinner(f"Fetching {uid_input} from UniProt..."):
+                try:
+                    res = fetch_uniprot_by_id(uid_input)
+                    if set_new_sequence(
+                        seq=res["sequence"],
+                        name=f"{res['protein_name']} [{res['accession']}]",
+                        metadata=res
+                    ):
+                        st.success(f"Loaded: {res['protein_name']} ({res['length']} aa)")
+                except Exception as e:
+                    st.error(str(e))
+        st.caption("Try: `P00698` (Chicken Lysozyme), `P61626` (Human Lysozyme), `P42212` (GFP), `P07374` (Urease)")
+
+    # 2. NCBI Accession (Chicken Lysozyme RefSeq NP_990612.2 / NM_205281.2)
+    elif input_method == "🏛️ NCBI Accession":
+        ncbi_input = st.text_input(
+            "NCBI Accession:",
+            value="NP_990612.2",
+            help="Supports RefSeq protein precursors (e.g., NP_990612.2, 147 aa) or mRNA transcripts (e.g., NM_205281.2, 588 bp)."
+        )
+        if st.button("Fetch from NCBI", type="primary", width="stretch"):
+            with st.spinner(f"Querying NCBI for {ncbi_input}..."):
+                try:
+                    res = fetch_ncbi_by_id(ncbi_input)
+                    if set_new_sequence(
+                        seq=res["sequence"],
+                        name=res["protein_name"],
+                        metadata=res
+                    ):
+                        st.success(f"Loaded: {res['protein_name']} ({res['length']} aa)")
+                except Exception as e:
+                    st.error(str(e))
+        st.caption("Try: `NP_990612.2` (Lysozyme) or `NM_205281.2` (mRNA)")
+
+    # 3. Direct Sequence / FASTA (Lysozyme default)
+    elif input_method == "🔤 Paste Amino Acid / FASTA":
+        pasted_text = st.text_area(
+            "Paste Protein Sequence or FASTA:",
+            value=(
+                ">sp|P00698|LYSC_CHICK Egg-White Lysozyme C (Mature Chain, 129 aa)\n"
+                f"{LYSOZYME_MATURE_SEQ}"
+            ),
+            height=150
+        )
+        if st.button("Load Sequence", type="primary", width="stretch"):
+            _, parsed_hdr, _ = clean_amino_acid_sequence(pasted_text)
+            if set_new_sequence(
+                seq=pasted_text,
+                name=parsed_hdr or "Custom FASTA Protein",
+                metadata={"source": "Direct FASTA / Sequence Input"}
+            ):
+                st.success("Sequence loaded!")
+
+    # 4. DNA / RNA Sequence (Met + Mature Lysozyme coding ORF default, 130 aa)
+    elif input_method == "🧬 Translate DNA / RNA":
+        dna_input = st.text_area(
+            "Coding DNA / RNA (Met + Mature Lysozyme Coding ORF, 130 aa):",
+            value=DEFAULT_LYSOZYME_DNA,
+            height=130,
+            help="Paste DNA (A, T, C, G) or mRNA (A, U, C, G). Default 393 bp ORF encodes Met + 129-aa mature Lysozyme (130 aa, 14.44 kDa)."
+        )
+        trans_mode = st.radio("Reading Frame:", ["Find Longest Gene (ATG ➜ Stop)", "Translate Frame 1 Directly"])
+        if st.button("Translate to Protein", type="primary", width="stretch"):
+            if "Longest" in trans_mode:
+                orf_res = find_longest_orf(dna_input)
+                if set_new_sequence(
+                    seq=orf_res["sequence"],
+                    name=f"Translated Gene (Frame {orf_res['frame']}, {orf_res['orf_length_aa']} aa)",
+                    metadata={"source": "DNA/RNA Translation", **orf_res}
+                ):
+                    st.success(f"Translated {orf_res['orf_length_aa']} amino acids!")
+            else:
+                seq = translate_nucleotide(dna_input, frame=1).split('*')[0]
+                if set_new_sequence(
+                    seq=seq,
+                    name="Translated Frame 1",
+                    metadata={"source": "DNA/RNA Frame 1"}
+                ):
+                    st.success(f"Translated {len(seq)} amino acids!")
+
+    # 5. Natural Language Prompt
+    elif input_method == "💬 Describe in Plain English":
         nl_prompt = st.text_area(
             "Describe Protein + Optional Tag:",
             value="Chicken egg white lysozyme with N-terminal 6xHis tag and TEV site",
-            height=90
+            height=85
         )
         if st.button("✨ Build Protein Construct", type="primary", width="stretch"):
             with st.spinner("Finding sequence & building construct..."):
@@ -1567,96 +1641,18 @@ with st.sidebar:
                             st.success(f"Loaded: {res['identified_protein']} [{res['uniprot_id']}] ({res['length']} aa)!")
                 except Exception as e:
                     st.error(f"Could not build construct: {e}")
+        st.caption("Try: `GST human`, `Urease with 6x His tag`, `GFP with C-terminal Strep tag`")
 
-    # 2. UniProt Accession (Lysozyme P00698 default)
-    elif input_method == "🔍 UniProt ID":
-        st.caption(
-            "Examples: `P00698` (Chicken Lysozyme C), `P61626` (Human Lysozyme C), `P42212` (GFP). "
-            "*(Note: live UniProt entries store full precursors including any signal peptide, e.g., 147 aa for `P00698`; "
-            "or pick an example protein above for the cleaved 129-aa mature enzyme.)*"
-        )
-        uid_input = st.text_input("UniProt Accession ID:", value="P00698")
-        if st.button("Fetch from UniProt", type="primary", width="stretch"):
-            with st.spinner(f"Fetching {uid_input} from UniProt..."):
-                try:
-                    res = fetch_uniprot_by_id(uid_input)
-                    if set_new_sequence(
-                        seq=res["sequence"],
-                        name=f"{res['protein_name']} [{res['accession']}]",
-                        metadata=res
-                    ):
-                        st.success(f"Loaded: {res['protein_name']} ({res['length']} aa)")
-                except Exception as e:
-                    st.error(str(e))
-
-    # 3. NCBI Accession (Chicken Lysozyme RefSeq NP_990612.2 / NM_205281.2)
-    elif input_method == "🏛️ NCBI Accession":
-        st.caption(
-            "Examples: `NP_990612.2` (*Gallus gallus* Lysozyme C RefSeq precursor, 147 aa incl. 18-aa signal peptide) "
-            "or `NM_205281.2` (*LYZ* mRNA transcript, 588 bp)."
-        )
-        ncbi_input = st.text_input("NCBI Accession:", value="NP_990612.2")
-        if st.button("Fetch from NCBI", type="primary", width="stretch"):
-            with st.spinner(f"Querying NCBI for {ncbi_input}..."):
-                try:
-                    res = fetch_ncbi_by_id(ncbi_input)
-                    if set_new_sequence(
-                        seq=res["sequence"],
-                        name=res["protein_name"],
-                        metadata=res
-                    ):
-                        st.success(f"Loaded: {res['protein_name']} ({res['length']} aa)")
-                except Exception as e:
-                    st.error(str(e))
-
-    # 4. Direct Sequence / FASTA (Lysozyme default)
-    elif input_method == "🔤 Paste Amino Acid / FASTA":
-        pasted_text = st.text_area(
-            "Paste Protein Sequence or FASTA:",
-            value=(
-                ">sp|P00698|LYSC_CHICK Egg-White Lysozyme C (Mature Chain, 129 aa)\n"
-                f"{LYSOZYME_MATURE_SEQ}"
-            ),
-            height=165
-        )
-        if st.button("Load Sequence", type="primary", width="stretch"):
-            _, parsed_hdr, _ = clean_amino_acid_sequence(pasted_text)
-            if set_new_sequence(
-                seq=pasted_text,
-                name=parsed_hdr or "Custom FASTA Protein",
-                metadata={"source": "Direct FASTA / Sequence Input"}
-            ):
-                st.success("Sequence loaded!")
-
-    # 5. DNA / RNA Sequence (Met + Mature Lysozyme coding ORF default, 130 aa)
-    elif input_method == "🧬 Translate DNA / RNA":
-        st.caption(
-            "Paste a DNA (`A, T, C, G`) or mRNA (`A, U, C, G`) coding sequence. "
-            "*(Bacterial translation starts at `ATG` [`Met`], so the 393 bp default ORF encodes `Met` + 129-aa mature Lysozyme = 130 aa, ~14.44 kDa + `TAA` stop.)*"
-        )
-        dna_input = st.text_area(
-            "Coding DNA / RNA (Met + Mature Lysozyme Coding ORF, 130 aa):",
-            value=DEFAULT_LYSOZYME_DNA,
-            height=145
-        )
-        trans_mode = st.radio("Reading Frame:", ["Find Longest Gene (ATG ➜ Stop)", "Translate Frame 1 Directly"])
-        if st.button("Translate to Protein", type="primary", width="stretch"):
-            if "Longest" in trans_mode:
-                orf_res = find_longest_orf(dna_input)
-                if set_new_sequence(
-                    seq=orf_res["sequence"],
-                    name=f"Translated Gene (Frame {orf_res['frame']}, {orf_res['orf_length_aa']} aa)",
-                    metadata={"source": "DNA/RNA Translation", **orf_res}
-                ):
-                    st.success(f"Translated {orf_res['orf_length_aa']} amino acids!")
-            else:
-                seq = translate_nucleotide(dna_input, frame=1).split('*')[0]
-                if set_new_sequence(
-                    seq=seq,
-                    name="Translated Frame 1",
-                    metadata={"source": "DNA/RNA Frame 1"}
-                ):
-                    st.success(f"Translated {len(seq)} amino acids!")
+    st.markdown("---")
+    st.markdown("### 🧪 Try an Example")
+    st.selectbox(
+        "Choose an Example:",
+        options=list(CLASSROOM_PRESET_PROTEINS.keys()),
+        format_func=lambda k: CLASSROOM_PRESET_PROTEINS[k]["label"],
+        index=0,
+        key="classroom_preset_select",
+        on_change=_apply_classroom_preset
+    )
 
 
 # --- COMPUTE ALL PHYSICOCHEMICAL PARAMETERS & BIOCHEMICAL PROTEIN INTELLIGENCE ---
