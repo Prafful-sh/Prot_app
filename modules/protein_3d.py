@@ -104,15 +104,15 @@ _UNIPROT_BASE_ACC_RE = re.compile(
 _PDB_ID_RE = re.compile(r"^[0-9][A-Z0-9]{3}$")
 _HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{3}(?:[0-9A-Fa-f]{3})?(?:[0-9A-Fa-f]{2})?$")
 
-# ProPurify Studio Botanical Emerald-Teal Design Tokens
-PLOTLY_FONT_FAMILY = "Plus Jakarta Sans, sans-serif"
-PLOTLY_MONO_FAMILY = "JetBrains Mono, monospace"
-HELIX_COLOR = "#0D9488"
-STRAND_COLOR = "#D97706"
-COIL_COLOR = "#64748B"
-BASIC_COLOR = "#2563EB"
-ACIDIC_COLOR = "#DC2626"
-HIS_COLOR = "#7C3AED"
+# ProPurify Studio Scientific Archival Palette & Publication Typography Tokens
+PLOTLY_FONT_FAMILY = "IBM Plex Sans, Helvetica Neue, Arial, sans-serif"
+PLOTLY_MONO_FAMILY = "IBM Plex Mono, monospace"
+HELIX_COLOR = "#0F4C5C"
+STRAND_COLOR = "#9A5B13"
+COIL_COLOR = "#5C6B78"
+BASIC_COLOR = "#2B4C7E"
+ACIDIC_COLOR = "#B42318"
+HIS_COLOR = "#6B4C9A"
 NEUTRAL_COLOR = "#94A3B8"
 
 SCHEMATIC_3D_DISCLAIMER = (
@@ -1553,11 +1553,11 @@ def build_3dmol_viewer_html(
     if not isinstance(structure_text, str) or not structure_text.strip():
         return (
             f'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
-            f'<style>body{{margin:0;padding:0;font-family:"Plus Jakarta Sans",-apple-system,sans-serif;background:transparent;}}'
+            f'<style>body{{margin:0;padding:0;font-family:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;background:transparent;}}'
             f'.pp3d-empty{{height:{safe_height}px;display:flex;flex-direction:column;align-items:center;justify-content:center;'
-            f'background:{safe_bg};border:1px solid #D5E5DF;border-radius:12px;color:#1E352F;text-align:center;padding:24px;box-sizing:border-box;}}'
-            f'.pp3d-empty h4{{margin:0 0 8px 0;color:#0B221C;font-size:15px;}}'
-            f'.pp3d-empty p{{margin:0;color:#47625B;font-size:13px;max-width:420px;line-height:1.5;}}</style></head>'
+            f'background:{safe_bg};border:1px solid #DCE2E6;border-radius:8px;color:#2C3A47;text-align:center;padding:24px;box-sizing:border-box;}}'
+            f'.pp3d-empty h4{{margin:0 0 8px 0;color:#111827;font-size:15px;}}'
+            f'.pp3d-empty p{{margin:0;color:#52606D;font-size:13px;max-width:420px;line-height:1.5;}}</style></head>'
             f'<body><div class="pp3d-empty"><h4>No 3D Atomic Structure Loaded</h4>'
             f'<p>Load an AlphaFold DB / RCSB PDB structure, upload a .pdb/.cif file, or explore the 100% Offline 3D Trajectory.</p>'
             f'</div></body></html>'
@@ -1591,18 +1591,18 @@ def build_3dmol_viewer_html(
     height: {safe_height}px;
     overflow: hidden;
     background: transparent;
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
   }}
   .pp3d-shell {{
     position: relative;
     width: 100%;
     height: {safe_height}px;
     box-sizing: border-box;
-    border: 1px solid #D5E5DF;
-    border-radius: 12px;
+    border: 1px solid #DCE2E6;
+    border-radius: 8px;
     background: {safe_bg};
     overflow: hidden;
-    box-shadow: 0 2px 10px rgba(11, 34, 28, 0.05);
+    box-shadow: 0 1px 4px rgba(17, 24, 39, 0.04);
   }}
   #pp3d-viewport {{
     position: relative;

@@ -4150,6 +4150,18 @@ def _get_canonical_preferences(
     return preferred_accs, preferred_genes, specific_field_clause
 
 
+def _normalize_mobile_text(raw: str) -> str:
+    """Normalizes soft-keyboard Unicode spaces/zero-width chars/dashes/smart quotes into ASCII equivalents."""
+    if not raw:
+        return ""
+    s = raw.replace("\u00a0", " ")
+    s = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", s)
+    s = re.sub(r"[\u2010\u2011\u2012\u2013\u2014\u2212]", "-", s)
+    s = re.sub(r"[\u2018\u2019]", "'", s)
+    s = re.sub(r"[\u201c\u201d]", '"', s)
+    return s
+
+
 def extract_nl_query_components(prompt: str) -> Dict[str, Any]:
     """
     Public deterministic parser decomposing any plain-language protein or recombinant construct prompt into:
@@ -4157,6 +4169,7 @@ def extract_nl_query_components(prompt: str) -> Dict[str, Any]:
     - Universal Tree-of-Life organism metadata (curated taxon IDs + general Latin binomial / viral / strain clauses)
     - Affinity tag, terminus ('N-terminal' / 'C-terminal' / 'N/A'), and protease cleavage site metadata.
     """
+    prompt = _normalize_mobile_text(prompt)
     if not prompt or not prompt.strip():
         raise ValueError("Please enter a protein description (e.g., 'GST human' or 'Chicken lysozyme with 6xHis tag').")
 
@@ -5194,7 +5207,7 @@ def _extract_inline_sequence_from_prompt(prompt: str) -> Optional[Dict[str, Any]
     inside the plain-English construct box (optionally paired with N-/C-terminal tag/cleavage instructions).
     Returns None for normal English protein queries.
     """
-    raw = (prompt or "").strip()
+    raw = _normalize_mobile_text(prompt).strip()
     if not raw:
         return None
 
@@ -5437,7 +5450,7 @@ def _assemble_tagged_construct(
     return construct_parts, "".join(part[1] for part in construct_parts)
 
 
-def parse_natural_language_prompt(prompt: str) -> Dict[str, Any]:
+def parse_natural_language_prompt(prompt: str, _retry_autocorrect: bool = True) -> Dict[str, Any]:
     """
     Parses any plain-language protein, PDB ID, or direct de novo / custom sequence prompt across
     all domains of life and synthetic biology:
@@ -5639,6 +5652,15 @@ def parse_natural_language_prompt(prompt: str) -> Dict[str, Any]:
         or any(kw in prompt.lower() for kw in ("de novo", "synthetic", "designed", "artificial", "rfdiffusion", "proteinmpnn"))
     ):
         target_data = _search_rcsb_pdb_for_prompt(protein_query)
+
+    # Post-miss mobile keyboard autocorrect recovery (e.g. 'elf2a' -> 'eIF2a' only when initial lookup finds 0 hits;
+    # requiring [1-6][a-z] ensures real ELF1..ELF5 transcription factors are never rewritten)
+    if target_data is None and _retry_autocorrect:
+        _elf_rx = re.compile(r"\belf([1-6][a-z][a-z0-9\-]*)\b", flags=re.IGNORECASE)
+        if _elf_rx.search(prompt):
+            corrected_prompt = _elf_rx.sub(r"eIF\1", _normalize_mobile_text(prompt))
+            if corrected_prompt != prompt:
+                return parse_natural_language_prompt(corrected_prompt, _retry_autocorrect=False)
 
     if target_data is None:
         if organism_name:

@@ -175,7 +175,7 @@ def generate_sds_page_figure(
         x=0.02, y=0.065,
         text="Stacking (4%, pH 6.8) / Resolving (pH 8.8) Interface",
         showarrow=False,
-        font=dict(size=9, color="#57534E" if is_silver else "#4A635C", family="Plus Jakarta Sans, sans-serif"),
+        font=dict(size=9, color="#57534E" if is_silver else "#52606D", family="IBM Plex Sans, Helvetica Neue, Arial, sans-serif"),
         xanchor="left"
     )
 
@@ -192,7 +192,7 @@ def generate_sds_page_figure(
         x=0.5, y=0.965,
         text="Bromophenol Blue Tracking Dye Front",
         showarrow=False,
-        font=dict(size=9.5, color="#57534E" if is_silver else "#64748B", family="JetBrains Mono, monospace")
+        font=dict(size=9.5, color="#57534E" if is_silver else "#5C6B78", family="IBM Plex Mono, monospace")
     )
 
     # 4. Well Comb Indentations at top
@@ -212,13 +212,13 @@ def generate_sds_page_figure(
             x=x_center, y=-0.05,
             text=f"<b>W{i+1}</b>",
             showarrow=False,
-            font=dict(size=10, color="#44403C" if is_silver else "#475569", family="JetBrains Mono, monospace")
+            font=dict(size=10, color="#44403C" if is_silver else "#475569", family="IBM Plex Mono, monospace")
         )
         fig.add_annotation(
             x=x_center, y=0.045,
             text=f"<b>{lane['name']}</b>",
             showarrow=False,
-            font=dict(size=11, color="#1C1917" if is_silver else "#0B221C", family="Plus Jakarta Sans, sans-serif")
+            font=dict(size=11, color="#1C1917" if is_silver else "#111827", family="IBM Plex Sans, Helvetica Neue, Arial, sans-serif")
         )
 
     # Function to draw diffused, realistic bands (multi-pass Gaussian feathering)
@@ -394,7 +394,7 @@ def generate_sds_page_figure(
                     font=dict(
                         size=9.5,
                         color=lbl_color,
-                        family="JetBrains Mono, monospace"
+                        family="IBM Plex Mono, monospace"
                     ),
                     xanchor="left",
                     yanchor="middle"
@@ -534,14 +534,14 @@ def generate_sds_page_figure(
         else "Coomassie R-250 (~50–100 ng sensitivity)"
     )
     fig.update_layout(
-        font=dict(family="Plus Jakarta Sans, sans-serif", color="#1E352F", size=12),
+        font=dict(family="IBM Plex Sans, Helvetica Neue, Arial, sans-serif", color="#2C3A47", size=12),
         title=dict(
             text=(
                 f"<b>Simulated Destained SDS-PAGE Gel ({gel_pct:.1f}% Polyacrylamide)</b><br>"
-                f"<span style='font-size:12px; color:#4A635C;'>Target MW: {target_mw_kda:.1f} kDa | "
+                f"<span style='font-size:12px; color:#52606D;'>Target MW: {target_mw_kda:.1f} kDa | "
                 f"Bio-Rad Precision Plus Dual Color in Last Well (Lane {num_lanes}) | {stain_sub}</span>"
             ),
-            font=dict(size=14, color="#0B221C", family="Plus Jakarta Sans, sans-serif")
+            font=dict(size=14, color="#111827", family="IBM Plex Sans, Helvetica Neue, Arial, sans-serif")
         ),
         template="plotly_white",
         height=550,

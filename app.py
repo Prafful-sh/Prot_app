@@ -52,6 +52,8 @@ try:
         clean_amino_acid_sequence,
         extract_fasta_header_metadata,
         detect_sequence_terminal_tag,
+        _normalize_mobile_text,
+        _extract_inline_sequence_from_prompt,
         fetch_uniprot_by_id,
         fetch_ncbi_by_id,
         fetch_pdb_by_id,
@@ -126,6 +128,8 @@ except ImportError:
         clean_amino_acid_sequence,
         extract_fasta_header_metadata,
         detect_sequence_terminal_tag,
+        _normalize_mobile_text,
+        _extract_inline_sequence_from_prompt,
         fetch_uniprot_by_id,
         fetch_ncbi_by_id,
         fetch_pdb_by_id,
@@ -211,70 +215,71 @@ _AA_TO_CODON = {
 }
 DEFAULT_LYSOZYME_DNA = "ATG" + "".join(_AA_TO_CODON[aa] for aa in LYSOZYME_MATURE_SEQ) + "TAA"
 
-# --- HIGH-CONTRAST BOTANICAL-EDITORIAL DESIGN SYSTEM & STRICT 6-TIER TYPOGRAPHY ---
+# --- SCIENTIFIC PUBLICATION EDITORIAL DESIGN SYSTEM (NATURE / SCIENCE / CELL STYLE) ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap');
 
     :root {
-        /* Font Stacks */
-        --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        /* Publication Font Stacks */
+        --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+        --font-sans: 'IBM Plex Sans', 'Helvetica Neue', Arial, -apple-system, BlinkMacSystemFont, sans-serif;
+        --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-        /* Refined Botanical-Editorial Surfaces */
-        --bg-canvas: #F6F9F8;
-        --bg-sidebar: #EBF3F0;
+        /* Archival Paper & Oxford Slate-Teal Surface Palette */
+        --bg-canvas: #FAFBF9;
+        --bg-sidebar: #F3F5F4;
         --bg-surface: #FFFFFF;
-        --bg-subtle: #F1F5F9;
+        --bg-subtle: #F4F6F8;
 
-        --border-soft: #D5E5DF;
-        --border-sidebar: #D2E3DC;
-        --border-strong: #B6D2C8;
+        --border-soft: #DCE2E6;
+        --border-sidebar: #D6DDE2;
+        --border-strong: #B6C2CA;
 
-        /* High-Contrast Ink Hierarchy (WCAG AA / AAA Verified) */
-        --ink-strong: #0B221C;    /* 16.67:1 on #FFFFFF | 15.74:1 on #F6F9F8 */
-        --ink-heading: #0F2D25;   /* 14.54:1 on #FFFFFF */
-        --ink-control: #12332B;   /* 13.56:1 on #FFFFFF */
-        --ink-body: #1E352F;      /* 13.08:1 on #FFFFFF | 12.35:1 on #F6F9F8 */
-        --ink-caption: #47625B;   /* 6.26:1 on #F6F9F8  | 5.88:1 on #EBF3F0 */
-        --ink-muted: #4A635C;     /* 6.50:1 on #FFFFFF  | 6.14:1 on #F6F9F8 */
+        /* High-Contrast Ink Hierarchy (WCAG AAA / AA Verified) */
+        --ink-strong: #111827;    /* 17.7:1 on #FFFFFF */
+        --ink-heading: #16222E;   /* 15.2:1 on #FFFFFF */
+        --ink-control: #1E293B;   /* 14.6:1 on #FFFFFF */
+        --ink-body: #2C3A47;      /* 11.4:1 on #FFFFFF */
+        --ink-caption: #52606D;   /* 6.4:1 on #FAFBF9 */
+        --ink-muted: #5C6B78;     /* 5.5:1 on #FFFFFF */
 
-        /* Semantic Highlight Accents (All text/background pairs >= 5.0:1 WCAG AA) */
-        --teal-primary: #0D9488;
-        --teal-strong: #0F766E;   /* 5.47:1 with #FFFFFF */
-        --teal-hover: #115E59;    /* 7.58:1 with #FFFFFF */
-        --teal-deep: #065F46;     /* 7.29:1 on #ECFDF5 */
-        --teal-text: #047857;     /* 5.48:1 on #FFFFFF */
-        --teal-tint: #ECFDF5;
-        --teal-border: #99F6E4;
+        /* Restrained Scientific Accents */
+        --teal-primary: #0F4C5C;
+        --teal-strong: #0D4454;
+        --teal-hover: #08303C;
+        --teal-deep: #0A3642;
+        --teal-text: #0F4C5C;
+        --teal-tint: #EFF6F8;
+        --teal-border: #C4DCE3;
 
-        --amber-accent: #D97706;
-        --amber-strong: #B45309;  /* 5.02:1 on #FFFFFF */
-        --amber-deep: #92400E;    /* 6.84:1 on #FFFBEB | 6.37:1 on #FEF3C7 */
-        --amber-tint: #FFFBEB;
-        --amber-pill: #FEF3C7;
-        --amber-border: #FCD34D;
+        --amber-accent: #9A5B13;
+        --amber-strong: #854D0E;
+        --amber-deep: #713F12;
+        --amber-tint: #FDF8EF;
+        --amber-pill: #FAF0DC;
+        --amber-border: #E8C991;
 
-        --indigo-accent: #4F46E5; /* 6.29:1 on #FFFFFF */
-        --indigo-deep: #3730A3;   /* 8.88:1 on #EEF2FF */
-        --indigo-tint: #EEF2FF;
-        --indigo-border: #C7D2FE;
+        --indigo-accent: #2B4C7E;
+        --indigo-deep: #1E3A64;
+        --indigo-tint: #F0F4FA;
+        --indigo-border: #C7D6EC;
 
-        --crimson-accent: #DC2626;/* 4.83:1 on #FFFFFF */
-        --crimson-strong: #B91C1C;/* 6.47:1 on #FFFFFF */
-        --crimson-deep: #991B1B;  /* 7.60:1 on #FEF2F2 */
-        --crimson-tint: #FEF2F2;
-        --crimson-border: #FECACA;
+        --crimson-accent: #B42318;
+        --crimson-strong: #9A1B12;
+        --crimson-deep: #7A140D;
+        --crimson-tint: #FEF3F2;
+        --crimson-border: #F5C6C2;
 
-        /* Strict 6-Tier Typographic Scale (+ Tabular Numeric Display Tiers) */
-        --fs-hero: 1.95rem;       /* 1. Hero Display (800 weight, -0.025em) */
-        --fs-h2: 1.28rem;         /* 2. Section Heading h3 / .ui-h2 (800 weight, -0.018em) */
-        --fs-h3: 1.04rem;         /* 3. Sub-Section & Card Heading h4, h5 / .ui-h3 (700 weight, -0.01em) */
-        --fs-body: 0.92rem;       /* 4. Body Copy & Descriptions p, li / .ui-body (400/500 weight, 1.55 lh) */
-        --fs-label: 0.875rem;     /* 5. Widget & Control Labels (700 group headers, 500 options) */
-        --fs-micro: 0.73rem;      /* 6. Eyebrow Badges, Chips & KPI Overlines (700 weight, uppercase, 0.06em) */
-        --fs-ribbon: 1.14rem;     /* Active Protein Ribbon Identity Title (800 weight) */
-        --fs-kpi: 1.62rem;        /* KPI & Benchmark Tabular Stat Callouts (800 weight) */
+        /* Disciplined 6-Tier Typographic Scale */
+        --fs-hero: 1.72rem;       /* 1. Editorial Masthead Display (Source Serif 4, 700) */
+        --fs-h2: 1.24rem;         /* 2. Section Heading (Source Serif 4, 600) */
+        --fs-h3: 1.02rem;         /* 3. Card & Panel Heading (IBM Plex Sans, 600) */
+        --fs-body: 0.915rem;      /* 4. Body Copy (1.58 line height) */
+        --fs-label: 0.855rem;     /* 5. Widget Labels & Action Takeaways */
+        --fs-micro: 0.72rem;      /* 6. Eyebrow Badges & Metadata Overlines */
+        --fs-ribbon: 1.14rem;     /* Active Protein Specimen Header (Source Serif 4, 600) */
+        --fs-kpi: 1.50rem;        /* Quantitative Data Readout (IBM Plex Sans, tabular-nums) */
     }
 
     /* Global Typography Enforcement on Modern Streamlit 1.35–1.66+ Emotion DOM
@@ -296,6 +301,10 @@ st.markdown("""
         color: var(--ink-body);
     }
 
+    table, th, td, [data-testid="stDataFrame"] {
+        font-variant-numeric: tabular-nums;
+    }
+
     /* CRITICAL SAFEGUARD: Protect Streamlit Material Symbols Ligature Icons Everywhere */
     [data-testid="stIconMaterial"],
     .material-symbols-rounded,
@@ -307,7 +316,7 @@ st.markdown("""
         text-transform: none !important;
     }
 
-    /* Monospace & Tabular Numerals for Sequences, Codes & Quantitative Readouts */
+    /* Monospace & Tabular Numerals for Sequences, Accessions & Formulas */
     code, pre, kbd,
     [data-testid="stCode"] code,
     [data-testid="stCode"] pre,
@@ -322,75 +331,82 @@ st.markdown("""
     .result-callout-card code {
         font-family: var(--font-mono) !important;
         font-size: var(--fs-label);
-        font-weight: 600;
-        background: #EEF5F2;
+        font-weight: 500;
+        background: #F1F5F8;
         color: var(--ink-heading);
         padding: 1px 6px;
-        border-radius: 5px;
+        border-radius: 4px;
         border: 1px solid var(--border-soft);
     }
 
-    /* Crisp Warm Alabaster Canvas & Soft Sage-Mist Sidebar */
+    /* Clean Archival Paper Canvas & Muted Sidebar */
     .stApp {
         background-color: var(--bg-canvas);
     }
+    [data-testid="stMainBlockContainer"] {
+        padding-top: 2.35rem;
+    }
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #EBF3F0 0%, #F2F7F5 100%);
+        background: var(--bg-sidebar);
         border-right: 1px solid var(--border-sidebar);
     }
     section[data-testid="stSidebar"] hr {
         border-color: var(--border-sidebar);
-        margin: 1rem 0;
+        margin: 0.9rem 0;
     }
 
-    /* Tier 2 & Tier 3: Consistent Heading Hierarchy Across Markdown & Custom Cards */
+    /* Editorial Serif Section Titles vs. Sans Structural Subheads */
     [data-testid="stMarkdownContainer"] h1,
     [data-testid="stMarkdownContainer"] h2 {
+        font-family: var(--font-serif);
         font-size: var(--fs-hero);
-        font-weight: 800;
+        font-weight: 700;
         color: var(--ink-strong);
-        letter-spacing: -0.025em;
-        line-height: 1.2;
+        letter-spacing: -0.015em;
+        line-height: 1.22;
     }
     [data-testid="stMarkdownContainer"] h3,
     .ui-h2 {
+        font-family: var(--font-serif);
         font-size: var(--fs-h2);
-        font-weight: 800;
-        color: var(--ink-strong);
-        letter-spacing: -0.018em;
-        line-height: 1.28;
-        margin-top: 0.15rem;
-        margin-bottom: 0.5rem;
-    }
-    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3 {
-        font-size: var(--fs-h3);
-        font-weight: 800;
+        font-weight: 600;
         color: var(--ink-strong);
         letter-spacing: -0.01em;
+        line-height: 1.3;
+        margin-top: 0.2rem;
+        margin-bottom: 0.45rem;
+    }
+    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3 {
+        font-family: var(--font-sans);
+        font-size: var(--fs-h3);
+        font-weight: 700;
+        color: var(--ink-strong);
+        letter-spacing: -0.008em;
         padding-bottom: 6px;
         margin-top: 0.1rem;
         margin-bottom: 0.55rem;
-        border-bottom: 1.5px solid var(--border-sidebar);
+        border-bottom: 1px solid var(--border-sidebar);
     }
     [data-testid="stMarkdownContainer"] h4,
     [data-testid="stMarkdownContainer"] h5,
     .ui-h3 {
+        font-family: var(--font-sans);
         font-size: var(--fs-h3);
-        font-weight: 700;
+        font-weight: 600;
         color: var(--ink-heading);
-        letter-spacing: -0.01em;
+        letter-spacing: -0.005em;
         line-height: 1.35;
         margin-top: 0.25rem;
         margin-bottom: 0.45rem;
     }
 
-    /* Tier 4: Body Copy & Section Subtitle Captions */
+    /* Body Copy & Captions */
     [data-testid="stMarkdownContainer"] p,
     [data-testid="stMarkdownContainer"] li,
     .ui-body {
         font-size: var(--fs-body);
         font-weight: 400;
-        line-height: 1.55;
+        line-height: 1.58;
         color: var(--ink-body);
     }
     [data-testid="stCaptionContainer"] p,
@@ -401,13 +417,13 @@ st.markdown("""
         color: var(--ink-caption) !important;
     }
 
-    /* Tier 5: Bold Widget Group Headers vs. Medium Checkbox/Radio Choice Labels */
+    /* Control Labels */
     [data-testid="stWidgetLabel"],
     [data-testid="stWidgetLabel"] > div > p,
     [data-testid="stWidgetLabel"] p,
     .ui-control-label {
         font-size: var(--fs-label) !important;
-        font-weight: 700 !important;
+        font-weight: 600 !important;
         color: var(--ink-control) !important;
         line-height: 1.4 !important;
     }
@@ -426,135 +442,142 @@ st.markdown("""
         color: var(--ink-body) !important;
     }
 
+    /* Clean Borders on Form Quick-Search Wrapper */
+    [data-testid="stForm"] {
+        background: var(--bg-surface);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        padding: 10px 14px 10px 14px;
+        margin-bottom: 12px;
+        box-shadow: 0 1px 3px rgba(17, 24, 39, 0.03);
+    }
+
     /* Expanders, Buttons & Alerts */
     [data-testid="stExpander"] {
         background: var(--bg-surface);
         border: 1px solid var(--border-soft);
-        border-radius: 12px;
-        box-shadow: 0 1px 4px rgba(11, 34, 28, 0.04);
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(17, 24, 39, 0.03);
     }
     [data-testid="stExpander"] summary [data-testid="stMarkdownContainer"] p {
         font-size: var(--fs-label) !important;
-        font-weight: 700 !important;
+        font-weight: 600 !important;
         color: var(--ink-heading) !important;
     }
     button[kind="primary"],
-    [data-testid="stBaseButton-primary"] {
+    [data-testid="stBaseButton-primary"],
+    [data-testid="stFormSubmitButton"] button[kind="primary"] {
         background-color: var(--teal-strong) !important;
         border-color: var(--teal-strong) !important;
         color: #FFFFFF !important;
         font-size: var(--fs-label) !important;
-        font-weight: 700 !important;
-        border-radius: 10px !important;
+        font-weight: 600 !important;
+        border-radius: 6px !important;
     }
     button[kind="primary"]:hover,
-    [data-testid="stBaseButton-primary"]:hover {
+    [data-testid="stBaseButton-primary"]:hover,
+    [data-testid="stFormSubmitButton"] button[kind="primary"]:hover {
         background-color: var(--teal-hover) !important;
         border-color: var(--teal-hover) !important;
     }
     button[kind="primary"] p,
-    [data-testid="stBaseButton-primary"] p {
+    [data-testid="stBaseButton-primary"] p,
+    [data-testid="stFormSubmitButton"] button p {
         color: #FFFFFF !important;
         font-size: var(--fs-label) !important;
-        font-weight: 700 !important;
+        font-weight: 600 !important;
     }
     button[kind="secondary"],
     [data-testid="stBaseButton-secondary"],
     [data-testid="stDownloadButton"] button {
         background-color: var(--bg-surface) !important;
-        border: 1.5px solid var(--teal-strong) !important;
+        border: 1px solid var(--border-strong) !important;
         color: var(--teal-strong) !important;
         font-size: var(--fs-label) !important;
-        font-weight: 700 !important;
-        border-radius: 10px !important;
+        font-weight: 600 !important;
+        border-radius: 6px !important;
     }
     button[kind="secondary"] p,
     [data-testid="stBaseButton-secondary"] p,
     [data-testid="stDownloadButton"] button p {
         color: var(--teal-strong) !important;
         font-size: var(--fs-label) !important;
-        font-weight: 700 !important;
+        font-weight: 600 !important;
     }
     button[kind="secondary"]:hover,
     [data-testid="stBaseButton-secondary"]:hover,
     [data-testid="stDownloadButton"] button:hover {
         background-color: var(--teal-tint) !important;
-        border-color: var(--teal-deep) !important;
+        border-color: var(--teal-primary) !important;
     }
     [data-testid="stAlertContainer"] {
-        border-radius: 12px;
+        border-radius: 6px;
     }
     [data-testid="stAlertContent"] p {
         font-size: var(--fs-body);
         line-height: 1.52;
     }
 
-    /* Tier 1: Botanical Forest-to-Deep-Teal Hero Header */
+    /* Compact Journal Masthead (Nature / Cell Publication Header Style) */
     .hero-banner {
-        background: linear-gradient(135deg, #064E3B 0%, #0B5D54 55%, #115E59 100%);
-        border-radius: 16px;
-        padding: 22px 28px;
-        margin-bottom: 18px;
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        box-shadow: 0 10px 24px -8px rgba(6, 78, 59, 0.25);
-    }
-    .hero-badge-row {
-        display: flex;
-        gap: 8px;
+        background: var(--bg-surface);
+        border: 1px solid var(--border-soft);
+        border-top: 3.5px solid var(--teal-primary);
+        border-radius: 6px;
+        padding: 14px 20px;
         margin-bottom: 10px;
-        flex-wrap: wrap;
+        box-shadow: 0 1px 3px rgba(17, 24, 39, 0.03);
+    }
+    .hero-eyebrow {
+        font-family: var(--font-sans);
+        font-size: var(--fs-micro);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--teal-primary);
+        margin-bottom: 4px;
     }
     .hero-title {
+        font-family: var(--font-serif);
         font-size: var(--fs-hero);
-        font-weight: 800;
-        color: #FFFFFF;
-        letter-spacing: -0.025em;
+        font-weight: 700;
+        color: var(--ink-strong);
+        letter-spacing: -0.015em;
         line-height: 1.15;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
     }
     .hero-subtitle {
         font-size: var(--fs-body);
-        color: #E6FFFA;
+        color: var(--ink-caption);
         font-weight: 400;
-        line-height: 1.55;
+        line-height: 1.48;
         max-width: 960px;
     }
     .hero-subtitle b {
-        color: #FFFFFF;
-        font-weight: 700;
+        color: var(--ink-strong);
+        font-weight: 600;
     }
-    .hero-badge,
     .ui-eyebrow {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        padding: 4px 11px;
-        border-radius: 9999px;
+        padding: 3px 9px;
+        border-radius: 4px;
         font-size: var(--fs-micro);
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.06em;
     }
-    .badge-gold {
-        background: var(--amber-pill);
-        color: var(--amber-deep);
-        border: 1px solid var(--amber-border);
-    }
-    .badge-mint {
-        background: rgba(6, 78, 59, 0.58);
-        color: #ECFDF5;
-        border: 1px solid rgba(167, 243, 208, 0.5);
-    }
 
-    /* Active Protein & Construct Ribbon (2-Tier High-Contrast Card) */
+    /* Active Specimen & Construct Ribbon */
     .protein-ribbon {
         background: var(--bg-surface);
         border: 1px solid var(--border-soft);
-        border-left: 5px solid var(--teal-primary);
-        border-radius: 14px;
-        padding: 15px 20px;
-        margin-bottom: 18px;
-        box-shadow: 0 2px 10px rgba(11, 34, 28, 0.05);
+        border-left: 4px solid var(--teal-primary);
+        border-radius: 8px;
+        padding: 13px 18px;
+        margin-bottom: 12px;
+        box-shadow: 0 1px 3px rgba(17, 24, 39, 0.03);
     }
     .ribbon-top-row {
         display: flex;
@@ -564,26 +587,27 @@ st.markdown("""
         gap: 10px;
     }
     .ribbon-title {
+        font-family: var(--font-serif);
         font-size: var(--fs-ribbon);
-        font-weight: 800;
+        font-weight: 600;
         color: var(--ink-strong);
-        letter-spacing: -0.015em;
+        letter-spacing: -0.01em;
         line-height: 1.3;
     }
     .ribbon-pill-group {
         display: flex;
         align-items: center;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 7px;
     }
     .meta-pill {
         display: inline-flex;
         align-items: center;
-        padding: 4px 10px;
-        border-radius: 9999px;
+        padding: 3px 9px;
+        border-radius: 4px;
         font-size: var(--fs-micro);
-        font-weight: 700;
-        letter-spacing: 0.03em;
+        font-weight: 600;
+        letter-spacing: 0.02em;
         font-variant-numeric: tabular-nums;
     }
     .meta-pill-teal {
@@ -598,8 +622,8 @@ st.markdown("""
     }
     .meta-pill-neutral {
         background: var(--bg-subtle);
-        color: #334155;
-        border: 1px solid #CBD5E1;
+        color: var(--ink-body);
+        border: 1px solid var(--border-soft);
     }
     .meta-pill-amber {
         background: var(--amber-pill);
@@ -615,9 +639,9 @@ st.markdown("""
         margin-top: 10px;
         background: var(--crimson-tint);
         border: 1px solid var(--crimson-border);
-        border-left: 4px solid var(--crimson-accent);
-        border-radius: 10px;
-        padding: 11px 14px;
+        border-left: 3.5px solid var(--crimson-accent);
+        border-radius: 6px;
+        padding: 10px 13px;
     }
     .biochem-conflict-warn {
         background: var(--amber-tint);
@@ -626,9 +650,9 @@ st.markdown("""
     }
     .biochem-conflict-title {
         font-size: var(--fs-label);
-        font-weight: 800;
+        font-weight: 700;
         color: var(--crimson-deep);
-        margin-bottom: 4px;
+        margin-bottom: 3px;
     }
     .biochem-conflict-warn .biochem-conflict-title {
         color: var(--amber-deep);
@@ -642,17 +666,17 @@ st.markdown("""
         margin-top: 8px;
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 7px;
     }
     .construct-pill {
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        padding: 4px 11px;
-        border-radius: 8px;
+        padding: 3px 10px;
+        border-radius: 4px;
         font-size: var(--fs-micro);
-        font-weight: 700;
-        letter-spacing: 0.02em;
+        font-weight: 600;
+        letter-spacing: 0.01em;
         font-variant-numeric: tabular-nums;
     }
     .pill-tag {
@@ -671,12 +695,64 @@ st.markdown("""
         border: 1px solid var(--teal-border);
     }
 
+    /* 4-Column At-a-Glance Bench Action Plan */
+    .bench-brief-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 11px;
+        margin-bottom: 12px;
+    }
+    @media (max-width: 1050px) {
+        .bench-brief-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 560px) {
+        .bench-brief-grid { grid-template-columns: 1fr; }
+    }
+    .bench-brief-card {
+        background: var(--bg-surface);
+        border: 1px solid var(--border-soft);
+        border-left: 3px solid var(--teal-primary);
+        border-radius: 6px;
+        padding: 10px 13px;
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.025);
+    }
+    .bench-brief-card.bench-brief-warn {
+        border-left-color: var(--amber-accent);
+        background: #FFFCF6;
+    }
+    .bench-brief-card.bench-brief-crit {
+        border-left-color: var(--crimson-accent);
+        background: #FFF9F8;
+    }
+    .bench-brief-kicker {
+        font-size: var(--fs-micro);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--ink-muted);
+        margin-bottom: 3px;
+    }
+    .bench-brief-main {
+        font-size: var(--fs-label);
+        font-weight: 700;
+        color: var(--ink-strong);
+        line-height: 1.32;
+        margin-bottom: 2px;
+        font-variant-numeric: tabular-nums;
+    }
+    .bench-brief-sub {
+        font-size: var(--fs-micro);
+        color: var(--ink-caption);
+        line-height: 1.38;
+        font-variant-numeric: tabular-nums;
+    }
+
     /* 6-Card Parameter KPI Grid */
     .metric-grid {
         display: grid;
         grid-template-columns: repeat(6, 1fr);
-        gap: 13px;
-        margin-bottom: 20px;
+        gap: 11px;
+        margin-bottom: 16px;
     }
     @media (max-width: 1100px) {
         .metric-grid { grid-template-columns: repeat(3, 1fr); }
@@ -687,29 +763,29 @@ st.markdown("""
     .card-kpi {
         background: var(--bg-surface);
         border: 1px solid var(--border-soft);
-        border-radius: 14px;
-        padding: 15px 16px;
-        box-shadow: 0 2px 8px rgba(11, 34, 28, 0.04);
+        border-radius: 6px;
+        padding: 13px 14px;
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.025);
         position: relative;
         overflow: hidden;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
     .card-kpi:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 18px rgba(13, 148, 136, 0.10);
+        border-color: var(--border-strong);
+        box-shadow: 0 3px 10px rgba(15, 76, 92, 0.07);
     }
     .card-kpi::before {
         content: "";
         position: absolute;
         top: 0; left: 0; right: 0;
-        height: 4px;
+        height: 2.5px;
     }
-    .bar-teal::before { background: linear-gradient(90deg, #0D9488, #14B8A6); }
-    .bar-amber::before { background: linear-gradient(90deg, #D97706, #F59E0B); }
-    .bar-emerald::before { background: linear-gradient(90deg, #059669, #10B981); }
-    .bar-coral::before { background: linear-gradient(90deg, #DC2626, #F97316); }
-    .bar-olive::before { background: linear-gradient(90deg, #4F46E5, #818CF8); }
-    .bar-plum::before { background: linear-gradient(90deg, #7C3AED, #A78BFA); }
+    .bar-teal::before { background: var(--teal-primary); }
+    .bar-amber::before { background: var(--amber-accent); }
+    .bar-emerald::before { background: var(--teal-strong); }
+    .bar-coral::before { background: var(--crimson-accent); }
+    .bar-olive::before { background: var(--indigo-accent); }
+    .bar-plum::before { background: #64748B; }
 
     .kpi-title {
         font-size: var(--fs-micro);
@@ -717,20 +793,20 @@ st.markdown("""
         color: var(--ink-muted);
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        margin-bottom: 6px;
+        margin-bottom: 5px;
     }
     .kpi-value {
         font-size: var(--fs-kpi);
-        font-weight: 800;
+        font-weight: 700;
         color: var(--ink-strong);
-        letter-spacing: -0.025em;
-        line-height: 1.12;
-        margin-bottom: 6px;
+        letter-spacing: -0.02em;
+        line-height: 1.15;
+        margin-bottom: 5px;
         font-variant-numeric: tabular-nums;
     }
     .kpi-unit {
         font-size: var(--fs-label);
-        font-weight: 700;
+        font-weight: 600;
         color: var(--ink-muted);
         letter-spacing: 0;
     }
@@ -745,49 +821,50 @@ st.markdown("""
         display: inline-block;
         background: var(--teal-tint);
         color: var(--teal-deep);
-        border: 1px solid #A7F3D0;
-        border-radius: 6px;
-        padding: 2px 7px;
+        border: 1px solid var(--teal-border);
+        border-radius: 4px;
+        padding: 2px 6px;
         font-size: var(--fs-micro);
-        font-weight: 700;
+        font-weight: 600;
     }
     .kpi-status-warn {
         display: inline-block;
         background: var(--crimson-tint);
         color: var(--crimson-deep);
         border: 1px solid var(--crimson-border);
-        border-radius: 6px;
-        padding: 2px 7px;
+        border-radius: 4px;
+        padding: 2px 6px;
         font-size: var(--fs-micro);
-        font-weight: 700;
+        font-weight: 600;
     }
 
-    /* SEC Mental Model Banner & Elution Order Strip */
+    /* SEC Separation Principle Callout & Elution Order Strip */
     .sec-rule-card {
         background: var(--bg-surface);
         border: 1px solid var(--border-soft);
-        border-top: 3.5px solid var(--teal-primary);
-        border-radius: 14px;
-        padding: 14px 20px;
-        margin-bottom: 18px;
-        box-shadow: 0 2px 8px rgba(11, 34, 28, 0.04);
+        border-left: 3.5px solid var(--teal-primary);
+        border-radius: 6px;
+        padding: 12px 17px;
+        margin-bottom: 14px;
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.025);
     }
     .sec-rule-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-weight: 700;
+        font-weight: 600;
         font-size: var(--fs-label);
         color: var(--ink-strong);
-        margin-bottom: 6px;
+        margin-bottom: 5px;
         flex-wrap: wrap;
         gap: 8px;
     }
     .sec-rule-pill {
-        background: var(--teal-strong);
-        color: #FFFFFF;
-        padding: 3px 12px;
-        border-radius: 9999px;
+        background: var(--teal-tint);
+        color: var(--teal-deep);
+        border: 1px solid var(--teal-border);
+        padding: 2px 9px;
+        border-radius: 4px;
         font-size: var(--fs-micro);
         font-weight: 700;
         text-transform: uppercase;
@@ -796,16 +873,15 @@ st.markdown("""
     .elution-strip {
         background: var(--bg-surface);
         border: 1px solid var(--border-soft);
-        border-radius: 11px;
-        padding: 11px 15px;
+        border-radius: 6px;
+        padding: 10px 14px;
         margin: 8px 0 12px 0;
-        box-shadow: 0 1px 4px rgba(11, 34, 28, 0.03);
     }
     .elution-strip-title {
         font-size: var(--fs-label);
-        font-weight: 700;
+        font-weight: 600;
         color: var(--ink-heading);
-        margin-bottom: 7px;
+        margin-bottom: 6px;
     }
     .elution-chip-row {
         display: flex;
@@ -818,95 +894,95 @@ st.markdown("""
     .elution-chip-target {
         background: var(--teal-tint);
         color: var(--teal-deep);
-        padding: 4px 10px;
-        border-radius: 7px;
+        padding: 3px 9px;
+        border-radius: 4px;
         font-size: var(--fs-micro);
-        font-weight: 800;
-        border: 1.5px solid var(--teal-primary);
+        font-weight: 700;
+        border: 1px solid var(--teal-primary);
         font-variant-numeric: tabular-nums;
     }
     .elution-chip-agg {
         background: var(--crimson-tint);
         color: var(--crimson-deep);
-        padding: 4px 10px;
-        border-radius: 7px;
+        padding: 3px 9px;
+        border-radius: 4px;
         font-size: var(--fs-micro);
-        font-weight: 800;
-        border: 1.5px solid var(--crimson-accent);
+        font-weight: 700;
+        border: 1px solid var(--crimson-accent);
         font-variant-numeric: tabular-nums;
     }
     .elution-chip-std {
         background: var(--bg-subtle);
-        color: #334155;
-        border: 1px solid #CBD5E1;
+        color: var(--ink-body);
+        border: 1px solid var(--border-soft);
         padding: 3px 8px;
-        border-radius: 6px;
+        border-radius: 4px;
         font-size: var(--fs-micro);
-        font-weight: 600;
+        font-weight: 500;
         font-variant-numeric: tabular-nums;
     }
 
     /* Interactive Inside-the-SEC-Column & Bead Pore Studio */
     .sec-studio-card {
         background: var(--bg-surface);
-        border: 1.5px solid var(--border-soft);
-        border-top: 4px solid var(--teal-primary);
-        border-radius: 16px;
-        padding: 14px 18px 16px 18px;
-        margin: 8px 0 18px 0;
-        box-shadow: 0 4px 16px rgba(11, 34, 28, 0.05);
+        border: 1px solid var(--border-soft);
+        border-top: 3px solid var(--teal-primary);
+        border-radius: 8px;
+        padding: 13px 16px 15px 16px;
+        margin: 8px 0 16px 0;
+        box-shadow: 0 1px 4px rgba(17, 24, 39, 0.03);
     }
     .sec-studio-svg {
         width: 100%;
         height: auto;
         display: block;
-        border-radius: 12px;
-        background: #F9FCFB;
+        border-radius: 6px;
+        background: #FAFBF9;
         border: 1px solid var(--border-soft);
     }
     .sec-svg-h {
         font-family: var(--font-sans);
         font-size: 13.5px;
-        font-weight: 800;
-        fill: #0B221C;
+        font-weight: 700;
+        fill: #111827;
     }
     .sec-svg-sub {
         font-family: var(--font-sans);
         font-size: 11px;
         font-weight: 500;
-        fill: #47625B;
+        fill: #52606D;
     }
     .sec-svg-lbl {
         font-family: var(--font-sans);
         font-size: 11px;
         font-weight: 600;
-        fill: #1E352F;
+        fill: #2C3A47;
     }
     .sec-svg-bold {
         font-family: var(--font-sans);
         font-size: 11px;
-        font-weight: 800;
-        fill: #0B221C;
+        font-weight: 700;
+        fill: #111827;
     }
     .sec-svg-micro {
         font-family: var(--font-sans);
         font-size: 10px;
-        font-weight: 700;
-        fill: #47625B;
+        font-weight: 600;
+        fill: #52606D;
     }
     .sec-svg-mono {
         font-family: var(--font-mono);
         font-size: 10.5px;
-        font-weight: 700;
+        font-weight: 600;
         font-variant-numeric: tabular-nums;
     }
     .sec-narrator-bar {
         margin-top: 11px;
         background: var(--teal-tint);
         border: 1px solid var(--teal-border);
-        border-left: 4px solid var(--teal-primary);
-        border-radius: 11px;
-        padding: 10px 15px;
+        border-left: 3.5px solid var(--teal-primary);
+        border-radius: 6px;
+        padding: 10px 14px;
         display: flex;
         flex-wrap: wrap;
         align-items: center;
@@ -920,10 +996,10 @@ st.markdown("""
     .sec-narrator-badge {
         display: inline-flex;
         align-items: center;
-        padding: 3px 10px;
-        border-radius: 9999px;
+        padding: 3px 9px;
+        border-radius: 4px;
         font-size: var(--fs-micro);
-        font-weight: 800;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         background: var(--teal-strong);
@@ -945,23 +1021,23 @@ st.markdown("""
     .ph-stat-bar {
         background: var(--bg-surface);
         border: 1px solid var(--border-soft);
-        border-left: 4px solid var(--teal-primary);
-        border-radius: 12px;
-        padding: 10px 14px;
+        border-left: 3.5px solid var(--teal-primary);
+        border-radius: 6px;
+        padding: 9px 13px;
         margin-bottom: 12px;
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
         align-items: center;
-        box-shadow: 0 2px 6px rgba(11, 34, 28, 0.04);
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.025);
     }
     .stat-chip {
         display: inline-flex;
         flex-direction: column;
-        padding: 5px 11px;
-        border-radius: 9px;
+        padding: 4px 10px;
+        border-radius: 4px;
         border: 1px solid var(--border-soft);
-        background: #F8FBFA;
+        background: var(--bg-subtle);
         min-width: 88px;
     }
     .stat-chip-amber {
@@ -990,7 +1066,7 @@ st.markdown("""
     }
     .stat-chip-value {
         font-size: var(--fs-label);
-        font-weight: 800;
+        font-weight: 700;
         color: var(--ink-strong);
         font-variant-numeric: tabular-nums;
         line-height: 1.35;
@@ -1004,8 +1080,8 @@ st.markdown("""
     .roadmap-grid {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 14px;
-        margin-bottom: 18px;
+        gap: 12px;
+        margin-bottom: 16px;
     }
     @media (max-width: 900px) {
         .roadmap-grid { grid-template-columns: 1fr; }
@@ -1013,22 +1089,22 @@ st.markdown("""
     .roadmap-card {
         background: var(--bg-surface);
         border: 1px solid var(--border-soft);
-        border-radius: 14px;
-        padding: 16px 18px;
-        box-shadow: 0 2px 8px rgba(11, 34, 28, 0.04);
+        border-radius: 6px;
+        padding: 14px 16px;
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.025);
     }
     .roadmap-step-tag {
         display: inline-block;
         background: var(--teal-tint);
         color: var(--teal-deep);
-        border: 1px solid #A7F3D0;
+        border: 1px solid var(--teal-border);
         font-size: var(--fs-micro);
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        padding: 3px 10px;
-        border-radius: 9999px;
-        margin-bottom: 8px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        margin-bottom: 7px;
     }
     .roadmap-step-amber {
         background: var(--amber-pill);
@@ -1043,17 +1119,17 @@ st.markdown("""
     .roadmap-step-neutral {
         background: var(--bg-subtle);
         color: var(--ink-control);
-        border-color: #CBD5E1;
+        border-color: var(--border-soft);
     }
-    .card-top-teal { border-top: 4px solid var(--teal-primary); }
-    .card-top-emerald { border-top: 4px solid #059669; }
-    .card-top-amber { border-top: 4px solid var(--amber-accent); }
-    .card-top-indigo { border-top: 4px solid var(--indigo-accent); }
-    .card-top-slate { border-top: 4px solid #64748B; }
+    .card-top-teal { border-top: 3px solid var(--teal-primary); }
+    .card-top-emerald { border-top: 3px solid var(--teal-strong); }
+    .card-top-amber { border-top: 3px solid var(--amber-accent); }
+    .card-top-indigo { border-top: 3px solid var(--indigo-accent); }
+    .card-top-slate { border-top: 3px solid #64748B; }
     .ss-summary-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 13px;
+        gap: 11px;
         margin-bottom: 14px;
     }
     @media (max-width: 1150px) {
@@ -1065,16 +1141,16 @@ st.markdown("""
     .ss-validation-strip {
         background: var(--bg-surface);
         border: 1px solid var(--border-soft);
-        border-left: 4px solid var(--teal-primary);
-        border-radius: 12px;
-        padding: 11px 16px;
+        border-left: 3.5px solid var(--teal-primary);
+        border-radius: 6px;
+        padding: 10px 15px;
         margin: 6px 0 14px 0;
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
         gap: 10px;
-        box-shadow: 0 1px 5px rgba(11, 34, 28, 0.04);
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.025);
     }
     .ss-validation-copy {
         font-size: var(--fs-label);
@@ -1090,11 +1166,11 @@ st.markdown("""
     .ss-domain-explorer {
         background: var(--bg-surface);
         border: 1px solid var(--indigo-border);
-        border-left: 4px solid var(--indigo-accent);
-        border-radius: 12px;
-        padding: 11px 16px;
+        border-left: 3.5px solid var(--indigo-accent);
+        border-radius: 6px;
+        padding: 10px 15px;
         margin: 4px 0 10px 0;
-        box-shadow: 0 1px 5px rgba(11, 34, 28, 0.04);
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.025);
     }
     .ss-domain-explorer-title {
         font-size: var(--fs-label);
@@ -1109,9 +1185,9 @@ st.markdown("""
     }
     .roadmap-title {
         font-size: var(--fs-h3);
-        font-weight: 700;
+        font-weight: 600;
         color: var(--ink-heading);
-        letter-spacing: -0.01em;
+        letter-spacing: -0.008em;
         line-height: 1.32;
         margin-bottom: 6px;
     }
@@ -1125,8 +1201,8 @@ st.markdown("""
     .compat-grid {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 11px;
-        margin: 4px 0 18px 0;
+        gap: 10px;
+        margin: 4px 0 16px 0;
     }
     @media (max-width: 1050px) {
         .compat-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1137,46 +1213,46 @@ st.markdown("""
     .compat-tile {
         background: var(--bg-surface);
         border: 1px solid var(--border-soft);
-        border-radius: 12px;
-        padding: 12px 14px;
-        box-shadow: 0 2px 6px rgba(11, 34, 28, 0.035);
+        border-radius: 6px;
+        padding: 11px 13px;
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.025);
     }
     .compat-tile-good {
-        border-left: 4px solid #059669;
-        background: #F7FDFB;
+        border-left: 3.5px solid var(--teal-primary);
+        background: #F8FBFC;
     }
     .compat-tile-warn {
-        border-left: 4px solid var(--amber-accent);
-        background: #FFFDF5;
+        border-left: 3.5px solid var(--amber-accent);
+        background: #FFFCF5;
     }
     .compat-tile-avoid {
-        border-left: 4px solid var(--crimson-accent);
-        background: #FFF8F8;
+        border-left: 3.5px solid var(--crimson-accent);
+        background: #FFF9F8;
     }
     .compat-tile-top {
         display: flex;
         justify-content: space-between;
         align-items: center;
         gap: 8px;
-        margin-bottom: 5px;
+        margin-bottom: 4px;
     }
     .compat-tile-title {
         font-size: var(--fs-label);
-        font-weight: 700;
+        font-weight: 600;
         color: var(--ink-heading);
     }
     .compat-badge {
         display: inline-block;
-        padding: 2px 9px;
-        border-radius: 9999px;
+        padding: 2px 8px;
+        border-radius: 4px;
         font-size: var(--fs-micro);
-        font-weight: 700;
+        font-weight: 600;
         white-space: nowrap;
     }
     .compat-badge-good {
         background: var(--teal-tint);
         color: var(--teal-deep);
-        border: 1px solid #A7F3D0;
+        border: 1px solid var(--teal-border);
     }
     .compat-badge-warn {
         background: var(--amber-pill);
@@ -1194,11 +1270,11 @@ st.markdown("""
         line-height: 1.45;
     }
     .compact-tips-box {
-        background: #F4FAF8;
-        border: 1px solid var(--border-soft);
-        border-left: 4px solid var(--teal-primary);
-        border-radius: 11px;
-        padding: 11px 15px;
+        background: var(--teal-tint);
+        border: 1px solid var(--teal-border);
+        border-left: 3.5px solid var(--teal-primary);
+        border-radius: 6px;
+        padding: 10px 14px;
         margin-bottom: 14px;
         font-size: var(--fs-label);
         color: var(--ink-body);
@@ -1220,9 +1296,9 @@ st.markdown("""
     .challenge-q-box {
         background: var(--indigo-tint);
         border: 1px solid var(--indigo-border);
-        border-left: 4px solid var(--indigo-accent);
-        border-radius: 11px;
-        padding: 12px 15px;
+        border-left: 3.5px solid var(--indigo-accent);
+        border-radius: 6px;
+        padding: 11px 14px;
         margin-bottom: 10px;
         font-size: var(--fs-body);
         font-weight: 600;
@@ -1230,22 +1306,22 @@ st.markdown("""
         line-height: 1.48;
     }
 
-    /* Method A (IEX Teal) & Method B (HIC Amber) Recommendation Cards */
+    /* Method A (IEX) & Method B (HIC) Recommendation Cards */
     .method-card {
         background: var(--bg-surface);
         border: 1px solid var(--border-soft);
-        border-radius: 13px;
-        padding: 16px 18px;
+        border-radius: 6px;
+        padding: 14px 16px;
         margin-bottom: 12px;
-        box-shadow: 0 2px 8px rgba(11, 34, 28, 0.04);
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.025);
     }
     .method-card-teal {
-        border-color: #99F6E4;
-        border-left: 5px solid var(--teal-primary);
+        border-color: var(--teal-border);
+        border-left: 4px solid var(--teal-primary);
     }
     .method-card-amber {
-        border-color: #FDE68A;
-        border-left: 5px solid var(--amber-accent);
+        border-color: var(--amber-border);
+        border-left: 4px solid var(--amber-accent);
     }
     .method-card-header {
         display: flex;
@@ -1253,49 +1329,49 @@ st.markdown("""
         align-items: center;
         flex-wrap: wrap;
         gap: 8px;
-        margin-bottom: 10px;
+        margin-bottom: 9px;
     }
     .method-card-title {
         font-size: var(--fs-h3);
-        font-weight: 700;
+        font-weight: 600;
         color: var(--ink-heading);
-        letter-spacing: -0.01em;
+        letter-spacing: -0.008em;
     }
     .method-badge-teal {
         background: var(--teal-tint);
         color: var(--teal-deep);
         border: 1px solid var(--teal-border);
-        padding: 3px 10px;
-        border-radius: 9999px;
+        padding: 2px 9px;
+        border-radius: 4px;
         font-size: var(--fs-micro);
-        font-weight: 700;
+        font-weight: 600;
     }
     .method-badge-amber {
         background: var(--amber-pill);
         color: var(--amber-deep);
         border: 1px solid var(--amber-border);
-        padding: 3px 10px;
-        border-radius: 9999px;
+        padding: 2px 9px;
+        border-radius: 4px;
         font-size: var(--fs-micro);
-        font-weight: 700;
+        font-weight: 600;
     }
     .method-spec-list {
         display: grid;
-        gap: 7px;
+        gap: 6px;
         font-size: var(--fs-body);
         color: var(--ink-body);
         line-height: 1.52;
     }
     .method-spec-key {
-        font-weight: 700;
+        font-weight: 600;
         color: var(--ink-strong);
     }
     .student-callout {
         background: var(--amber-tint);
-        border: 1px solid #FDE68A;
-        border-left: 4px solid var(--amber-accent);
-        border-radius: 11px;
-        padding: 13px 16px;
+        border: 1px solid var(--amber-border);
+        border-left: 3.5px solid var(--amber-accent);
+        border-radius: 6px;
+        padding: 12px 15px;
         font-size: var(--fs-body);
         color: var(--ink-body);
         line-height: 1.55;
@@ -1418,40 +1494,49 @@ st.markdown("""
         font-variant-numeric: tabular-nums;
     }
 
-    /* Pill Tabs on Soft Sage-Mist Track */
+    /* Scientific Journal Underline Tab Bar */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 6px;
-        background-color: var(--bg-sidebar);
-        padding: 6px;
-        border-radius: 13px;
-        border: 1px solid var(--border-sidebar);
-        margin-bottom: 18px;
+        gap: 4px;
+        background-color: transparent;
+        padding: 0 0 2px 0;
+        border-radius: 0;
+        border: none;
+        border-bottom: 1.5px solid var(--border-soft);
+        margin-bottom: 16px;
+        overflow-x: auto;
     }
     .stTabs [data-baseweb="tab"] {
-        border-radius: 9px;
-        padding: 10px 16px;
-        font-weight: 700;
+        border-radius: 5px 5px 0 0;
+        padding: 9px 14px;
+        font-weight: 600;
         font-size: var(--fs-label);
-        color: var(--ink-body);
+        color: var(--ink-caption);
         border: none;
+        border-bottom: 2.5px solid transparent;
         background: transparent;
-        transition: all 0.15s ease;
+        transition: color 0.15s ease, background-color 0.15s ease;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        color: var(--ink-strong);
+        background: rgba(15, 76, 92, 0.04);
     }
     .stTabs [data-baseweb="tab"] p {
-        font-weight: 700 !important;
+        font-weight: 600 !important;
         font-size: var(--fs-label) !important;
-        color: var(--ink-body);
+        color: var(--ink-caption);
     }
     .stTabs [aria-selected="true"] {
-        background: var(--teal-strong) !important;
-        color: #FFFFFF !important;
-        box-shadow: 0 3px 10px rgba(15, 118, 110, 0.24);
+        background: var(--teal-tint) !important;
+        color: var(--teal-primary) !important;
+        border-bottom: 2.5px solid var(--teal-primary) !important;
+        box-shadow: none;
     }
     .stTabs [aria-selected="true"] p {
-        color: #FFFFFF !important;
+        color: var(--teal-primary) !important;
+        font-weight: 700 !important;
     }
 
-    /* Interactive 3D Viewer & Pop-Out Dialogs (Botanical-Editorial Theme) */
+    /* Interactive 3D Viewer & Pop-Out Dialogs (Archival Editorial Theme) */
     .viewer3d-meta-bar {
         display: flex;
         flex-wrap: wrap;
@@ -1459,16 +1544,16 @@ st.markdown("""
         gap: 7px;
         background: var(--bg-surface);
         border: 1px solid var(--border-soft);
-        border-radius: 11px;
-        padding: 10px 14px;
+        border-radius: 6px;
+        padding: 9px 13px;
         margin: 8px 0 10px 0;
-        box-shadow: 0 1px 4px rgba(11, 34, 28, 0.04);
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.025);
     }
     .viewer3d-disclaimer {
         background: var(--amber-tint);
         border: 1px solid var(--amber-border);
-        border-left: 4px solid var(--amber-accent);
-        border-radius: 10px;
+        border-left: 3.5px solid var(--amber-accent);
+        border-radius: 6px;
         padding: 9px 13px;
         margin-top: 8px;
         font-size: var(--fs-label);
@@ -1482,15 +1567,15 @@ st.markdown("""
         gap: 8px;
         background: var(--teal-tint);
         border: 1px solid var(--teal-border);
-        border-radius: 11px;
+        border-radius: 6px;
         padding: 10px 14px;
         margin: 8px 0 12px 0;
     }
     .gel-dialog-buffer-box {
         background: var(--bg-surface);
         border: 1px solid var(--border-soft);
-        border-left: 4px solid var(--teal-primary);
-        border-radius: 10px;
+        border-left: 3.5px solid var(--teal-primary);
+        border-radius: 6px;
         padding: 12px 15px;
         margin: 8px 0 12px 0;
         font-size: var(--fs-body);
@@ -1499,14 +1584,14 @@ st.markdown("""
     }
     .gel-dialog-buffer-title {
         font-size: var(--fs-h3);
-        font-weight: 700;
+        font-weight: 600;
         color: var(--ink-heading);
         margin-bottom: 5px;
     }
     .feedback-diag-box {
         background: var(--bg-subtle);
         border: 1px solid var(--border-soft);
-        border-radius: 10px;
+        border-radius: 6px;
         padding: 10px 14px;
         margin: 6px 0 10px 0;
         font-size: var(--fs-label);
@@ -1520,6 +1605,19 @@ st.markdown("""
         letter-spacing: 0.06em;
         color: var(--teal-deep);
         margin-bottom: 4px;
+    }
+
+    @media (max-width: 768px) {
+        [data-testid="stMainBlockContainer"] {
+            padding-left: 0.9rem !important;
+            padding-right: 0.9rem !important;
+        }
+        .hero-banner {
+            padding: 12px 14px;
+        }
+        .protein-ribbon {
+            padding: 11px 14px;
+        }
     }
 
     /* Keep the header & toolbar transparent and click-through so the sidebar expand toggle
@@ -1640,6 +1738,175 @@ def set_new_sequence(seq: str, name: str, metadata: dict, construct_parts=None) 
     for w in warnings:
         st.warning(w)
     return True
+
+
+def _apply_nl_result(res: dict) -> str:
+    """Applies parse_natural_language_prompt output to session state and returns a status summary."""
+    parts = res.get("construct_parts") or []
+    has_engineered_parts = (
+        res.get("tag_detected", "None") != "None"
+        or res.get("cleavage_detected", "None") != "None"
+        or len(parts) > 1
+    )
+    if res.get("is_direct_sequence"):
+        source_label = "Direct De Novo / Custom Construct" if has_engineered_parts else "Direct De Novo / Custom Sequence"
+    elif res.get("pdb_id"):
+        chain_suffix = f" (Chain {res['chain_id']})" if res.get("chain_id") else ""
+        source_label = f"RCSB PDB {res['pdb_id']}{chain_suffix}"
+    elif res.get("uniprot_id"):
+        source_label = (
+            f"Natural Language Construct Builder • UniProt {res['uniprot_id']}"
+            if has_engineered_parts
+            else f"Natural Language Lookup • UniProt {res['uniprot_id']}"
+        )
+    else:
+        source_label = "Natural Language Construct Builder"
+
+    org_sci_prefix = " ".join(res["identified_organism"].split()[:2]).lower()
+    prot_low = res["identified_protein"].lower()
+    if res.get("is_direct_sequence") or res.get("is_de_novo"):
+        display_name = res["identified_protein"]
+    else:
+        display_name = (
+            res["identified_protein"]
+            if (
+                res["identified_organism"].lower() in prot_low
+                or (org_sci_prefix and org_sci_prefix in prot_low)
+            )
+            else f"{res['identified_protein']} ({res['identified_organism']})"
+        )
+
+    ok = set_new_sequence(
+        seq=res["full_construct_sequence"],
+        name=display_name,
+        metadata={
+            "source": source_label,
+            "uniprot_id": res.get("uniprot_id", ""),
+            "accession": res.get("accession") or res.get("uniprot_id") or res.get("pdb_id") or "",
+            "pdb_id": res.get("pdb_id", ""),
+            "chain_id": res.get("chain_id", ""),
+            "is_de_novo": bool(res.get("is_de_novo", False)),
+            "gene_name": res.get("gene_name", "N/A"),
+            "protein_name": res["identified_protein"],
+            "biochem_annotations": res.get("biochem_annotations", {}),
+            "tag": res["tag_detected"],
+            "tag_position": res["tag_position"],
+            "cleavage": res["cleavage_detected"],
+            "canonical_len": len(res["canonical_sequence"]),
+        },
+        construct_parts=parts if has_engineered_parts else None,
+    )
+    if not ok:
+        raise ValueError("Loaded construct contained no valid standard amino acids.")
+    if has_engineered_parts:
+        return f"Construct ready: {res['identified_protein']} ({res['length']} aa)!"
+    id_tag = (
+        f" [{res['uniprot_id']}]"
+        if res.get("uniprot_id")
+        else (f" [PDB {res['pdb_id']}]" if res.get("pdb_id") else "")
+    )
+    return f"Loaded: {res['identified_protein']}{id_tag} ({res['length']} aa)!"
+
+
+def _apply_uniprot_result(res: dict) -> str:
+    """Applies fetch_uniprot_by_id result to session state (preserving signal-peptide mature-chain metadata)."""
+    disp_nm = f"{res['protein_name']} [{res['accession']}]"
+    meta_up = dict(res)
+    if res.get("mature_chain"):
+        meta_up["precursor_sequence"] = res["sequence"]
+        meta_up["precursor_name"] = disp_nm
+        meta_up["is_mature_cleaved"] = False
+    if not set_new_sequence(seq=res["sequence"], name=disp_nm, metadata=meta_up):
+        raise ValueError(f"UniProt entry '{res['accession']}' had no valid amino acid sequence.")
+    return f"Loaded: {res['protein_name']} ({res['length']} aa)"
+
+
+def _resolve_universal_protein_query(raw_query: str) -> str:
+    """
+    Smart zero-mode-hunting router for the Main-Page Quick Search bar:
+    accepts plain English ('yeast eIF2A', 'GST human + 6xHis'), UniProt ID/URL, NCBI Accession,
+    RCSB PDB ID (1QYS, 6D0T_A), direct FASTA/AA sequences, or DNA/RNA coding ORFs.
+    """
+    q = _normalize_mobile_text(raw_query or "").strip()
+    if not q:
+        raise ValueError(
+            "Enter a protein name (e.g., yeast eIF2A), UniProt/PDB/NCBI accession, or sequence to analyze."
+        )
+
+    # 1. Inline AA / FASTA sequence (also supports attached N-/C-terminal tags)
+    if _extract_inline_sequence_from_prompt(q) is not None or q.lstrip().startswith(">"):
+        if _extract_inline_sequence_from_prompt(q) is not None:
+            return _apply_nl_result(parse_natural_language_prompt(q))
+        _, parsed_hdr, _ = clean_amino_acid_sequence(q)
+        hdr_meta = extract_fasta_header_metadata(parsed_hdr)
+        fasta_meta = {"source": hdr_meta.get("source_format") or "Direct FASTA / Sequence Input"}
+        for _mk in ("uniprot_id", "accession", "gene_name", "organism", "protein_name", "biochem_annotations"):
+            if hdr_meta.get(_mk):
+                fasta_meta[_mk] = hdr_meta[_mk]
+        display_pname = hdr_meta.get("protein_name") or parsed_hdr or "Custom FASTA Protein"
+        if set_new_sequence(seq=q, name=display_pname, metadata=fasta_meta):
+            return f"Loaded: {display_pname} ({len(st.session_state.active_sequence)} aa)"
+
+    # 2. Pure DNA / RNA coding sequence (>= 30 nt strictly A/C/G/T/U/N)
+    nt_compact = re.sub(r"[\s0-9*\-]+", "", q).upper()
+    if len(nt_compact) >= 30 and re.fullmatch(r"[ACGTUN]+", nt_compact) and set(nt_compact) <= {"A", "C", "G", "T", "U", "N"}:
+        orf_res = find_longest_orf(q)
+        hdr_meta = extract_fasta_header_metadata(orf_res.get("header"))
+        base_label = hdr_meta.get("protein_name") or "Translated Gene"
+        strand_tag = f"Frame {orf_res['frame']} ({orf_res.get('strand', '+')} strand)"
+        nt_meta = {"source": "DNA/RNA Translation", **orf_res}
+        set_new_sequence(
+            seq=orf_res["sequence"],
+            name=f"{base_label} ({strand_tag}, {orf_res['orf_length_aa']} aa)",
+            metadata=nt_meta,
+        )
+        return f"Translated {orf_res['orf_length_aa']} aa ({strand_tag})!"
+
+    # 3. NCBI RefSeq / GenBank / URL
+    is_ncbi = (
+        "ncbi.nlm.nih.gov" in q.lower()
+        or bool(re.fullmatch(r"(?:NP|XP|WP|YP|AP|ZP|NM|XM|NC|NG|NR|XR|NT|NW|NZ|AC)_\d+(?:\.\d+)?", q, flags=re.I))
+        or bool(re.fullmatch(r"[A-Z]{3}\d{5,8}(?:\.\d+)?", q, flags=re.I))
+    )
+    if is_ncbi:
+        res_n = fetch_ncbi_by_id(q)
+        org_n = res_n.get("organism", "")
+        pname_n = res_n["protein_name"]
+        ncbi_name = (
+            pname_n
+            if not org_n or org_n in ("See Header", "Unknown Organism") or org_n.lower() in pname_n.lower()
+            else f"{pname_n} ({org_n})"
+        )
+        set_new_sequence(seq=res_n["sequence"], name=ncbi_name, metadata=res_n)
+        return f"Loaded: {pname_n} ({res_n['length']} aa)"
+
+    # 4. RCSB PDB URL / explicit PDB prefix / 4-char PDB ID
+    is_explicit_pdb = (
+        "rcsb.org" in q.lower()
+        or bool(re.match(r"^(?:rcsb\s+)?pdb[\s:_\-]+([1-9][a-z0-9]{3})", q, flags=re.I))
+    )
+    is_bare_pdb = bool(re.fullmatch(r"[1-9][A-Za-z0-9]{3}(?:[_:.][A-Za-z0-9]{1,2})?", q))
+    if is_explicit_pdb or is_bare_pdb:
+        try:
+            res_p = fetch_pdb_by_id(q)
+            set_new_sequence(seq=res_p["sequence"], name=res_p["protein_name"], metadata=res_p)
+            return f"Loaded: {res_p['protein_name']} [PDB {res_p['pdb_id']}] ({res_p['length']} aa)"
+        except ValueError:
+            if is_explicit_pdb:
+                raise
+
+    # 5. UniProt URL / FASTA prefix / Accession / Entry Name
+    is_uniprot = (
+        "uniprot.org" in q.lower()
+        or bool(re.match(r"^(?:uniprotkb|uniprot|sp|tr)[:|]", q, flags=re.I))
+        or bool(re.fullmatch(r"(?:[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9](?:[A-Z][A-Z0-9]{2}[0-9]){1,2})(?:-\d+)?(?:\.\d+)?", q, flags=re.I))
+        or bool(re.fullmatch(r"[A-Z][A-Z0-9]{1,9}_[A-Z0-9]{2,5}", q, flags=re.I))
+    )
+    if is_uniprot:
+        return _apply_uniprot_result(fetch_uniprot_by_id(q))
+
+    # 6. Universal Plain English Construct Builder (e.g. 'yeast eIF2A', 'GST human + 6xHis')
+    return _apply_nl_result(parse_natural_language_prompt(q))
 
 
 def _apply_classroom_preset():
@@ -2155,20 +2422,38 @@ def _render_3dmol_metadata_and_viewer(struct_dict: dict, key_prefix: str) -> Non
         components.html(viewer_html, height=470, scrolling=False)
 
 
-# --- HERO HEADER ---
+# --- SCIENTIFIC JOURNAL MASTHEAD & UNIVERSAL QUICK SEARCH ---
 st.markdown("""
 <div class="hero-banner">
-    <div class="hero-badge-row">
-        <span class="hero-badge badge-gold">🎓 Interactive Biochemistry &amp; Purification Studio</span>
-        <span class="hero-badge badge-mint">🧪 SEC • SDS-PAGE • IEX &amp; HIC • Smart Buffer Lab</span>
-    </div>
+    <div class="hero-eyebrow">Biochemical Characterization &amp; Protein Purification Workbench</div>
     <div class="hero-title">ProPurify Studio</div>
     <div class="hero-subtitle">
-        Pick a textbook protein or load any sequence from UniProt/NCBI to visualize <b>SEC elution</b>, run an <b>SDS-PAGE gel</b>,
-        build a <b>cofactor-safe purification strategy</b>, and weigh exact <b>lab buffers (g / mg)</b>.
+        Sequence-to-bench planning across <b>UniProt</b>, <b>NCBI</b>, <b>RCSB PDB</b>, and <b>de novo constructs</b> —
+        instant SEC retention modeling, SDS-PAGE gel calibration, cofactor-safe chromatography selection, and exact buffer stoichiometry.
     </div>
 </div>
 """, unsafe_allow_html=True)
+
+with st.form("main_quick_search_form", border=False):
+    qs_c1, qs_c2 = st.columns([3.6, 1.35])
+    with qs_c1:
+        quick_query = st.text_input(
+            "Quick Load Any Protein:",
+            value="",
+            placeholder="Search any protein (yeast eIF2A, human GST + 6xHis), UniProt (P00698), PDB (1QYS), NCBI ID, or paste a sequence...",
+            key="main_quick_search_input",
+            label_visibility="collapsed",
+        )
+    with qs_c2:
+        quick_submitted = st.form_submit_button("Analyze Protein", type="primary", width="stretch")
+
+if quick_submitted:
+    with st.spinner("Resolving protein sequence & computing biophysical parameters..."):
+        try:
+            _qs_msg = _resolve_universal_protein_query(quick_query)
+            st.success(_qs_msg)
+        except Exception as _qs_err:
+            st.error(str(_qs_err))
 
 
 # --- SIDEBAR: COHESIVE PROTEIN LOADER (CUSTOM INPUT AT TOP, STARTER EXAMPLES BELOW) ---
@@ -2186,29 +2471,30 @@ with st.sidebar:
         ]
     )
 
-    # 1. UniProt Accession (Lysozyme P00698 default)
+    # 1. UniProt Accession (Lysozyme P00698 default, plus smart Plain-English / PDB fallback)
     if input_method == "🔍 UniProt ID":
         uid_input = st.text_input(
             "UniProt Accession ID:",
             value="P00698",
-            help="Supports canonical accessions (P00698, A0A024RBG1), isoforms (P04637-2), entry names (LYSC_CHICK), or UniProt URLs. If UniProt annotates a Signal/Propeptide, a 1-click Mature Chain toggle appears below the protein banner."
+            help="Supports canonical accessions (P00698, A0A024RBG1), isoforms (P04637-2), entry names (LYSC_CHICK), or UniProt URLs (and auto-routes space-separated protein queries like 'yeast eIF2A' or 4-char PDB IDs like '1QYS')."
         )
         if st.button("Fetch from UniProt", type="primary", width="stretch"):
-            with st.spinner(f"Fetching {uid_input} from UniProt..."):
+            q_uid = _normalize_mobile_text(uid_input).strip()
+            with st.spinner(f"Fetching {q_uid} from UniProt..."):
                 try:
-                    res = fetch_uniprot_by_id(uid_input)
-                    disp_nm = f"{res['protein_name']} [{res['accession']}]"
-                    meta_up = dict(res)
-                    if res.get("mature_chain"):
-                        meta_up["precursor_sequence"] = res["sequence"]
-                        meta_up["precursor_name"] = disp_nm
-                        meta_up["is_mature_cleaved"] = False
-                    if set_new_sequence(
-                        seq=res["sequence"],
-                        name=disp_nm,
-                        metadata=meta_up
-                    ):
-                        st.success(f"Loaded: {res['protein_name']} ({res['length']} aa)")
+                    is_explicit_uniprot = (
+                        bool(re.match(r"^(?:uniprotkb|uniprot|id|acc|sp|tr)\s*[:|]", q_uid, flags=re.I))
+                        or "uniprot.org" in q_uid.lower()
+                        or q_uid.lstrip().startswith(">")
+                    )
+                    if " " in q_uid and not is_explicit_uniprot:
+                        st.success(_apply_nl_result(parse_natural_language_prompt(q_uid)))
+                    elif re.fullmatch(r"[1-9][A-Za-z0-9]{3}(?:[_:.][A-Za-z0-9]{1,2})?", q_uid):
+                        res_p = fetch_pdb_by_id(q_uid)
+                        if set_new_sequence(seq=res_p["sequence"], name=res_p["protein_name"], metadata=res_p):
+                            st.success(f"Loaded: {res_p['protein_name']} [PDB {res_p['pdb_id']}] ({res_p['length']} aa)")
+                    else:
+                        st.success(_apply_uniprot_result(fetch_uniprot_by_id(q_uid)))
                 except Exception as e:
                     st.error(str(e))
         st.caption("Try: `P00698` (Chicken Lysozyme), `P61626` (Human Lysozyme), `P42212` (GFP), `P07374` (Urease)")
@@ -2334,78 +2620,20 @@ with st.sidebar:
     elif input_method == "💬 Describe in Plain English":
         nl_prompt = st.text_area(
             "Describe Protein, Paste De Novo Sequence, or Enter PDB ID (+ Optional Tag):",
-            value="Chicken egg white lysozyme with N-terminal 6xHis tag and TEV site",
+            value="",
+            placeholder="e.g., yeast eIF2A, Chicken lysozyme with N-terminal 6xHis tag and TEV site, PDB 1QYS, or paste a de novo sequence",
             height=85
         )
         if st.button("✨ Build Protein Construct", type="primary", width="stretch"):
-            with st.spinner("Finding sequence & building construct..."):
-                try:
-                    res = parse_natural_language_prompt(nl_prompt)
-                    parts = res.get("construct_parts") or []
-                    has_engineered_parts = (
-                        res.get("tag_detected", "None") != "None"
-                        or res.get("cleavage_detected", "None") != "None"
-                        or len(parts) > 1
-                    )
-                    if res.get("is_direct_sequence"):
-                        source_label = "Direct De Novo / Custom Construct" if has_engineered_parts else "Direct De Novo / Custom Sequence"
-                    elif res.get("pdb_id"):
-                        chain_suffix = f" (Chain {res['chain_id']})" if res.get("chain_id") else ""
-                        source_label = f"RCSB PDB {res['pdb_id']}{chain_suffix}"
-                    elif res.get("uniprot_id"):
-                        source_label = (
-                            f"Natural Language Construct Builder • UniProt {res['uniprot_id']}"
-                            if has_engineered_parts
-                            else f"Natural Language Lookup • UniProt {res['uniprot_id']}"
-                        )
-                    else:
-                        source_label = "Natural Language Construct Builder"
-
-                    org_sci_prefix = " ".join(res["identified_organism"].split()[:2]).lower()
-                    prot_low = res["identified_protein"].lower()
-                    if res.get("is_direct_sequence") or res.get("is_de_novo"):
-                        display_name = res["identified_protein"]
-                    else:
-                        display_name = (
-                            res["identified_protein"]
-                            if (
-                                res["identified_organism"].lower() in prot_low
-                                or (org_sci_prefix and org_sci_prefix in prot_low)
-                            )
-                            else f"{res['identified_protein']} ({res['identified_organism']})"
-                        )
-                    if set_new_sequence(
-                        seq=res["full_construct_sequence"],
-                        name=display_name,
-                        metadata={
-                            "source": source_label,
-                            "uniprot_id": res.get("uniprot_id", ""),
-                            "accession": res.get("accession") or res.get("uniprot_id") or res.get("pdb_id") or "",
-                            "pdb_id": res.get("pdb_id", ""),
-                            "chain_id": res.get("chain_id", ""),
-                            "is_de_novo": bool(res.get("is_de_novo", False)),
-                            "gene_name": res.get("gene_name", "N/A"),
-                            "protein_name": res["identified_protein"],
-                            "biochem_annotations": res.get("biochem_annotations", {}),
-                            "tag": res["tag_detected"],
-                            "tag_position": res["tag_position"],
-                            "cleavage": res["cleavage_detected"],
-                            "canonical_len": len(res["canonical_sequence"])
-                        },
-                        construct_parts=parts if has_engineered_parts else None
-                    ):
-                        if has_engineered_parts:
-                            st.success(f"Construct ready: {res['identified_protein']} ({res['length']} aa)!")
-                        else:
-                            id_tag = (
-                                f" [{res['uniprot_id']}]"
-                                if res.get("uniprot_id")
-                                else (f" [PDB {res['pdb_id']}]" if res.get("pdb_id") else "")
-                            )
-                            st.success(f"Loaded: {res['identified_protein']}{id_tag} ({res['length']} aa)!")
-                except Exception as e:
-                    st.error(f"Could not build construct: {e}")
-        st.caption("Try: `GST human`, `Urease with 6x His tag`, `Top7 with N-terminal 6xHis tag`, or paste any de novo sequence (optionally + `with TEV site`)")
+            if not (nl_prompt or "").strip():
+                st.info("Type a protein name (e.g., yeast eIF2A), PDB ID (1QYS), or paste a de novo sequence above.")
+            else:
+                with st.spinner("Finding sequence & building construct..."):
+                    try:
+                        st.success(_apply_nl_result(parse_natural_language_prompt(nl_prompt)))
+                    except Exception as e:
+                        st.error(f"Could not build construct: {e}")
+        st.caption("Try: `yeast eIF2A`, `GST human`, `Urease with 6x His tag`, `Top7 with N-terminal 6xHis tag`, or paste any de novo sequence")
 
     st.markdown("---")
     st.markdown("### 🧪 Try an Example")
@@ -2585,6 +2813,86 @@ if mat_info and prec_seq and mat_info.get("sequence") and prec_seq != mat_info["
             st.rerun()
 
 
+# --- 4-COLUMN AT-A-GLANCE BENCH ACTION PLAN (IMMEDIATE EXPERIMENT SUMMARY) ---
+_brief_tag = protein_profile.get("effective_tag") or seq_meta.get("tag", "None")
+_brief_q74 = calculate_net_charge_at_ph(current_seq, 7.4)
+_brief_wf = recommend_full_purification_workflow(
+    metrics,
+    7.4,
+    _brief_q74,
+    tag_detected=_brief_tag,
+    sequence=current_seq,
+    protein_name=st.session_state.sequence_name,
+    metadata=seq_meta,
+    construct_parts=st.session_state.construct_parts,
+    protein_profile=protein_profile,
+)
+_brief_cap_raw = re.sub(r"^(?:Primary\s+)?Capture:\s*", "", str(_brief_wf["roadmap"][0]["title"]).strip(), flags=re.I)
+_brief_cap_cls = "bench-brief-crit" if _brief_wf.get("tag_conflict") and _brief_wf["tag_conflict"].get("severity") == "critical" else ""
+_brief_prep_id, _brief_anal_id = recommend_optimal_columns(metrics["mw_kda"])
+_brief_anal_cfg = SEC_COLUMNS[_brief_anal_id]
+_brief_prep_cfg = SEC_COLUMNS[_brief_prep_id]
+_brief_sec_sim = simulate_chromatogram_peaks(
+    [{"label": "Monomer", "mw_kda": metrics["mw_kda"], "prot_eps01": ext["abs_01_cystines"]}],
+    _brief_anal_cfg,
+)
+_brief_ve = float(_brief_sec_sim["peaks"][0]["ve_ml"])
+_brief_dec = 2 if float(_brief_anal_cfg["bed_volume_vt_ml"]) < 5.0 else 1
+_brief_gel = recommend_gel_recipe_params(metrics["mw_kda"])
+_brief_gel_sys = "Tricine" if _brief_gel["system"] == "tricine" else "Tris-Glycine"
+
+if _brief_wf.get("tag_conflict"):
+    _brief_safety_cls = "bench-brief-crit" if _brief_wf["tag_conflict"].get("severity") == "critical" else "bench-brief-warn"
+    _brief_safety_main = "Tag / Cofactor Conflict"
+    _brief_safety_sub = "Omit imidazole & EDTA; see Tab 2/3"
+elif protein_profile.get("requires_detergent_micelles"):
+    _brief_safety_cls = "bench-brief-warn"
+    _brief_safety_main = "Detergent Micelles Req."
+    _brief_safety_sub = "Add DDM/LMNG; avoid salt precipitation"
+elif protein_profile.get("is_metalloprotein"):
+    _brief_safety_cls = "bench-brief-warn"
+    _brief_safety_main = "Metalloprotein Guard"
+    _brief_safety_sub = "Keep EDTA-free for active cofactor"
+elif protein_profile.get("avoid_reducing_agents"):
+    _brief_safety_cls = "bench-brief-warn"
+    _brief_safety_main = "Omit DTT / TCEP"
+    _brief_safety_sub = f"{ext['potential_disulfides']} native S–S disulfide bond{'s' if ext['potential_disulfides'] != 1 else ''}"
+elif ext["molar_extinction_cystines"] == 0:
+    _brief_safety_cls = "bench-brief-warn"
+    _brief_safety_main = "UV-280 Blind (Use 214 nm)"
+    _brief_safety_sub = "Zero Trp/Tyr/S–S chromophores"
+elif abs(7.4 - float(metrics["pi"])) < 0.5:
+    _brief_safety_cls = "bench-brief-warn"
+    _brief_safety_main = f"pI {metrics['pi']:.2f} Near Neutral"
+    _brief_safety_sub = "Shift buffer pH ≥ 0.8 from pI"
+elif metrics["instability_index"] >= 40.0:
+    _brief_safety_cls = "bench-brief-warn"
+    _brief_safety_main = "Chilled / Protease Arrest"
+    _brief_safety_sub = f"Instability {metrics['instability_index']:.1f} (≥ 40) — keep at 4°C"
+else:
+    _brief_safety_cls = ""
+    _brief_safety_main = "Standard Neutral Buffer"
+    _brief_safety_sub = "Compatible with Tris/HEPES + NaCl"
+
+_brief_html = (
+    '<div class="bench-brief-grid">\n'
+    f'<div class="bench-brief-card {_brief_cap_cls}"><div class="bench-brief-kicker">1. Primary Capture (pH 7.4)</div>'
+    f'<div class="bench-brief-main">{html.escape(_brief_cap_raw)}</div>'
+    f'<div class="bench-brief-sub">Net charge {_brief_q74:+.1f} • Tag: {html.escape(_brief_tag)}</div></div>\n'
+    f'<div class="bench-brief-card"><div class="bench-brief-kicker">2. Polishing SEC &amp; Elution</div>'
+    f'<div class="bench-brief-main">{html.escape(_brief_anal_cfg["name"])} • {_brief_ve:.{_brief_dec}f} mL</div>'
+    f'<div class="bench-brief-sub">Prep scale: {html.escape(_brief_prep_cfg["name"])}</div></div>\n'
+    f'<div class="bench-brief-card"><div class="bench-brief-kicker">3. Recommended SDS-PAGE</div>'
+    f'<div class="bench-brief-main">{_brief_gel["gel_pct"]:g}% {html.escape(_brief_gel_sys)}</div>'
+    f'<div class="bench-brief-sub">Monomer target band at {metrics["mw_kda"]:.1f} kDa</div></div>\n'
+    f'<div class="bench-brief-card {_brief_safety_cls}"><div class="bench-brief-kicker">4. Buffer &amp; Hazard Note</div>'
+    f'<div class="bench-brief-main">{html.escape(_brief_safety_main)}</div>'
+    f'<div class="bench-brief-sub">{html.escape(_brief_safety_sub)}</div></div>\n'
+    '</div>'
+)
+st.markdown(_brief_html, unsafe_allow_html=True)
+
+
 # --- 6-PARAMETER KPI CARDS (ALL 6 SET PARAMETERS PRESERVED + EXACT PROTPARAM PRECISION) ---
 instab_ok = metrics["instability_index"] < 40.0
 instab_badge_cls = "kpi-status-ok" if instab_ok else "kpi-status-warn"
@@ -2721,11 +3029,11 @@ def _format_sec_table_row(p: dict, col_config: dict) -> dict:
     }
 
 
-PLOTLY_FONT_FAMILY = "Plus Jakarta Sans, sans-serif"
-PLOTLY_TITLE_FONT = dict(family=PLOTLY_FONT_FAMILY, size=14, color="#0B221C")
-PLOTLY_AXIS_TITLE_FONT = dict(family=PLOTLY_FONT_FAMILY, size=12.5, color="#1E352F")
-PLOTLY_TICK_FONT = dict(family=PLOTLY_FONT_FAMILY, size=11.5, color="#4A635C")
-PLOTLY_GRID_COLOR = "#E6F0EC"
+PLOTLY_FONT_FAMILY = "IBM Plex Sans, Helvetica Neue, Arial, sans-serif"
+PLOTLY_TITLE_FONT = dict(family=PLOTLY_FONT_FAMILY, size=14, color="#111827")
+PLOTLY_AXIS_TITLE_FONT = dict(family=PLOTLY_FONT_FAMILY, size=12.5, color="#2C3A47")
+PLOTLY_TICK_FONT = dict(family=PLOTLY_FONT_FAMILY, size=11.5, color="#52606D")
+PLOTLY_GRID_COLOR = "#E6ECEF"
 
 
 def create_modern_sec_plot(
@@ -2884,7 +3192,7 @@ def create_modern_sec_plot(
                 name="★ Real Lab Peak (Published Paper)" if idx_m == 0 else exp_m["label"],
                 text=[f"★ Real Lab: {exp_m['exp_ve_ml']:.2f} mL"],
                 textposition="top center",
-                textfont=dict(size=10.5, color="#B45309", family="Plus Jakarta Sans, sans-serif"),
+                textfont=dict(size=10.5, color="#854D0E", family=PLOTLY_FONT_FAMILY),
                 marker=dict(size=11, color="#F59E0B", symbol="star", line=dict(width=1.1, color="#92400E")),
                 hoverinfo="text",
                 hovertext=(
@@ -3445,18 +3753,18 @@ tab_sec, tab_strategy, tab_buffers, tab_details, tab_examples = st.tabs([
 with tab_sec:
     st.markdown("### 📊 Size-Exclusion Chromatography (SEC) Simulator")
 
-    # Intuitive Classroom Mental Model Card
+    # Scientific SEC Separation Principle Callout
     st.markdown("""
     <div class="sec-rule-card">
         <div class="sec-rule-header">
-            <span>⬅️ 🏃 BIG Molecules Come Out FIRST (Left)</span>
-            <span class="sec-rule-pill">Easy Rule of SEC</span>
-            <span>🐢 SMALL Molecules Come Out LAST (Right) ➡️</span>
+            <span>Larger Hydrodynamic Radius (Rh) → Elutes First (Near Vo)</span>
+            <span class="sec-rule-pill">SEC Separation Principle</span>
+            <span>Smaller Hydrodynamic Radius (Rh) → Elutes Late (Toward Vt)</span>
         </div>
         <div class="ui-body">
-            Imagine pouring marbles and tiny sand grains through a tube filled with sponge-like beads containing microscopic tunnels.
-            <b>Large proteins</b> cannot fit inside the bead tunnels, so they zip straight around the outside and exit early.
-            <b>Small proteins</b> (like 14.3 kDa Lysozyme) wander through every tiny bead tunnel, taking a longer path and exiting later!
+            Gel filtration partitions macromolecules strictly by effective solution volume (hydrodynamic radius <b>Rh</b>, not molecular weight alone).
+            <b>Large complexes &amp; HMW aggregates</b> exceed matrix pore diameters and elute rapidly through the interstitial void volume (<code>Vo</code>);
+            <b>compact monomers</b> diffuse deeply into internal stationary-phase pores, traversing a longer tortuous path and eluting later near <code>Vt</code>.
         </div>
     </div>
     """, unsafe_allow_html=True)

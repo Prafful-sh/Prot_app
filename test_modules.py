@@ -3053,6 +3053,102 @@ def test_gel_recipes_3d_viewer_feedback_and_ai_proteins(root_dir: str) -> None:
     [r for r in at_pdb.radio if r.key == "viewer_3d_mode_radio"][0].set_value("🌐 Live AlphaFold / PDB 3D").run(timeout=30)
     assert any(b.key == "btn_fetch_3d_structure_pdb" and "1QYS" in b.label for b in at_pdb.button)
 
+    # 5h. Scientific Typography Stack (Nature/Science/Cell), Mobile Unicode/Autocorrect & Main-Page Quick Search + Bench Action Plan
+    from modules.sequence_parser import _normalize_mobile_text
+
+    with open(app_path, "r", encoding="utf-8") as fh_app_typ:
+        app_typ_src = fh_app_typ.read()
+    style_blk_m = re.search(r"<style>(.*?)</style>", app_typ_src, flags=re.S | re.I)
+    assert style_blk_m is not None
+    style_blk = style_blk_m.group(1)
+    assert "Source Serif 4" in style_blk
+    assert "IBM Plex Sans" in style_blk
+    assert "IBM Plex Mono" in style_blk
+    for typ_file in (
+        app_path,
+        os.path.join(root_dir, "modules", "protein_3d.py"),
+        os.path.join(root_dir, "modules", "sds_page_simulator.py"),
+        os.path.join(root_dir, "modules", "secondary_structure.py"),
+    ):
+        with open(typ_file, "r", encoding="utf-8") as fh_t:
+            t_txt = fh_t.read()
+        assert "Plus Jakarta Sans" not in t_txt and "JetBrains Mono" not in t_txt, (
+            f"Old SaaS font still referenced in {typ_file}"
+        )
+
+    assert _normalize_mobile_text("yeast\u00a0eIF\u20132A\u200b \u201ctest\u201d") == 'yeast eIF-2A "test"'
+
+    eif2a_seq_642 = "MSSTNL" + ("AEKLAEKLAEKLKDRT" * 39) + "VLNKNKPKQPNR"  # 6 + 624 + 12 = 642 aa
+
+    def _mock_mobile_eif2a_and_elf2(url: str, **kwargs):
+        ulow = url.lower()
+        if "uniprotkb/search" in ulow:
+            if "elf2a" in ulow:
+                return _Mock3DResp(200, json_obj={"results": []})
+            if "elf2" in ulow:
+                return _Mock3DResp(200, json_obj={"results": [{
+                    "primaryAccession": "Q14249",
+                    "annotationScore": 5.0,
+                    "proteinDescription": {"recommendedName": {"fullName": {"value": "ETS-related transcription factor Elf-2"}}},
+                    "organism": {"scientificName": "Homo sapiens", "taxonId": 9606},
+                    "genes": [{"geneName": {"value": "ELF2"}}],
+                    "sequence": {"value": "MATSG" * 116 + "K" * 1, "length": 581},
+                }]})
+            if "eif2a" in ulow or "ygr054w" in ulow:
+                return _Mock3DResp(200, json_obj={"results": [{
+                    "primaryAccession": "P53235",
+                    "annotationScore": 5.0,
+                    "proteinDescription": {"recommendedName": {"fullName": {"value": "Eukaryotic translation initiation factor 2A"}, "shortNames": [{"value": "eIF-2A"}]}},
+                    "organism": {"scientificName": "Saccharomyces cerevisiae", "taxonId": 559292},
+                    "genes": [{"orderedLocusNames": [{"value": "YGR054W"}]}],
+                    "sequence": {"value": eif2a_seq_642, "length": 642},
+                }]})
+            return _Mock3DResp(200, json_obj={"results": []})
+        return _mock_rcsb_1qys(url, **kwargs)
+
+    with patch("modules.sequence_parser.requests.get", side_effect=_mock_mobile_eif2a_and_elf2):
+        # Mobile autocorrect recovery: 'yeast elf2a' -> 'yeast eIF2A' (P53235) after 0 hits on 'elf2a'
+        r_typo = parse_natural_language_prompt("yeast\u00a0elf2a")
+        assert r_typo["uniprot_id"] == "P53235" and r_typo["length"] == 642
+        # Real gene ELF2 must NOT be rewritten when ELF2 is queried
+        r_elf2 = parse_natural_language_prompt("human ELF2")
+        assert r_elf2["uniprot_id"] == "Q14249" and "Elf-2" in r_elf2["identified_protein"]
+
+        # Main-Page Quick Search Form: 'yeast eIF2A' loads cleanly in 1 submit + updates Bench Action Plan
+        at_qs = AppTest.from_file(app_path).run(timeout=30)
+        assert len(at_qs.exception) == 0
+        md_qs_def = "\n".join(m.value for m in at_qs.markdown if "<style>" not in m.value)
+        assert "bench-brief-grid" in md_qs_def
+        assert "Superdex 75 Increase 10/300 GL" in md_qs_def
+        assert "15% Tris-Glycine" in md_qs_def
+        assert len(re.findall(r"font-size\s*:", md_qs_def, flags=re.I)) == 0
+
+        [ti for ti in at_qs.text_input if ti.key == "main_quick_search_input"][0].set_value("yeast\u00a0eIF2A")
+        [b for b in at_qs.button if b.label == "Analyze Protein"][0].click().run(timeout=30)
+        assert len(at_qs.exception) == 0
+        assert len(at_qs.session_state["active_sequence"]) == 642
+        assert at_qs.session_state["sequence_metadata"]["uniprot_id"] == "P53235"
+        md_qs_eif = "\n".join(m.value for m in at_qs.markdown if "<style>" not in m.value)
+        assert "P53235" in md_qs_eif and "642 aa" in md_qs_eif
+        assert "bench-brief-grid" in md_qs_eif
+        assert len(re.findall(r"font-size\s*:", md_qs_eif, flags=re.I)) == 0
+
+        # Main-Page Quick Search Form also resolves RCSB PDB IDs ('1QYS') seamlessly
+        [ti for ti in at_qs.text_input if ti.key == "main_quick_search_input"][0].set_value("1QYS")
+        [b for b in at_qs.button if b.label == "Analyze Protein"][0].click().run(timeout=30)
+        assert len(at_qs.exception) == 0
+        assert at_qs.session_state["active_sequence"] == top7_seq_106
+        md_qs_pdb = "\n".join(m.value for m in at_qs.markdown if "<style>" not in m.value)
+        assert "PDB 1QYS" in md_qs_pdb and "De Novo / Synthetic" in md_qs_pdb
+
+        # Sidebar default UniProt ID box auto-routes space-separated Plain English ('yeast eIF2A') cleanly
+        at_sb_uni = AppTest.from_file(app_path).run(timeout=30)
+        at_sb_uni.sidebar.text_input[0].set_value("yeast eIF2A").run(timeout=30)
+        at_sb_uni.sidebar.button[0].click().run(timeout=30)
+        assert len(at_sb_uni.exception) == 0
+        assert at_sb_uni.session_state["sequence_metadata"]["uniprot_id"] == "P53235"
+        assert len(at_sb_uni.session_state["active_sequence"]) == 642
+
 
 def test_pipeline() -> None:
     root_dir = os.path.dirname(os.path.abspath(__file__))

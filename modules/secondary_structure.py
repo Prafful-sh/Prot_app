@@ -124,12 +124,12 @@ SS_STATES = ("H", "E", "C")
 STATE_TO_IDX = {"H": 0, "E": 1, "C": 2}
 
 # Design-system typography & WCAG-verified palette constants matching ProPurify Studio
-PLOTLY_FONT_FAMILY = "Plus Jakarta Sans, sans-serif"
-PLOTLY_MONO_FAMILY = "JetBrains Mono, monospace"
-PLOTLY_TITLE_FONT = dict(family=PLOTLY_FONT_FAMILY, size=14, color="#0B221C")
-PLOTLY_AXIS_TITLE_FONT = dict(family=PLOTLY_FONT_FAMILY, size=12.5, color="#1E352F")
-PLOTLY_TICK_FONT = dict(family=PLOTLY_FONT_FAMILY, size=11.5, color="#4A635C")
-PLOTLY_GRID_COLOR = "#E6F0EC"
+PLOTLY_FONT_FAMILY = "IBM Plex Sans, Helvetica Neue, Arial, sans-serif"
+PLOTLY_MONO_FAMILY = "IBM Plex Mono, monospace"
+PLOTLY_TITLE_FONT = dict(family=PLOTLY_FONT_FAMILY, size=14, color="#111827")
+PLOTLY_AXIS_TITLE_FONT = dict(family=PLOTLY_FONT_FAMILY, size=12.5, color="#2C3A47")
+PLOTLY_TICK_FONT = dict(family=PLOTLY_FONT_FAMILY, size=11.5, color="#52606D")
+PLOTLY_GRID_COLOR = "#E6ECEF"
 
 # Standard NCBI BLOSUM62 substitution matrix ordered alphabetically: A C D E F G H I K L M N P Q R S T V W Y
 _BLOSUM62_RAW = np.array([
