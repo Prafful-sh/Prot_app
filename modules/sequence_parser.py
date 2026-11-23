@@ -512,9 +512,11 @@ def clean_amino_acid_sequence(raw_text: str) -> Tuple[str, Optional[str], List[s
     # Remove whitespace, tabs, numbers, gap/stop symbols
     full_str = re.sub(r'[\s\d\.\-\*]', '', full_str)
 
-    # Check for invalid characters
+    # Check for invalid characters before stripping non-[A-Z] punctuation noise
     valid_aa = set("ACDEFGHIKLMNPQRSTVWY")
     non_standard = set(full_str) - valid_aa
+    # Strip any remaining non-letter symbols so punctuation-only inputs become ""
+    full_str = re.sub(r'[^A-Z]', '', full_str)
     warnings: List[str] = []
     if additional_entries > 0:
         entry_label = header or "Entry 1"

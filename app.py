@@ -296,6 +296,9 @@ st.markdown("""
     button, input, textarea,
     [data-baseweb="select"],
     [data-baseweb="tab"],
+    [role="tablist"],
+    [role="tab"],
+    [data-testid="stTab"],
     [data-baseweb="popover"] {
         font-family: var(--font-sans);
         color: var(--ink-body);
@@ -345,6 +348,8 @@ st.markdown("""
     }
     [data-testid="stMainBlockContainer"] {
         padding-top: 2.35rem;
+        padding-left: 2.25rem;
+        padding-right: 2.25rem;
     }
     section[data-testid="stSidebar"] {
         background: var(--bg-sidebar);
@@ -442,7 +447,7 @@ st.markdown("""
         color: var(--ink-body) !important;
     }
 
-    /* Clean Borders on Form Quick-Search Wrapper */
+    /* Clean Borders on Form Quick-Search Wrapper + Responsive Tablet Button Sizing */
     [data-testid="stForm"] {
         background: var(--bg-surface);
         border: 1px solid var(--border-soft);
@@ -450,6 +455,30 @@ st.markdown("""
         padding: 10px 14px 10px 14px;
         margin-bottom: 12px;
         box-shadow: 0 1px 3px rgba(17, 24, 39, 0.03);
+    }
+    [data-testid="stForm"] [data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap !important;
+        gap: 10px !important;
+        align-items: stretch !important;
+    }
+    [data-testid="stForm"] [data-testid="stColumn"]:first-child {
+        flex: 3 1 250px !important;
+        min-width: 250px !important;
+        width: auto !important;
+    }
+    [data-testid="stForm"] [data-testid="stColumn"]:last-child {
+        flex: 1 0 165px !important;
+        min-width: 165px !important;
+        width: auto !important;
+    }
+    [data-testid="stFormSubmitButton"] button {
+        white-space: nowrap !important;
+    }
+    @media (max-width: 520px) {
+        [data-testid="stForm"] [data-testid="stColumn"]:first-child {
+            flex: 1 1 100% !important;
+            min-width: 0 !important;
+        }
     }
 
     /* Expanders, Buttons & Alerts */
@@ -823,9 +852,10 @@ st.markdown("""
         color: var(--teal-deep);
         border: 1px solid var(--teal-border);
         border-radius: 4px;
-        padding: 2px 6px;
+        padding: 2px 5px;
         font-size: var(--fs-micro);
         font-weight: 600;
+        white-space: nowrap;
     }
     .kpi-status-warn {
         display: inline-block;
@@ -833,9 +863,10 @@ st.markdown("""
         color: var(--crimson-deep);
         border: 1px solid var(--crimson-border);
         border-radius: 4px;
-        padding: 2px 6px;
+        padding: 2px 5px;
         font-size: var(--fs-micro);
         font-weight: 600;
+        white-space: nowrap;
     }
 
     /* SEC Separation Principle Callout & Elution Order Strip */
@@ -1023,22 +1054,22 @@ st.markdown("""
         border: 1px solid var(--border-soft);
         border-left: 3.5px solid var(--teal-primary);
         border-radius: 6px;
-        padding: 9px 13px;
+        padding: 8px 11px;
         margin-bottom: 12px;
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 6px;
         align-items: center;
         box-shadow: 0 1px 2px rgba(17, 24, 39, 0.025);
     }
     .stat-chip {
         display: inline-flex;
         flex-direction: column;
-        padding: 4px 10px;
+        padding: 4px 8px;
         border-radius: 4px;
         border: 1px solid var(--border-soft);
         background: var(--bg-subtle);
-        min-width: 88px;
+        min-width: 72px;
     }
     .stat-chip-amber {
         background: var(--amber-tint);
@@ -1101,10 +1132,19 @@ st.markdown("""
         font-size: var(--fs-micro);
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
-        padding: 2px 8px;
+        letter-spacing: 0.04em;
+        padding: 2px 7px;
         border-radius: 4px;
         margin-bottom: 7px;
+        white-space: nowrap;
+    }
+    .roadmap-card .kpi-value {
+        font-size: 1.28rem;
+        line-height: 1.2;
+    }
+    .ss-summary-grid .roadmap-step-tag {
+        text-transform: none;
+        letter-spacing: 0.015em;
     }
     .roadmap-step-amber {
         background: var(--amber-pill);
@@ -1412,13 +1452,14 @@ st.markdown("""
     }
     .protocol-step-badge {
         display: inline-block;
-        padding: 3px 10px;
+        padding: 3px 8px;
         border-radius: 9999px;
         font-size: var(--fs-micro);
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.03em;
         margin-bottom: 8px;
+        white-space: nowrap;
     }
     .step-badge-1 { background: var(--teal-tint); color: var(--teal-deep); border: 1px solid var(--teal-border); }
     .step-badge-2 { background: var(--crimson-tint); color: var(--crimson-deep); border: 1px solid var(--crimson-border); }
@@ -1494,9 +1535,10 @@ st.markdown("""
         font-variant-numeric: tabular-nums;
     }
 
-    /* Scientific Journal Underline Tab Bar */
+    /* Scientific Journal Underline Tab Bar (Streamlit 1.66+ React Aria DOM + legacy BaseWeb fallback) */
+    .stTabs [role="tablist"],
     .stTabs [data-baseweb="tab-list"] {
-        gap: 4px;
+        gap: 3px !important;
         background-color: transparent;
         padding: 0 0 2px 0;
         border-radius: 0;
@@ -1505,35 +1547,63 @@ st.markdown("""
         margin-bottom: 16px;
         overflow-x: auto;
     }
+    .stTabs [role="tablist"]::after {
+        display: none !important;
+    }
+    .stTabs [role="tab"],
+    .stTabs [data-testid="stTab"],
     .stTabs [data-baseweb="tab"] {
         border-radius: 5px 5px 0 0;
-        padding: 9px 14px;
+        padding: 7px 9px !important;
+        height: auto !important;
+        min-height: 36px;
         font-weight: 600;
-        font-size: var(--fs-label);
+        font-size: 0.785rem !important;
         color: var(--ink-caption);
         border: none;
         border-bottom: 2.5px solid transparent;
         background: transparent;
         transition: color 0.15s ease, background-color 0.15s ease;
+        white-space: nowrap;
     }
+    .stTabs [role="tab"]:hover,
+    .stTabs [data-testid="stTab"]:hover,
     .stTabs [data-baseweb="tab"]:hover {
         color: var(--ink-strong);
-        background: rgba(15, 76, 92, 0.04);
+        background: rgba(15, 76, 92, 0.045);
     }
+    .stTabs [role="tab"] p,
+    .stTabs [data-testid="stTab"] p,
     .stTabs [data-baseweb="tab"] p {
         font-weight: 600 !important;
-        font-size: var(--fs-label) !important;
+        font-size: 0.785rem !important;
         color: var(--ink-caption);
+        margin: 0 !important;
     }
+    .stTabs [role="tab"][aria-selected="true"],
+    .stTabs [data-testid="stTab"][aria-selected="true"],
     .stTabs [aria-selected="true"] {
         background: var(--teal-tint) !important;
         color: var(--teal-primary) !important;
         border-bottom: 2.5px solid var(--teal-primary) !important;
         box-shadow: none;
     }
+    .stTabs [role="tab"][aria-selected="true"] p,
+    .stTabs [data-testid="stTab"][aria-selected="true"] p,
     .stTabs [aria-selected="true"] p {
         color: var(--teal-primary) !important;
         font-weight: 700 !important;
+    }
+    .stTabs [data-testid="stTab"] .react-aria-SelectionIndicator {
+        display: none !important;
+    }
+    @media (max-width: 1120px) {
+        .stTabs [role="tablist"],
+        .stTabs [data-baseweb="tab-list"] {
+            flex-wrap: wrap !important;
+            row-gap: 4px;
+            overflow-x: visible;
+        }
     }
 
     /* Interactive 3D Viewer & Pop-Out Dialogs (Archival Editorial Theme) */
@@ -1724,9 +1794,11 @@ def _md_inline_to_html(text: str) -> str:
 
 def set_new_sequence(seq: str, name: str, metadata: dict, construct_parts=None) -> bool:
     clean_seq, header, warnings = clean_amino_acid_sequence(seq)
-    if not clean_seq:
+    clean_letters = re.sub(r"[^A-Z]", "", clean_seq or "")
+    if not clean_letters:
         st.error("No valid amino acid sequence found! Please check your input.")
         return False
+    clean_seq = clean_letters
     meta_copy = dict(metadata or {})
     if "tag" not in meta_copy:
         term_tag = detect_sequence_terminal_tag(clean_seq)
@@ -1837,7 +1909,9 @@ def _resolve_universal_protein_query(raw_query: str) -> str:
     if _extract_inline_sequence_from_prompt(q) is not None or q.lstrip().startswith(">"):
         if _extract_inline_sequence_from_prompt(q) is not None:
             return _apply_nl_result(parse_natural_language_prompt(q))
-        _, parsed_hdr, _ = clean_amino_acid_sequence(q)
+        cleaned_f, parsed_hdr, _ = clean_amino_acid_sequence(q)
+        if not re.search(r"[A-Z]", cleaned_f or ""):
+            raise ValueError("No valid amino acid sequence found in FASTA input.")
         hdr_meta = extract_fasta_header_metadata(parsed_hdr)
         fasta_meta = {"source": hdr_meta.get("source_format") or "Direct FASTA / Sequence Input"}
         for _mk in ("uniprot_id", "accession", "gene_name", "organism", "protein_name", "biochem_annotations"):
@@ -1846,6 +1920,7 @@ def _resolve_universal_protein_query(raw_query: str) -> str:
         display_pname = hdr_meta.get("protein_name") or parsed_hdr or "Custom FASTA Protein"
         if set_new_sequence(seq=q, name=display_pname, metadata=fasta_meta):
             return f"Loaded: {display_pname} ({len(st.session_state.active_sequence)} aa)"
+        raise ValueError("No valid amino acid sequence found in FASTA input.")
 
     # 2. Pure DNA / RNA coding sequence (>= 30 nt strictly A/C/G/T/U/N)
     nt_compact = re.sub(r"[\s0-9*\-]+", "", q).upper()
@@ -2112,19 +2187,29 @@ def _open_gel_recipe_dialog(default_gel_pct: float, target_mw_kda: float, protei
     for w_msg in recipe.get("warnings") or []:
         st.warning(w_msg)
 
+    gel_table_col_cfg = {
+        "Reagent": st.column_config.TextColumn("Reagent", width="medium"),
+        "Stock": st.column_config.TextColumn("Stock", width="medium"),
+        "Final": st.column_config.TextColumn("Final", width="small"),
+        "Volume (mL)": st.column_config.NumberColumn("Vol (mL)", format="%.4f", width="small"),
+        "Volume (µL)": st.column_config.NumberColumn("Vol (µL)", format="%.1f", width="small"),
+        "Pipette Display": st.column_config.TextColumn("Pipette", width="small"),
+        "Order/Role": st.column_config.TextColumn("Order / Role", width="large"),
+    }
+
     st.markdown(
         f"##### 1. Resolving Gel — `{recipe['gel_pct']:g}% T` "
         f"(Total: **{recipe['resolving_total_vol_ml']:g} mL** for {int(num_gels)} {gel_unit})"
     )
     res_df = pd.DataFrame(recipe["resolving_rows"])[RECIPE_DISPLAY_COLUMNS]
-    st.dataframe(res_df, hide_index=True, width="stretch")
+    st.dataframe(res_df, hide_index=True, width="stretch", column_config=gel_table_col_cfg)
 
     st.markdown(
         f"##### 2. Stacking Gel — `{recipe['stacking_pct']:g}% T` "
         f"(Total: **{recipe['stacking_total_vol_ml']:g} mL** for {int(num_gels)} {gel_unit})"
     )
     stk_df = pd.DataFrame(recipe["stacking_rows"])[RECIPE_DISPLAY_COLUMNS]
-    st.dataframe(stk_df, hide_index=True, width="stretch")
+    st.dataframe(stk_df, hide_index=True, width="stretch", column_config=gel_table_col_cfg)
 
     rb = recipe.get("running_buffer") or {}
     if rb:
@@ -2402,10 +2487,13 @@ def _render_3dmol_metadata_and_viewer(struct_dict: dict, key_prefix: str) -> Non
     if title_str or entry_url:
         cap_parts = []
         if title_str:
-            cap_parts.append(f"**{title_str}**")
-        if entry_url:
-            cap_parts.append(f"[View source record]({entry_url})")
-        st.caption("  •  ".join(cap_parts))
+            safe_title_md = re.sub(r"([\\`*_{}\[\]()#+\-!|>~])", r"\\\1", title_str)
+            cap_parts.append(f"**{safe_title_md}**")
+        if entry_url and entry_url.lower().startswith(("https://", "http://")):
+            safe_url = entry_url.replace("(", "%28").replace(")", "%29").replace(" ", "%20")
+            cap_parts.append(f"[View source record]({safe_url})")
+        if cap_parts:
+            st.caption("  •  ".join(cap_parts))
 
     viewer_html = build_3dmol_viewer_html(
         structure_text=struct_dict["data"],
@@ -2435,7 +2523,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 with st.form("main_quick_search_form", border=False):
-    qs_c1, qs_c2 = st.columns([3.6, 1.35])
+    qs_c1, qs_c2 = st.columns([3.3, 1.45])
     with qs_c1:
         quick_query = st.text_input(
             "Quick Load Any Protein:",
@@ -2447,13 +2535,15 @@ with st.form("main_quick_search_form", border=False):
     with qs_c2:
         quick_submitted = st.form_submit_button("Analyze Protein", type="primary", width="stretch")
 
+qs_status_slot = st.empty()
 if quick_submitted:
-    with st.spinner("Resolving protein sequence & computing biophysical parameters..."):
-        try:
-            _qs_msg = _resolve_universal_protein_query(quick_query)
-            st.success(_qs_msg)
-        except Exception as _qs_err:
-            st.error(str(_qs_err))
+    with qs_status_slot.container():
+        with st.spinner("Resolving protein sequence & computing biophysical parameters..."):
+            try:
+                _qs_msg = _resolve_universal_protein_query(quick_query)
+                st.success(_qs_msg)
+            except Exception as _qs_err:
+                st.error(str(_qs_err))
 
 
 # --- SIDEBAR: COHESIVE PROTEIN LOADER (CUSTOM INPUT AT TOP, STARTER EXAMPLES BELOW) ---
@@ -2722,8 +2812,17 @@ source_pill_html = (
     f'<span class="meta-pill meta-pill-neutral">{html.escape(clean_source)}</span>'
     if show_source_pill else ""
 )
+def _format_biochem_badge_label(raw_badge: str) -> str:
+    """Formats nested parentheses cleanly (e.g. 'Metalloprotein (Ni2+ (Dinuclear Active Site))' -> 'Metalloprotein: Ni2+ (Dinuclear Active Site)')."""
+    txt = str(raw_badge or "").strip()
+    m_nested = re.match(r"^(.*?\bMetalloprotein)\s*\(([^()]*\([^()]+\)[^()]*)\)$", txt)
+    if m_nested:
+        return f"{m_nested.group(1)}: {m_nested.group(2)}"
+    return txt
+
+
 biochem_pills_html = "".join(
-    f'<span class="meta-pill {"meta-pill-crimson" if "🚫" in b else "meta-pill-amber"}">{html.escape(b)}</span>'
+    f'<span class="meta-pill {"meta-pill-crimson" if "🚫" in b else "meta-pill-amber"}">{html.escape(_format_biochem_badge_label(b))}</span>'
     for b in protein_profile.get("profile_badges", [])[:3]
 )
 conflict_info = protein_profile.get("tag_conflict")
@@ -2896,7 +2995,8 @@ st.markdown(_brief_html, unsafe_allow_html=True)
 # --- 6-PARAMETER KPI CARDS (ALL 6 SET PARAMETERS PRESERVED + EXACT PROTPARAM PRECISION) ---
 instab_ok = metrics["instability_index"] < 40.0
 instab_badge_cls = "kpi-status-ok" if instab_ok else "kpi-status-warn"
-instab_badge_txt = "✅ Stable (< 40)" if instab_ok else "⚠️ Unstable (≥ 40, keep on ice)"
+instab_badge_txt = "✅ Stable (< 40)" if instab_ok else "⚠️ Unstable (≥ 40)"
+instab_sub_note = "" if instab_ok else "<br>Keep on ice (4°C)"
 
 if metrics["pi"] > 7.3:
     pi_hint = "Basic (+ at pH 7.0)"
@@ -2950,7 +3050,7 @@ st.markdown(f"""
     <div class="card-kpi bar-coral">
         <div class="kpi-title">Instability Index</div>
         <div class="kpi-value">{metrics['instability_index']:.2f}</div>
-        <div class="kpi-sub"><span class="{instab_badge_cls}">{instab_badge_txt}</span></div>
+        <div class="kpi-sub"><span class="{instab_badge_cls}">{instab_badge_txt}</span>{instab_sub_note}</div>
     </div>
     <div class="card-kpi bar-olive">
         <div class="kpi-title">Aliphatic Index</div>
@@ -2966,7 +3066,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_resource(max_entries=8, show_spinner=False)
 def _read_json_with_mtime(file_path: str, mtime: float):
     with open(file_path, "r", encoding="utf-8") as fh:
         return json.load(fh)
@@ -2993,7 +3093,7 @@ def load_ss_crossref_bundle():
     return None
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(max_entries=128, ttl=3600, show_spinner=False)
 def get_cached_secondary_structure(seq: str) -> dict:
     return predict_secondary_structure(seq)
 
@@ -3036,6 +3136,25 @@ PLOTLY_TICK_FONT = dict(family=PLOTLY_FONT_FAMILY, size=11.5, color="#52606D")
 PLOTLY_GRID_COLOR = "#E6ECEF"
 
 
+def _wrap_plotly_label(label: str, max_line_chars: int = 24) -> tuple[str, int, int]:
+    """Escapes and wraps a Plotly annotation label onto <=2 balanced lines; returns (html_text, max_line_len, line_count)."""
+    raw = str(label or "").strip()
+    if len(raw) <= max_line_chars or " " not in raw:
+        return html.escape(raw), len(raw), 1
+    mid = len(raw) // 2
+    best_idx = -1
+    best_dist = len(raw)
+    for idx_sp, ch in enumerate(raw):
+        if ch == " " and abs(idx_sp - mid) < best_dist:
+            best_dist = abs(idx_sp - mid)
+            best_idx = idx_sp
+    if best_idx <= 0 or best_idx >= len(raw) - 1:
+        return html.escape(raw), len(raw), 1
+    p1 = raw[:best_idx].strip()
+    p2 = raw[best_idx + 1:].strip()
+    return f"{html.escape(p1)}<br>{html.escape(p2)}", max(len(p1), len(p2)), 2
+
+
 def create_modern_sec_plot(
     sim_data,
     col_config,
@@ -3045,7 +3164,7 @@ def create_modern_sec_plot(
     paper_exp_markers=None,
     pumped_cursor_ml=None
 ):
-    """Creates a clean, classroom-friendly Plotly SEC chromatogram with physical column zones & collision-free peak labels."""
+    """Creates a clean Plotly SEC chromatogram with physical column zones & collision-free peak labels."""
     fig = go.Figure()
     vo_val = float(col_config["void_volume_vo_ml"])
     vt_val = float(col_config["bed_volume_vt_ml"])
@@ -3056,8 +3175,12 @@ def create_modern_sec_plot(
         max(sim_data.get("total_signal_a260_mau", [0.0])) if show_dual_uv else 0.0,
         920.0
     )
-    y_upper = max(1290.0 if len(sim_data.get("peaks", [])) >= 5 else 1240.0, max_sig * 1.35)
-    x_upper = vt_val * 1.13
+    n_peaks_plot = len(sim_data.get("peaks", []))
+    if paper_exp_markers:
+        y_upper = max(1460.0 if n_peaks_plot >= 5 else 1380.0, max_sig * 1.60)
+    else:
+        y_upper = max(1420.0 if n_peaks_plot >= 5 else 1320.0, max_sig * 1.48)
+    x_upper = vt_val * 1.15
 
     # 0. Intuitive Physical Column Zones Shaded Directly Behind the Chromatogram
     fig.add_vrect(
@@ -3076,29 +3199,29 @@ def create_modern_sec_plot(
         layer="below", line_width=0
     )
 
-    # Top Zone Strip Badges (showarrow=False so peak annotation count stays exact)
+    # Top Zone Strip Badges (compact labels sized to each shaded zone; showarrow=False keeps peak annotation count exact)
     fig.add_annotation(
-        x=vo_val * 0.50, y=0.985, xref="x", yref="paper",
-        text="<b>① Buffer Only</b>",
+        x=vo_val * 0.50, y=0.988, xref="x", yref="paper", yanchor="top",
+        text="<b>① Buffer</b>",
         showarrow=False,
-        font=dict(size=9.5, color="#475569", family=PLOTLY_FONT_FAMILY),
-        bgcolor="rgba(241, 245, 249, 0.92)",
+        font=dict(size=9.0, color="#475569", family=PLOTLY_FONT_FAMILY),
+        bgcolor="rgba(241, 245, 249, 0.94)",
         bordercolor="#CBD5E1", borderwidth=1, borderpad=2
     )
     fig.add_annotation(
-        x=0.50 * (vo_val + vt_val), y=0.985, xref="x", yref="paper",
-        text="<b>② Bead-Tunnel Separation:  ⬅️ BIGGER (Fast) • SMALLER (Slow) ➡️</b>",
+        x=0.50 * (vo_val + vt_val), y=0.988, xref="x", yref="paper", yanchor="top",
+        text="<b>② Pores: ⬅ Big • Small ➔</b>",
         showarrow=False,
-        font=dict(size=9.5, color="#065F46", family=PLOTLY_FONT_FAMILY),
-        bgcolor="rgba(236, 253, 245, 0.94)",
+        font=dict(size=9.0, color="#065F46", family=PLOTLY_FONT_FAMILY),
+        bgcolor="rgba(236, 253, 245, 0.95)",
         bordercolor="#A7F3D0", borderwidth=1, borderpad=2
     )
     fig.add_annotation(
-        x=0.50 * (vt_val + x_upper), y=0.985, xref="x", yref="paper",
+        x=x_upper, y=0.988, xref="x", yref="paper", xanchor="right", yanchor="top",
         text="<b>③ Salts</b>",
         showarrow=False,
-        font=dict(size=9.5, color="#92400E", family=PLOTLY_FONT_FAMILY),
-        bgcolor="rgba(255, 251, 235, 0.94)",
+        font=dict(size=9.0, color="#92400E", family=PLOTLY_FONT_FAMILY),
+        bgcolor="rgba(255, 251, 235, 0.95)",
         bordercolor="#FDE68A", borderwidth=1, borderpad=2
     )
 
@@ -3125,11 +3248,11 @@ def create_modern_sec_plot(
                 x=[mp["ve_ml"]],
                 y=[mp["peak_height"]],
                 mode="markers",
-                name=mp["name"],
+                name=html.escape(str(mp["name"])),
                 marker=dict(size=6.5, color="#9333EA", symbol="circle"),
                 hoverinfo="text",
                 hovertext=(
-                    f"<b>Standard: {mp['name']}</b><br>"
+                    f"<b>Standard: {html.escape(str(mp['name']))}</b><br>"
                     f"Size: {mp['mw_kda']:g} kDa<br>"
                     f"Elutes at: {mp['ve_ml']:.2f} mL"
                 ),
@@ -3145,7 +3268,7 @@ def create_modern_sec_plot(
                     x=sim_data["volume_axis_ml"],
                     y=pk_b["curve_y"],
                     mode="lines",
-                    name=f"Band — {pk_b['label']}",
+                    name=f"Band — {html.escape(str(pk_b['label']))}",
                     line=dict(color=b_color, width=1.9),
                     fill="tozeroy",
                     fillcolor=_hex_to_rgba(b_color, 0.14),
@@ -3176,39 +3299,76 @@ def create_modern_sec_plot(
         fillcolor="rgba(13, 148, 136, 0.14)"
     ))
 
-    # 4. Optional Real Lab Paper Peak Reference Stars
+    # Pixel-space geometry for collision-free placement across annotations, Pumped badge, and Real Lab stars
+    w_px_est, h_px_est = 440.0, 310.0
+    placed_boxes = []  # tuples of (cx, cy, half_w, half_h)
+
+    # 4. Optional Real Lab Paper Peak Reference Stars (placed on dedicated upper rail below zone strip)
     if paper_exp_markers:
-        for idx_m, exp_m in enumerate(paper_exp_markers):
+        sorted_exp = sorted(paper_exp_markers, key=lambda m: float(m["exp_ve_ml"]))
+        n_exp = len(sorted_exp)
+        for idx_m, exp_m in enumerate(sorted_exp):
+            exp_ve = float(exp_m["exp_ve_ml"])
             fig.add_vline(
-                x=exp_m["exp_ve_ml"],
+                x=exp_ve,
                 line_dash="dot",
                 line_color="#D97706",
-                line_width=1.9
+                line_width=1.8
             )
+            y_frac = 0.875 if idx_m % 2 == 0 else 0.805
+            y_pin_val = y_upper * y_frac
+            if exp_ve > 0.72 * x_upper:
+                t_pos = "middle left"
+            elif n_exp >= 2 and idx_m == 0 and (float(sorted_exp[1]["exp_ve_ml"]) - exp_ve) < 0.18 * x_upper:
+                t_pos = "middle left"
+            else:
+                t_pos = "middle right"
+            lbl_txt = f"Lab: {exp_ve:.2f} mL"
             fig.add_trace(go.Scatter(
-                x=[exp_m["exp_ve_ml"]],
-                y=[exp_m.get("y_pin", 990 - (idx_m % 3) * 70)],
+                x=[exp_ve],
+                y=[y_pin_val],
                 mode="markers+text",
-                name="★ Real Lab Peak (Published Paper)" if idx_m == 0 else exp_m["label"],
-                text=[f"★ Real Lab: {exp_m['exp_ve_ml']:.2f} mL"],
-                textposition="top center",
-                textfont=dict(size=10.5, color="#854D0E", family=PLOTLY_FONT_FAMILY),
-                marker=dict(size=11, color="#F59E0B", symbol="star", line=dict(width=1.1, color="#92400E")),
+                name="Real Lab Peak (Published Paper)" if idx_m == 0 else html.escape(str(exp_m["label"])),
+                text=[lbl_txt],
+                textposition=t_pos,
+                textfont=dict(size=10.0, color="#854D0E", family=PLOTLY_FONT_FAMILY),
+                marker=dict(size=10.5, color="#F59E0B", symbol="star", line=dict(width=1.1, color="#92400E")),
                 hoverinfo="text",
                 hovertext=(
-                    f"<b>Real Lab Measurement: {exp_m['label']}</b><br>"
-                    f"Published Lab Peak: {exp_m['exp_ve_ml']:.2f} mL<br>"
+                    f"<b>Real Lab Measurement: {html.escape(str(exp_m['label']))}</b><br>"
+                    f"Published Lab Peak: {exp_ve:.2f} mL<br>"
                     f"Simulator Prediction: {exp_m['pred_ve_ml']:.2f} mL"
                 ),
                 showlegend=(idx_m == 0)
             ))
+            star_cx = (exp_ve / max(1e-6, x_upper)) * w_px_est
+            star_cy = y_frac * h_px_est
+            txt_shift = -36.0 if "left" in t_pos else 36.0
+            placed_boxes.append((star_cx + txt_shift, star_cy, 44.0, 12.0))
 
-    # 5. Proportional Molecule-Size Halo Circles, Peak Diamonds & 5-Tier Anti-Collision Callouts
+    if pumped_cursor_ml is not None:
+        pumped_val = float(pumped_cursor_ml)
+        pumped_anchor = "left" if pumped_val <= 0.65 * x_upper else "right"
+        fig.add_vline(x=pumped_val, line_dash="dot", line_color="#4F46E5", line_width=2.1)
+        fig.add_annotation(
+            x=pumped_val, y=0.905, xref="x", yref="paper",
+            xanchor=pumped_anchor, yanchor="top",
+            xshift=(4 if pumped_anchor == "left" else -4),
+            text=f"<b>💧 Pumped: {pumped_val:.{dec}f} mL</b>",
+            showarrow=False,
+            font=dict(size=9.5, color="#3730A3", family=PLOTLY_FONT_FAMILY),
+            bgcolor="rgba(238, 242, 255, 0.96)",
+            bordercolor="#A5B4FC",
+            borderwidth=1,
+            borderpad=3
+        )
+        pump_cx = (pumped_val / max(1e-6, x_upper)) * w_px_est + (58.0 if pumped_anchor == "left" else -58.0)
+        placed_boxes.append((pump_cx, 0.872 * h_px_est, 60.0, 14.0))
+
+    # 5. Proportional Molecule-Size Halo Circles, Peak Diamonds & Anti-Collision Callouts
     min_x_gap = 0.13 * vt_val
-    ay_tiers = [-44, -84, -122, -62, -150]
-    w_px_est, h_px_est = 460.0, 300.0
-    box_w_est, box_h_est = 142.0, 36.0
-    placed_boxes = []
+    ay_tiers = [-42, -78, -112, -58, 42]
+    top_ceiling_px = h_px_est * (0.75 if paper_exp_markers else 0.82)
 
     for i, peak in enumerate(sorted_peaks):
         disp_y = max(peak["peak_height_mau"], peak.get("peak_height_a260_mau", 0.0)) if show_dual_uv else peak["peak_height_mau"]
@@ -3218,6 +3378,7 @@ def create_modern_sec_plot(
         pore_short = "0% pores" if (is_agg_peak or pore_pct < 0.5) else f"{pore_pct:.0f}% pores"
         ratio_txt = f" • A260/A280={peak.get('a260_a280_ratio', 0.57):.2f}" if show_dual_uv else ""
         p_color = "#0F766E" if peak["color"] == "#2563EB" else peak["color"]
+        safe_peak_lbl = html.escape(str(peak["label"]))
 
         # Visual proportional size halo (bigger hydrodynamic radius Rh -> larger translucent sphere on graph!)
         rh_val = max(8.0, float(peak.get("rh_angstrom", 20.0)))
@@ -3226,7 +3387,7 @@ def create_modern_sec_plot(
             x=[peak["ve_ml"]],
             y=[disp_y],
             mode="markers",
-            name=f"Halo — {peak['label']}",
+            name=f"Halo — {safe_peak_lbl}",
             marker=dict(
                 size=halo_px,
                 color=_hex_to_rgba(p_color, 0.20),
@@ -3250,11 +3411,11 @@ def create_modern_sec_plot(
             x=[peak["ve_ml"]],
             y=[disp_y],
             mode="markers",
-            name=peak["label"],
+            name=safe_peak_lbl,
             marker=dict(size=9.5, color=p_color, symbol="diamond"),
             hoverinfo="text",
             hovertext=(
-                f"<b>{peak['label']}</b><br>"
+                f"<b>{safe_peak_lbl}</b><br>"
                 f"{size_hover}<br>"
                 f"{pore_hover}<br>"
                 f"Elution Volume (Ve): {peak['ve_ml']:.{dec+1}f} mL<br>"
@@ -3263,48 +3424,72 @@ def create_modern_sec_plot(
             showlegend=False
         ))
 
+        wrapped_lbl_html, lbl_max_chars, lbl_lines = _wrap_plotly_label(peak["label"], max_line_chars=24)
+        line2_plain = f"{peak['ve_ml']:.{dec}f} mL • {pore_short}{ratio_txt}"
+        box_w_est = max(112.0, min(215.0, max(lbl_max_chars, len(line2_plain)) * 6.1 + 18.0))
+        box_h_est = 22.0 + 14.0 * lbl_lines
+        half_w = 0.5 * box_w_est
+        half_h = 0.5 * box_h_est
+
         ax_shift = 0
         if i > 0 and abs(peak["ve_ml"] - sorted_peaks[i - 1]["ve_ml"]) < min_x_gap:
-            ax_shift = 38 if i % 2 == 1 else -38
+            ax_shift = 44 if i % 2 == 1 else -44
         elif i + 1 < len(sorted_peaks) and abs(sorted_peaks[i + 1]["ve_ml"] - peak["ve_ml"]) < min_x_gap:
-            ax_shift = -38
+            ax_shift = -44
 
         ay_offset = ay_tiers[i % len(ay_tiers)]
-
-        # Ensure callout stays below top zone strip and avoids overlapping earlier callout boxes
         px_x = (peak["ve_ml"] / max(1e-6, x_upper)) * w_px_est
         px_y = (disp_y / max(1e-6, y_upper)) * h_px_est
 
-        def _box_collides_or_clips(ax_c: float, ay_c: float) -> bool:
+        def _box_penalty(ax_c: float, ay_c: float) -> float:
             cx, cy = px_x + ax_c, px_y - ay_c
-            if cy < 38.0 or cy > (h_px_est - 28.0) or cx < 46.0 or cx > (w_px_est - 46.0):
-                return True
-            return any(abs(cx - ox) < box_w_est and abs(cy - oy) < box_h_est for ox, oy in placed_boxes)
+            pen = 0.0
+            if (cy - half_h) < 30.0:
+                pen += (30.0 - (cy - half_h)) * 12.0
+            if (cy + half_h) > top_ceiling_px:
+                pen += ((cy + half_h) - top_ceiling_px) * 14.0
+            if (cx - half_w) < 6.0:
+                pen += (6.0 - (cx - half_w)) * 10.0
+            if (cx + half_w) > (w_px_est - 6.0):
+                pen += ((cx + half_w) - (w_px_est - 6.0)) * 10.0
+            for ox, oy, ohw, ohh in placed_boxes:
+                ov_x = max(0.0, (half_w + ohw + 6.0) - abs(cx - ox))
+                ov_y = max(0.0, (half_h + ohh + 6.0) - abs(cy - oy))
+                if ov_x > 0.0 and ov_y > 0.0:
+                    pen += ov_x * ov_y + 200.0
+            return pen
 
-        if _box_collides_or_clips(ax_shift, ay_offset):
-            cand_ays = [ay_offset, -44, -84, -118, -62, -146, -98, -168]
-            cand_axs = [ax_shift, -42, 42, 0, -84, 84]
-            found_slot = False
+        if _box_penalty(ax_shift, ay_offset) > 0.0:
+            cand_ays = [ay_offset, -40, -76, -110, -56, -138, 42, 72]
+            cand_axs = [ax_shift, 0, -48, 48, -86, 86, -118, 118]
+            best_pen = float("inf")
+            best_pair = (ax_shift, ay_offset)
+            found_clean = False
             for ay_c in cand_ays:
+                if ay_c > 0 and px_y < 85.0:
+                    continue
                 for ax_c in cand_axs:
-                    if not _box_collides_or_clips(ax_c, ay_c):
+                    pen_c = _box_penalty(ax_c, ay_c)
+                    if pen_c == 0.0:
                         ax_shift, ay_offset = ax_c, ay_c
-                        found_slot = True
+                        found_clean = True
                         break
-                if found_slot:
+                    if pen_c < best_pen:
+                        best_pen = pen_c
+                        best_pair = (ax_c, ay_c)
+                if found_clean:
                     break
-            if not found_slot:
-                max_up_px = max(38, int(h_px_est - 30.0 - px_y))
-                ay_offset = max(ay_offset, -max_up_px)
+            if not found_clean:
+                ax_shift, ay_offset = best_pair
 
-        placed_boxes.append((px_x + ax_shift, px_y - ay_offset))
+        placed_boxes.append((px_x + ax_shift, px_y - ay_offset, half_w, half_h))
         elute_lbl_color = "#B91C1C" if is_agg_peak else "#0F766E"
 
         fig.add_annotation(
             x=peak["ve_ml"],
             y=disp_y,
             text=(
-                f"<b>{peak['label']}</b><br>"
+                f"<b>{wrapped_lbl_html}</b><br>"
                 f"<span style='color:{elute_lbl_color}; font-weight:700;'>{peak['ve_ml']:.{dec}f} mL</span>"
                 f"<span style='color:#4A635C;'> • {pore_short}{ratio_txt}</span>"
             ),
@@ -3318,62 +3503,54 @@ def create_modern_sec_plot(
             bgcolor="rgba(255, 255, 255, 0.97)",
             bordercolor=p_color,
             borderwidth=1.5,
-            borderpad=5,
-            font=dict(size=11, family=PLOTLY_FONT_FAMILY, color="#0B221C")
+            borderpad=4,
+            font=dict(size=10.5, family=PLOTLY_FONT_FAMILY, color="#0B221C")
         )
 
-    # 6. Column Start (Void Volume Vo), End (Total Bed Volume Vt) & Optional Synchronized Pump Cursor
+    # 6. Column Start (Void Volume Vo) & End (Total Bed Volume Vt) Anchors (opposite edges so Vo and Vt never collide)
     fig.add_vline(x=vo_val, line_dash="dash", line_color="#DC2626", line_width=1.5)
     fig.add_vline(x=vt_val, line_dash="dash", line_color="#64748B", line_width=1.5)
 
-    if pumped_cursor_ml is not None:
-        fig.add_vline(x=float(pumped_cursor_ml), line_dash="dot", line_color="#4F46E5", line_width=2.1)
-        fig.add_annotation(
-            x=float(pumped_cursor_ml), y=0.895, xref="x", yref="paper",
-            text=f"<b>💧 Pumped: {float(pumped_cursor_ml):.{dec}f} mL</b>",
-            showarrow=False,
-            font=dict(size=10, color="#3730A3", family=PLOTLY_FONT_FAMILY),
-            bgcolor="rgba(238, 242, 255, 0.96)",
-            bordercolor="#A5B4FC",
-            borderwidth=1,
-            borderpad=3
-        )
-
     fig.add_annotation(
-        x=vo_val, y=28,
-        text=f"<b>Vo (Void): {vo_val:.{dec}f} mL</b>",
+        x=vo_val, y=0.02, xref="x", yref="paper",
+        text=f"<b>Vo: {vo_val:.{dec}f} mL</b>",
         showarrow=False,
-        font=dict(size=10, color="#991B1B", family=PLOTLY_FONT_FAMILY),
-        xanchor="left",
+        font=dict(size=9.5, color="#991B1B", family=PLOTLY_FONT_FAMILY),
+        xanchor="right",
+        yanchor="bottom",
+        xshift=-3,
         bgcolor="rgba(254, 242, 242, 0.96)",
         bordercolor="#FECACA",
         borderwidth=1,
-        borderpad=3
+        borderpad=2.5
     )
     fig.add_annotation(
-        x=vt_val, y=28,
-        text=f"<b>Vt (Column End): {vt_val:g} mL</b>",
+        x=vt_val, y=0.02, xref="x", yref="paper",
+        text=f"<b>Vt: {vt_val:g} mL</b>",
         showarrow=False,
-        font=dict(size=10, color="#334155", family=PLOTLY_FONT_FAMILY),
+        font=dict(size=9.5, color="#334155", family=PLOTLY_FONT_FAMILY),
         xanchor="right",
+        yanchor="bottom",
+        xshift=-3,
         bgcolor="rgba(241, 245, 249, 0.96)",
         bordercolor="#CBD5E1",
         borderwidth=1,
-        borderpad=3
+        borderpad=2.5
     )
 
+    safe_title_html, _, title_lines = _wrap_plotly_label(str(title), max_line_chars=56)
     fig.update_layout(
         font=dict(family=PLOTLY_FONT_FAMILY, color="#1E352F", size=12),
         title=dict(
-            text=f"<b>{title}</b>",
+            text=f"<b>{safe_title_html}</b>",
             subtitle=dict(
                 text=(
                     f"Total Volume: {vt_val:g} mL • "
-                    f"Best Separation Size Range: {col_config['opt_range_min_kda']:g} – {col_config['opt_range_max_kda']:g} kDa"
+                    f"Optimal Separation Range: {col_config['opt_range_min_kda']:g} – {col_config['opt_range_max_kda']:g} kDa"
                 ),
-                font=dict(family=PLOTLY_FONT_FAMILY, size=12, color="#4A635C")
+                font=dict(family=PLOTLY_FONT_FAMILY, size=11.5, color="#4A635C")
             ),
-            font=PLOTLY_TITLE_FONT
+            font=dict(family=PLOTLY_FONT_FAMILY, size=13.0 if title_lines > 1 else 14.0, color="#111827")
         ),
         xaxis=dict(
             title=dict(text="Buffer Volume Pumped Through Column (mL)", font=PLOTLY_AXIS_TITLE_FONT),
@@ -3402,8 +3579,8 @@ def create_modern_sec_plot(
             x=0.5,
             font=dict(family=PLOTLY_FONT_FAMILY, size=11, color="#1E352F")
         ),
-        margin=dict(l=38, r=35, t=76, b=80),
-        height=465
+        margin=dict(l=40, r=24, t=88 if title_lines > 1 else 78, b=82),
+        height=475 if title_lines > 1 else 465
     )
     return fig
 
@@ -3740,10 +3917,10 @@ def render_sec_column_visualizer_html(snapshot: dict, sim_data: dict, col_config
 # --- SIMPLIFIED 5-TAB EDUCATIONAL WORKSPACE (BENCHMARK MOVED TO FINAL TAB!) ---
 tab_sec, tab_strategy, tab_buffers, tab_details, tab_examples = st.tabs([
     "📈 1. SEC & Gel Simulator",
-    "🧭 2. Purification Strategy (IEX & HIC)",
-    "🧪 3. Custom Buffer Calculator (g / mg)",
+    "🧭 2. Strategy (IEX & HIC)",
+    "🧪 3. Buffer Calculator",
     "🔬 4. Amino Acids, Structure & Solubility",
-    "📚 5. Real Lab Examples & Accuracy"
+    "📚 5. Lab Examples & Accuracy"
 ])
 
 
@@ -3777,7 +3954,7 @@ with tab_sec:
     prep_options = ["hiload_16_600_s75", "hiload_16_600_s200", "hiload_16_600_superose_6", "hiload_26_600_s200"]
     anal_options = ["s75_increase_10_300", "s200_increase_10_300", "superose_6_increase_10_300", "superose_6_increase_3_2_300"]
 
-    c_ctrl1, c_ctrl2, c_ctrl3 = st.columns([1.32, 1.32, 2.25])
+    c_ctrl1, c_ctrl2 = st.columns(2)
     with c_ctrl1:
         prep_col_id = st.selectbox(
             "Large Prep Column (120–320 mL):",
@@ -3792,18 +3969,18 @@ with tab_sec:
             format_func=lambda x: f"{SEC_COLUMNS[x]['name']} ({SEC_COLUMNS[x]['opt_range_min_kda']:g}–{SEC_COLUMNS[x]['opt_range_max_kda']:g} kDa)",
             index=anal_options.index(rec_anal_default) if rec_anal_default in anal_options else 1
         )
-    with c_ctrl3:
-        st.markdown('<div class="ui-control-label">Compare Oligomer Peaks (Optional):</div>', unsafe_allow_html=True)
-        col_m, col_d, col_t, col_tet, col_agg = st.columns([0.96, 1.0, 1.04, 0.96, 1.16])
-        include_monomer = col_m.checkbox("1× Mono", value=True)
-        include_dimer = col_d.checkbox("2× Dimer", value=False)
-        include_trimer = col_t.checkbox("3× Trimer", value=False)
-        include_tetramer = col_tet.checkbox("4× Tetra", value=False)
-        include_aggregate = col_agg.checkbox(
-            "Aggregate",
-            value=False,
-            help="Soluble high-molecular-weight (HMW) misfolded aggregate larger than the column pores — elutes immediately at the Void Volume (Vo)!"
-        )
+
+    st.markdown('<div class="ui-control-label">Compare Oligomer Peaks (Optional):</div>', unsafe_allow_html=True)
+    col_m, col_d, col_t, col_tet, col_agg = st.columns([1.0, 1.0, 1.0, 1.0, 1.25])
+    include_monomer = col_m.checkbox("1× Mono", value=True)
+    include_dimer = col_d.checkbox("2× Dimer", value=False)
+    include_trimer = col_t.checkbox("3× Trimer", value=False)
+    include_tetramer = col_tet.checkbox("4× Tetra", value=False)
+    include_aggregate = col_agg.checkbox(
+        "Aggregate",
+        value=False,
+        help="Soluble high-molecular-weight (HMW) misfolded aggregate larger than the column pores — elutes immediately at the Void Volume (Vo)!"
+    )
 
     # Optional Advanced Complex & 3D Shape Expander (Tucked neatly away for simplicity)
     with st.expander("➕ Optional: Test Protein–Protein or Protein–DNA/RNA Binding & 3D Shape", expanded=False):
@@ -3875,10 +4052,10 @@ with tab_sec:
             else:
                 st.info("Pick a Protein, DNA, or RNA partner on the left to watch the bound complex shift left (elute earlier)!")
 
-    chk_c1, chk_c2 = st.columns([1.2, 1.8])
-    show_markers = chk_c1.checkbox("Show Calibration Standard Protein Mix (Dashed Curve)", value=False)
+    chk_c1, chk_c2 = st.columns([1.0, 1.1])
+    show_markers = chk_c1.checkbox("Show Calibration Standard Mix (Dashed)", value=False)
     show_dual_uv = chk_c2.checkbox(
-        "Show Both UV 280 nm (Protein) & UV 260 nm (DNA/RNA) Signals",
+        "Show Both UV 280 nm (Protein) & UV 260 nm (DNA/RNA)",
         value=(partner_na_type is not None)
     )
 
@@ -3961,14 +4138,12 @@ with tab_sec:
     # --- INTERACTIVE INSIDE-THE-SEC-COLUMN, POROUS BEAD & FRACTION TUBE STUDIO (rendered right under Easy Rule of SEC) ---
     with inside_sec_column_slot:
         st.markdown("#### 🔬 See Inside the SEC Column: Watch How Size Controls Elution Volume")
-        vis_c1, vis_c2 = st.columns([1.25, 2.75])
-        with vis_c1:
-            vis_col_mode = st.radio(
-                "Column Shown Inside Cutaway:",
-                ["Benchtop Analytical", "Large Prep"],
-                index=0,
-                horizontal=True
-            )
+        vis_col_mode = st.radio(
+            "Column Shown Inside Cutaway:",
+            ["Benchtop Analytical", "Large Prep"],
+            index=0,
+            horizontal=True
+        )
 
         vis_is_anal = ("Analytical" in vis_col_mode)
         vis_config = anal_config if vis_is_anal else prep_config
@@ -3999,18 +4174,17 @@ with tab_sec:
         else:
             st.session_state[pump_key] = _snap_pump(st.session_state[pump_key])
 
-        with vis_c2:
-            st.markdown('<div class="ui-control-label">Jump to Key Moments in the Run (or Drag Slider Below):</div>', unsafe_allow_html=True)
-            jb1, jb2, jb3, jb4 = st.columns(4)
-            dec_btn = 2 if vt_vis < 5.0 else 1
-            if jb1.button("💉 1. Inject (0 mL)", key="btn_sec_stage_inj", width="stretch"):
-                st.session_state[pump_key] = _snap_pump(0.0)
-            if jb2.button(f"🚀 2. Void ({vo_vis:.{dec_btn}f} mL)", key="btn_sec_stage_vo", width="stretch"):
-                st.session_state[pump_key] = _snap_pump(vo_vis)
-            if jb3.button(f"🎯 3. Target ({primary_ve_vis:.{dec_btn}f} mL)", key="btn_sec_stage_ve", width="stretch"):
-                st.session_state[pump_key] = _snap_pump(primary_ve_vis)
-            if jb4.button(f"🏁 4. End ({vt_vis:g} mL)", key="btn_sec_stage_vt", width="stretch"):
-                st.session_state[pump_key] = _snap_pump(vt_vis)
+        st.markdown('<div class="ui-control-label">Jump to Key Moments in the Run (or Drag Slider Below):</div>', unsafe_allow_html=True)
+        jb1, jb2, jb3, jb4 = st.columns(4)
+        dec_btn = 2 if vt_vis < 5.0 else 1
+        if jb1.button("💉 1. Inject (0 mL)", key="btn_sec_stage_inj", width="stretch"):
+            st.session_state[pump_key] = _snap_pump(0.0)
+        if jb2.button(f"🚀 2. Void ({vo_vis:.{dec_btn}f} mL)", key="btn_sec_stage_vo", width="stretch"):
+            st.session_state[pump_key] = _snap_pump(vo_vis)
+        if jb3.button(f"🎯 3. Target ({primary_ve_vis:.{dec_btn}f} mL)", key="btn_sec_stage_ve", width="stretch"):
+            st.session_state[pump_key] = _snap_pump(primary_ve_vis)
+        if jb4.button(f"🏁 4. End ({vt_vis:g} mL)", key="btn_sec_stage_vt", width="stretch"):
+            st.session_state[pump_key] = _snap_pump(vt_vis)
 
         active_pumped_ml = st.slider(
             f"💧 Pump Running Buffer Into Top of {vis_config['name']} (mL):",
@@ -4055,12 +4229,13 @@ with tab_sec:
         items.sort(key=lambda x: (x["ve"], 0 if (x["is_target"] and is_agg_target) else 1))
         chips = []
         for it in items:
+            safe_it_name = html.escape(str(it["name"]))
             if it["is_target"]:
                 chip_cls = "elution-chip-agg" if is_agg_target else "elution-chip-target"
-                chips.append(f'<span class="{chip_cls}">{it["name"]} • {it["ve"]:.{dec}f} mL</span>')
+                chips.append(f'<span class="{chip_cls}">{safe_it_name} • {it["ve"]:.{dec}f} mL</span>')
             else:
                 chips.append(
-                    f'<span class="elution-chip-std">{it["name"]} ({it["mw"]:g}k • {it["ve"]:.{dec}f} mL)</span>'
+                    f'<span class="elution-chip-std">{safe_it_name} ({it["mw"]:g}k • {it["ve"]:.{dec}f} mL)</span>'
                 )
         return f"""
         <div class="elution-strip">
@@ -4104,21 +4279,10 @@ with tab_sec:
         "coated uniformly with negative charge (~1.4 g SDS per g protein), migrating toward the positive anode (+) purely by chain mass!"
     )
 
-    sds_c1, sds_c2 = st.columns([1.15, 2.5])
+    sds_c1, sds_c2 = st.columns([1.3, 2.35])
     with sds_c1:
         mw_gel = float(metrics["mw_kda"])
-        if mw_gel < 6.0:
-            default_gel_pct = 20.0
-        elif mw_gel < 10.0:
-            default_gel_pct = 18.0
-        elif mw_gel < 22.0:
-            default_gel_pct = 15.0
-        elif mw_gel > 250.0:
-            default_gel_pct = 6.0
-        elif mw_gel > 110.0:
-            default_gel_pct = 8.0
-        else:
-            default_gel_pct = 12.0
+        default_gel_pct = float(recommend_gel_recipe_params(mw_gel)["gel_pct"])
         active_gel_pct = st.slider(
             "Gel Acrylamide Percentage (%):",
             min_value=4.0,
@@ -4144,7 +4308,11 @@ with tab_sec:
             ["Coomassie Blue (Standard Lab Dye)", "Silver Stain (50–100× More Sensitive)"],
             index=0
         )
-        show_stages = st.checkbox("Show All Purification Lanes (Lysate, Soluble, Flowthrough, Pure Elution)", value=True)
+        show_stages = st.checkbox(
+            "Show All 5 Purification Lanes",
+            value=True,
+            help="Includes Lysate (Input), Soluble, Flowthrough (FT), Wash, and Pure Elution lanes alongside the MW ladder.",
+        )
 
         if "Silver" in stain_type:
             st.info(
@@ -4192,7 +4360,7 @@ with tab_strategy:
     st.markdown("### 🧭 Complete 3-Step Protein Purification Strategy")
     st.caption("Adjust working pH below — every recommendation automatically adapts to your protein's charge, hydrophobicity, cofactors, and redox stability.")
 
-    ph_col1, ph_col2 = st.columns([1.4, 2.2])
+    ph_col1, ph_col2 = st.columns([1.15, 2.55])
     with ph_col1:
         working_ph = st.slider("Choose Working Buffer pH:", min_value=3.5, max_value=10.5, value=7.4, step=0.1)
     curr_charge = calculate_net_charge_at_ph(current_seq, working_ph)
@@ -4237,7 +4405,7 @@ with tab_strategy:
             </div>
             <div class="{tag_chip_cls}">
                 <span class="stat-chip-label">Affinity Tag</span>
-                <span class="stat-chip-value">{tag_detected}</span>
+                <span class="stat-chip-value">{html.escape(str(tag_detected))}</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -4442,12 +4610,12 @@ with tab_strategy:
         <div class="method-card method-card-teal">
             <div class="method-card-header">
                 <span class="method-card-title">⚡ Recommended Ion-Exchange Setup</span>
-                <span class="{iex_badge_cls}">{iex['recommended_column']}</span>
+                <span class="{iex_badge_cls}">{html.escape(str(iex['recommended_column']))}</span>
             </div>
             <div class="method-spec-list">
-                <div><span class="method-spec-key">Resin Beads:</span> <code>{iex['recommended_resins']}</code></div>
-                <div><span class="method-spec-key">Binding Mechanism:</span> {iex['mechanism']}</div>
-                <div><span class="method-spec-key">Elution Gradient:</span> {iex['elution_strategy']}</div>
+                <div><span class="method-spec-key">Resin Beads:</span> <code>{html.escape(str(iex['recommended_resins']))}</code></div>
+                <div><span class="method-spec-key">Binding Mechanism:</span> {html.escape(str(iex['mechanism']))}</div>
+                <div><span class="method-spec-key">Elution Gradient:</span> {html.escape(str(iex['elution_strategy']))}</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -4511,10 +4679,10 @@ with tab_buffers:
         st.session_state["buffer_preset_select"] = st.session_state.active_recipe_key
 
     # 1. Top Setup Row: Starter Preset + Custom Volume (mL or L) + Target pH
-    b_top1, b_top2, b_top3, b_top4 = st.columns([1.7, 0.95, 0.65, 0.85])
+    b_top1, b_top2, b_top3, b_top4 = st.columns([1.85, 0.95, 0.65, 0.80])
     with b_top1:
         selected_preset_key = st.selectbox(
-            "1️⃣ Load a Starter Recipe Template (or Custom Blank):",
+            "1️⃣ Starter Recipe Template:",
             options=preset_keys,
             format_func=lambda k: PRESET_RECIPE_TEMPLATES[k]["label"],
             key="buffer_preset_select",
@@ -4592,12 +4760,12 @@ with tab_buffers:
                 st.rerun()
 
     # 3. Editable Buffer Composition Table + Reset Button
-    ed_head1, ed_head2 = st.columns([3.0, 1.0])
+    ed_head1, ed_head2 = st.columns([2.4, 1.1])
     with ed_head1:
         st.markdown("#### ✏️ Customize Your Buffer Components")
         st.caption("Click any cell to change concentration, MW, or switch Unit to **`g`** or **`mg`**! Use the `+` row at the bottom to add rows or select a row and press `Delete`.")
     with ed_head2:
-        if st.button("🔄 Reset to Selected Template", width="stretch"):
+        if st.button("🔄 Reset Template", width="stretch"):
             tpl = PRESET_RECIPE_TEMPLATES[selected_preset_key]
             st.session_state.custom_buffer_rows = [dict(r) for r in tpl["rows"]]
             st.session_state.custom_buffer_ph = float(tpl["target_ph"])
@@ -4737,7 +4905,7 @@ with tab_buffers:
                 </div>
             </div>
             <div class="protocol-step-card">
-                <div class="protocol-step-badge step-badge-2">Step 2 • Safe Titration</div>
+                <div class="protocol-step-badge step-badge-2">Step 2 • pH Titration</div>
                 <div class="protocol-step-body">
                     Stir until dissolved, then titrate slowly to <b>pH {custom_ph:.1f}</b> with HCl or NaOH
                     (<b>⚠️ Safety: Always add acid to water, NEVER pour water into concentrated acid!</b> Wear goggles/gloves; dispense <code>2-Mercaptoethanol</code> in a fume hood).
@@ -4751,7 +4919,7 @@ with tab_buffers:
                 </div>
             </div>
             <div class="protocol-step-card">
-                <div class="protocol-step-badge step-badge-4">Step 4 • Top Up &amp; Filter</div>
+                <div class="protocol-step-badge step-badge-4">Step 4 • Q.S. &amp; Filter</div>
                 <div class="protocol-step-body">
                     Transfer to a volumetric flask or graduated cylinder, top up (<code>q.s.</code>) with water to <b>{total_volume_ml:g} mL</b>,
                     filter (<code>0.22 µm</code>) &amp; degas for FPLC. Add labile <code>DTT</code>/<code>TCEP</code>/<code>PMSF</code> fresh before use.
@@ -4898,7 +5066,7 @@ with tab_details:
                 "alphafold": "AlphaFold DB (Predicted Full-Length + pLDDT)",
                 "rcsb": "Experimental RCSB PDB (Holo Cofactors & Metals)",
             }
-            live_c1, live_c2 = st.columns([1.65, 1.0])
+            live_c1, live_c2 = st.columns([1.45, 1.15])
             with live_c1:
                 prefer_3d_source = st.radio(
                     f"Preferred 3D Database for UniProt `{norm_uid_3d}`:",
@@ -5023,8 +5191,8 @@ with tab_details:
         </div>
         <div class="roadmap-card card-top-indigo">
             <div class="roadmap-step-tag roadmap-step-indigo">🧭 Predicted Fold Class</div>
-            <div class="roadmap-title">{ss_res['fold_class']}</div>
-            <div class="roadmap-body">{ss_res['fold_description']}</div>
+            <div class="roadmap-title">{html.escape(str(ss_res['fold_class']))}</div>
+            <div class="roadmap-body">{html.escape(str(ss_res['fold_description']))}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -5241,9 +5409,9 @@ with tab_details:
         <div class="result-callout-card {sol_card_cls}">
             <div class="method-card-header">
                 <span class="method-card-title">🧫 <i>E. coli</i> Solubility Heuristic (37°C Cytoplasm)</span>
-                <span class="{sol_badge_cls}">{sol['solubility_class']}</span>
+                <span class="{sol_badge_cls}">{html.escape(str(sol['solubility_class']))}</span>
             </div>
-            <div class="ui-body">{sol['description']}</div>
+            <div class="ui-body">{html.escape(str(sol['description']))}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -5309,7 +5477,7 @@ with tab_examples:
         st.markdown(f"""
         <div class="roadmap-grid">
             <div class="roadmap-card" style="border-top: 4px solid #0D9488;">
-                <div class="roadmap-step-tag">🧬 Hydrodynamic Calibration Sweep</div>
+                <div class="roadmap-step-tag">🧬 Hydrodynamic Calibration</div>
                 <div class="kpi-value">{bsum['total_pdb_biomolecules']:,} PDB Assemblies</div>
                 <div class="roadmap-body">
                     Hydrodynamic radius (Rh) &amp; column-range sweep across <b>3 kDa – 3 MDa</b> PDB structures ({bsum.get('sec_experimentally_supported_pdb_assemblies', 809):,} with SEC-supported assembly metadata).
@@ -5317,7 +5485,7 @@ with tab_examples:
             </div>
             <div class="roadmap-card" style="border-top: 4px solid #059669;">
                 <div class="roadmap-step-tag">🎯 Case-Study Peak MAE</div>
-                <div class="kpi-value">MAE: {bsum['literature_complex_mae_ml']:.2f} mL (n = {n_lit_peaks})</div>
+                <div class="kpi-value">MAE: {bsum['literature_complex_mae_ml']:.2f} mL <span style="white-space:nowrap;">(n = {n_lit_peaks})</span></div>
                 <div class="roadmap-body">
                     Mean absolute error across <b>{n_lit_peaks} peaks</b> in {n_lit_cases} published 24 mL SEC case studies (<b>{bsum.get('analytical_24ml_mean_mae_ml', 0.22):.2f} mL</b> MAE across {bsum.get('total_standard_calibration_points', 55)} Cytiva globular calibration standards).
                 </div>
@@ -5343,7 +5511,7 @@ with tab_examples:
         case_col_cfg = SEC_COLUMNS[sel_case["column_id"]]
         case_sim = simulate_chromatogram_peaks(sel_case["species"], case_col_cfg)
 
-        ex_left, ex_right = st.columns([1.65, 1.2])
+        ex_left, ex_right = st.columns([1.32, 1.28])
         with ex_left:
             fig_lit = create_modern_sec_plot(
                 case_sim,
@@ -5369,7 +5537,18 @@ with tab_examples:
                     "🎯 Simulator Peak": f"{pk['ve_ml']:.2f} mL",
                     "Difference": f"{diff:.2f} mL ✅"
                 })
-            st.dataframe(pd.DataFrame(simple_rows), hide_index=True, width="stretch")
+            st.dataframe(
+                pd.DataFrame(simple_rows),
+                hide_index=True,
+                width="stretch",
+                column_config={
+                    "Molecule / Complex": st.column_config.TextColumn("Molecule / Complex", width="medium"),
+                    "Size": st.column_config.TextColumn("MW", width="small"),
+                    "★ Real Lab Peak": st.column_config.TextColumn("Lab Ve", width="small"),
+                    "🎯 Simulator Peak": st.column_config.TextColumn("Sim Ve", width="small"),
+                    "Difference": st.column_config.TextColumn("ΔVe", width="small"),
+                },
+            )
 
             st.info(f"🧬 **What Happened in This Experiment:** {sel_case['biophysical_note']}")
             st.markdown(
@@ -5417,7 +5596,7 @@ with tab_examples:
                     marker=dict(size=6, color=c_hex, opacity=0.72),
                     hoverinfo="text",
                     hovertext=[
-                        f"<b>PDB {r.pdb_id}</b>: {r.title[:70]}<br>MW: {r.mw_kda:,.1f} kDa • Ve: {getattr(r, ve_key):.2f} mL"
+                        f"<b>PDB {html.escape(str(r.pdb_id))}</b>: {html.escape(str(r.title)[:70])}<br>MW: {r.mw_kda:,.1f} kDa • Ve: {getattr(r, ve_key):.2f} mL"
                         for r in sub.itertuples()
                     ]
                 ))
@@ -5429,14 +5608,14 @@ with tab_examples:
                     x=[s["mw_kda"] for s in stds],
                     y=[s["exp_ve_ml"] for s in stds],
                     mode="markers",
-                    name=f"★ Lab Calibration Standards (R² = {col_rep['new_rh_r2']:.4f})",
+                    name=f"Lab Calibration Standards (R² = {col_rep['new_rh_r2']:.4f})",
                     marker=dict(size=11, color="#DC2626", symbol="star", line=dict(width=1, color="#FFFFFF"))
                 ))
 
             fig_atlas.update_layout(
                 font=dict(family=PLOTLY_FONT_FAMILY, color="#1E352F", size=12),
                 title=dict(
-                    text=f"<b>{SEC_COLUMNS[atlas_col_choice]['name']} — Elution Volume vs. Molecular Weight</b>",
+                    text=f"<b>{html.escape(str(SEC_COLUMNS[atlas_col_choice]['name']))} — Elution Volume vs. Molecular Weight</b>",
                     subtitle=dict(
                         text="Log Scale, 3 kDa – 3 MDa",
                         font=dict(family=PLOTLY_FONT_FAMILY, size=12, color="#4A635C")
@@ -5547,28 +5726,83 @@ with tab_examples:
         </div>
         """, unsafe_allow_html=True)
 
-        ss_b_left, ss_b_right = st.columns([1.15, 1.15])
-        with ss_b_left:
-            st.markdown(f"#### 🌍 Multi-Domain Accuracy Across All 7 Taxonomic Strata ({ss_n_test:,} Held-Out Proteins)")
-            strata_src = pp_model_info.get("by_stratum") or ss_bench_tab5.get("by_stratum", {})
-            stratum_order = ["Bacteria", "Archaea", "Animals", "Plants", "Fungi", "Protists", "Viruses"]
-            strata_rows = []
-            for st_key in stratum_order:
-                if st_key in strata_src:
-                    sd = strata_src[st_key]
-                    strata_rows.append({
-                        "Biological Stratum": st_key,
-                        "Held-Out Proteins": f"{int(sd['n_proteins']):,}",
-                        "Residues": f"{int(sd['n_residues']):,}",
-                        "Mean Q3": f"{float(sd['mean_protein_q3_pct']):.2f}%",
-                        "Pooled Q3": f"{float(sd['overall_q3_pct']):.2f}%",
-                        "Segment Overlap (SOV_99)": f"{float(sd['mean_protein_sov99_pct']):.2f}%",
-                        "Mean MCC": f"{float(sd['mean_mcc']):.3f}",
-                    })
-            if strata_rows:
-                st.dataframe(pd.DataFrame(strata_rows), hide_index=True, width="stretch")
+        st.markdown(f"#### 🌍 Multi-Domain Accuracy Across All 7 Taxonomic Strata ({ss_n_test:,} Held-Out Proteins)")
+        strata_src = pp_model_info.get("by_stratum") or ss_bench_tab5.get("by_stratum", {})
+        stratum_order = ["Bacteria", "Archaea", "Animals", "Plants", "Fungi", "Protists", "Viruses"]
+        strata_rows = []
+        for st_key in stratum_order:
+            if st_key in strata_src:
+                sd = strata_src[st_key]
+                strata_rows.append({
+                    "Biological Stratum": st_key,
+                    "Held-Out Proteins": f"{int(sd['n_proteins']):,}",
+                    "Residues": f"{int(sd['n_residues']):,}",
+                    "Mean Q3": f"{float(sd['mean_protein_q3_pct']):.2f}%",
+                    "Pooled Q3": f"{float(sd['overall_q3_pct']):.2f}%",
+                    "Segment Overlap (SOV_99)": f"{float(sd['mean_protein_sov99_pct']):.2f}%",
+                    "Mean MCC": f"{float(sd['mean_mcc']):.3f}",
+                })
+        if strata_rows:
+            st.dataframe(pd.DataFrame(strata_rows), hide_index=True, width="stretch")
 
-            models_dict = ss_bench_tab5.get("models", {})
+        st.markdown("#### 🌐 Live External Secondary Structure Web-Server Cross-Reference")
+        if ss_xref_tab5 is not None and "summary" in ss_xref_tab5:
+            xsum = ss_xref_tab5["summary"]
+            cov_map = xsum.get("method_coverage_counts", {})
+            q3_exp_map = xsum.get("mean_q3_vs_exp_dssp", {})
+            sov_exp_map = xsum.get("mean_sov99_vs_exp_dssp", {})
+            pw_q3_map = xsum.get("mean_pairwise_q3_with_propurify", {})
+
+            def _fmt_pct_opt(val) -> str:
+                return f"{float(val):.2f}%" if val is not None else "—"
+
+            web_rows = [
+                {
+                    "Server / Predictor": "🧬 EMBL-EBI AlphaFold DB v6 Monomer",
+                    "Category": "3D Structure Server (mmCIF)",
+                    "N": cov_map.get("alphafold_db_monomer_only", 67),
+                    "Mean Q3 vs PDB/DSSP": _fmt_pct_opt(q3_exp_map.get("alphafold_db_monomer_only")),
+                    "Mean SOV_99": _fmt_pct_opt(sov_exp_map.get("alphafold_db_monomer_only")),
+                    "Agreement vs ProPurify": _fmt_pct_opt(pw_q3_map.get("alphafold_db_monomer_only")),
+                },
+                {
+                    "Server / Predictor": "🌐 AlphaFold DB + PDBe SIFTS 3D (All 7 Strata)",
+                    "Category": "Live 3D Structure Servers",
+                    "N": cov_map.get("alphafold_3d", xr_count),
+                    "Mean Q3 vs PDB/DSSP": _fmt_pct_opt(q3_exp_map.get("alphafold_3d")),
+                    "Mean SOV_99": _fmt_pct_opt(sov_exp_map.get("alphafold_3d")),
+                    "Agreement vs ProPurify": _fmt_pct_opt(pw_q3_map.get("alphafold_3d")),
+                },
+                {
+                    "Server / Predictor": "🎯 ProPurify Studio Cascaded SS (Local <20 ms)",
+                    "Category": "Single-Sequence Neural",
+                    "N": cov_map.get("propurify_ss", xr_count),
+                    "Mean Q3 vs PDB/DSSP": _fmt_pct_opt(q3_exp_map.get("propurify_ss")),
+                    "Mean SOV_99": _fmt_pct_opt(sov_exp_map.get("propurify_ss")),
+                    "Agreement vs ProPurify": "100.00% (Self)",
+                },
+            ]
+            for opt_key, opt_lbl, opt_cat in [
+                ("npsa_sopma", "🌐 NPS@ PBIL Lyon — SOPMA", "Single-Sequence Web Server"),
+                ("npsa_gor4", "🌐 NPS@ PBIL Lyon — GOR IV", "Single-Sequence Web Server"),
+                ("jpred4", "🏛️ Univ. of Dundee — JPred4 REST API", "Evolutionary MSA Web Server"),
+                ("gor4_baseline", "📐 GOR IV (17-aa Pairwise Info, 1996)", "Single-Sequence Baseline"),
+                ("chou_fasman_baseline", "📏 Chou–Fasman (Empirical Rules, 1978)", "Single-Sequence Baseline"),
+            ]:
+                if int(cov_map.get(opt_key, 0) or 0) > 0:
+                    web_rows.append({
+                        "Server / Predictor": opt_lbl,
+                        "Category": opt_cat,
+                        "N": cov_map.get(opt_key, 0),
+                        "Mean Q3 vs PDB/DSSP": _fmt_pct_opt(q3_exp_map.get(opt_key)),
+                        "Mean SOV_99": _fmt_pct_opt(sov_exp_map.get(opt_key)),
+                        "Agreement vs ProPurify": _fmt_pct_opt(pw_q3_map.get(opt_key)),
+                    })
+            st.dataframe(pd.DataFrame(web_rows), hide_index=True, width="stretch")
+
+        models_dict = ss_bench_tab5.get("models", {})
+        ss_h2h_col, ss_take_col = st.columns([1.25, 1.0])
+        with ss_h2h_col:
             if models_dict:
                 st.markdown("#### 📈 Head-to-Head vs. Classic Single-Sequence Baselines")
                 base_rows = []
@@ -5588,64 +5822,10 @@ with tab_examples:
                         })
                 if base_rows:
                     st.dataframe(pd.DataFrame(base_rows), hide_index=True, width="stretch")
-
-        with ss_b_right:
-            st.markdown("#### 🌐 Live External Secondary Structure Web-Server Cross-Reference")
+        with ss_take_col:
             if ss_xref_tab5 is not None and "summary" in ss_xref_tab5:
-                xsum = ss_xref_tab5["summary"]
-                cov_map = xsum.get("method_coverage_counts", {})
-                q3_exp_map = xsum.get("mean_q3_vs_exp_dssp", {})
-                sov_exp_map = xsum.get("mean_sov99_vs_exp_dssp", {})
-                pw_q3_map = xsum.get("mean_pairwise_q3_with_propurify", {})
-
-                def _fmt_pct_opt(val) -> str:
-                    return f"{float(val):.2f}%" if val is not None else "—"
-
-                web_rows = [
-                    {
-                        "Server / Predictor": "🧬 EMBL-EBI AlphaFold DB v6 Monomer",
-                        "Category": "3D Structure Server (mmCIF)",
-                        "N": cov_map.get("alphafold_db_monomer_only", 67),
-                        "Mean Q3 vs PDB/DSSP": _fmt_pct_opt(q3_exp_map.get("alphafold_db_monomer_only")),
-                        "Mean SOV_99": _fmt_pct_opt(sov_exp_map.get("alphafold_db_monomer_only")),
-                        "Agreement vs ProPurify": _fmt_pct_opt(pw_q3_map.get("alphafold_db_monomer_only")),
-                    },
-                    {
-                        "Server / Predictor": "🌐 AlphaFold DB + PDBe SIFTS 3D (All 7 Strata)",
-                        "Category": "Live 3D Structure Servers",
-                        "N": cov_map.get("alphafold_3d", xr_count),
-                        "Mean Q3 vs PDB/DSSP": _fmt_pct_opt(q3_exp_map.get("alphafold_3d")),
-                        "Mean SOV_99": _fmt_pct_opt(sov_exp_map.get("alphafold_3d")),
-                        "Agreement vs ProPurify": _fmt_pct_opt(pw_q3_map.get("alphafold_3d")),
-                    },
-                    {
-                        "Server / Predictor": "🎯 ProPurify Studio Cascaded SS (Local <20 ms)",
-                        "Category": "Single-Sequence Neural",
-                        "N": cov_map.get("propurify_ss", xr_count),
-                        "Mean Q3 vs PDB/DSSP": _fmt_pct_opt(q3_exp_map.get("propurify_ss")),
-                        "Mean SOV_99": _fmt_pct_opt(sov_exp_map.get("propurify_ss")),
-                        "Agreement vs ProPurify": "100.00% (Self)",
-                    },
-                ]
-                for opt_key, opt_lbl, opt_cat in [
-                    ("npsa_sopma", "🌐 NPS@ PBIL Lyon — SOPMA", "Single-Sequence Web Server"),
-                    ("npsa_gor4", "🌐 NPS@ PBIL Lyon — GOR IV", "Single-Sequence Web Server"),
-                    ("jpred4", "🏛️ Univ. of Dundee — JPred4 REST API", "Evolutionary MSA Web Server"),
-                    ("gor4_baseline", "📐 GOR IV (17-aa Pairwise Info, 1996)", "Single-Sequence Baseline"),
-                    ("chou_fasman_baseline", "📏 Chou–Fasman (Empirical Rules, 1978)", "Single-Sequence Baseline"),
-                ]:
-                    if int(cov_map.get(opt_key, 0) or 0) > 0:
-                        web_rows.append({
-                            "Server / Predictor": opt_lbl,
-                            "Category": opt_cat,
-                            "N": cov_map.get(opt_key, 0),
-                            "Mean Q3 vs PDB/DSSP": _fmt_pct_opt(q3_exp_map.get(opt_key)),
-                            "Mean SOV_99": _fmt_pct_opt(sov_exp_map.get(opt_key)),
-                            "Agreement vs ProPurify": _fmt_pct_opt(pw_q3_map.get(opt_key)),
-                        })
-                st.dataframe(pd.DataFrame(web_rows), hide_index=True, width="stretch")
                 st.info(
-                    "💡 **Classroom Takeaway — Single-Sequence Speed vs. 3D / MSA Web Servers:** "
+                    "💡 **Practical Takeaway — Single-Sequence Speed vs. 3D / MSA Web Servers:** "
                     "**ProPurify SS** predicts secondary structure from a *single sequence* in **< 20 milliseconds** offline, "
                     "outperforming classic single-sequence methods (**GOR IV** & **Chou–Fasman**) by **+14% to +24% Q3** across the 77-protein multi-domain panel "
                     "and showing **70.0%–70.7% residue concordance** with **EMBL-EBI AlphaFold DB / PDBe 3D** (plus verified live connectivity with **NPS@ SOPMA / GOR IV** and **Dundee JPred4 REST API**)."

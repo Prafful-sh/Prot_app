@@ -36,6 +36,9 @@ Thumbs.db
 .gemini/
 *.log
 
+# Runtime user feedback logs
+data/user_feedback_reports.jsonl
+
 # Explicitly ensure model weights and datasets are tracked
 !data/*.json
 !data/*.csv

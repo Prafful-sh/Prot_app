@@ -3150,6 +3150,273 @@ def test_gel_recipes_3d_viewer_feedback_and_ai_proteins(root_dir: str) -> None:
         assert len(at_sb_uni.session_state["active_sequence"]) == 642
 
 
+def test_audit_regressions_and_ui_invariants(root_dir: str) -> None:
+    print("\n=== 15. Testing Pre-Launch Audit Regressions (#112.1-#112.4, #114.1, #114.6-#114.9) ===")
+    import ast
+    from unittest.mock import patch
+    import requests as _requests
+    from streamlit.testing.v1 import AppTest
+
+    from modules.buffer_advisor import infer_protein_biochemical_profile
+    from modules.gel_recipe import recommend_gel_recipe_params
+    from modules.protein_3d import build_3d_biophysical_backbone_figure
+
+    app_path = os.path.join(root_dir, "app.py")
+
+    # ------------------------------------------------------------------
+    # 1. #112.1: Punctuation-only sequence must NEVER enter active_sequence or brick session
+    # ------------------------------------------------------------------
+    cleaned_garbage, _, _ = clean_amino_acid_sequence("123456!@#$%")
+    assert cleaned_garbage == "" or not re.search(r"[A-Z]", cleaned_garbage), (
+        f"Punctuation garbage survived clean_amino_acid_sequence: {cleaned_garbage!r}"
+    )
+
+    at_bad = AppTest.from_file(app_path).run(timeout=30)
+    assert len(at_bad.exception) == 0
+    baseline_seq = at_bad.session_state["active_sequence"]
+    at_bad.sidebar.radio[0].set_value("🔤 Paste Amino Acid / FASTA").run(timeout=30)
+    at_bad.sidebar.text_area[0].set_value("123456!@#$%").run(timeout=30)
+    at_bad.sidebar.button[0].click().run(timeout=30)
+    assert len(at_bad.exception) == 0, f"Punctuation-only sidebar FASTA crashed AppTest: {at_bad.exception}"
+    assert len(at_bad.error) >= 1, "Expected error banner on punctuation-only FASTA input"
+    assert at_bad.session_state["active_sequence"] == baseline_seq, "Invalid input overwrote active_sequence!"
+    # Subsequent rerun must remain completely healthy (no session brick)
+    at_bad.sidebar.radio[0].set_value("🔍 UniProt ID").run(timeout=30)
+    assert len(at_bad.exception) == 0
+
+    # Quick Search punctuation-only input also rejected cleanly without exception
+    [ti for ti in at_bad.text_input if ti.key == "main_quick_search_input"][0].set_value("!@#$%")
+    [b for b in at_bad.button if b.label == "Analyze Protein"][0].click().run(timeout=30)
+    assert len(at_bad.exception) == 0
+    assert len(at_bad.error) >= 1
+    assert at_bad.session_state["active_sequence"] == baseline_seq
+
+    # ------------------------------------------------------------------
+    # 2. #112.2: <10 kDa peptide Tab 1 SDS-PAGE gel % default syncs with recommend_gel_recipe_params
+    # ------------------------------------------------------------------
+    for pep_seq, exp_pct in [
+        ("ACDEFGHIKLMNPQRSTVWYACDEFGHIKL", 18.0),           # ~3.4 kDa (< 6 kDa) -> 18% Tricine
+        (("ACDEFGHIKLMNPQRSTVWY" * 3) + "ACDEFGHIKL", 16.0), # ~7.9 kDa (6-10 kDa) -> 16% Tricine
+    ]:
+        mw_pep = analyze_all_parameters(pep_seq)["mw_kda"]
+        rec_pep = recommend_gel_recipe_params(mw_pep)
+        assert rec_pep["gel_pct"] == exp_pct
+
+        at_g = AppTest.from_file(app_path).run(timeout=30)
+        at_g.sidebar.radio[0].set_value("🔤 Paste Amino Acid / FASTA").run(timeout=30)
+        at_g.sidebar.text_area[0].set_value(f">Peptide_{mw_pep:.1f}kDa\n{pep_seq}\n").run(timeout=30)
+        at_g.sidebar.button[0].click().run(timeout=30)
+        assert len(at_g.exception) == 0
+
+        gel_sliders = [sl for sl in at_g.slider if sl.label == "Gel Acrylamide Percentage (%):"]
+        assert len(gel_sliders) == 1
+        assert gel_sliders[0].value == rec_pep["gel_pct"], (
+            f"Tab 1 gel slider ({gel_sliders[0].value}) != recommend_gel_recipe_params ({rec_pep['gel_pct']}) for {mw_pep:.2f} kDa"
+        )
+        [b for b in at_g.button if b.key == "btn_open_gel_recipe_dialog"][0].click().run(timeout=30)
+        assert len(at_g.exception) == 0
+        dlg_sliders = [sl for sl in at_g.slider if sl.key == "gel_calc_pct_tricine"]
+        assert len(dlg_sliders) == 1 and dlg_sliders[0].value == rec_pep["gel_pct"]
+
+    # ------------------------------------------------------------------
+    # 3. #112.3: HTML / Plotly pseudo-HTML / Markdown escaping
+    # ------------------------------------------------------------------
+    xss_name = 'XSS_Test <img src=x onerror=alert(1)> <Test & Protein>'
+    at_xss = AppTest.from_file(app_path).run(timeout=30)
+    at_xss.sidebar.radio[0].set_value("🔤 Paste Amino Acid / FASTA").run(timeout=30)
+    at_xss.sidebar.text_area[0].set_value(f">{xss_name}\nMKQLEDKVEELASKNYHLENEVARLKKLVGER\n").run(timeout=30)
+    at_xss.sidebar.button[0].click().run(timeout=30)
+    assert len(at_xss.exception) == 0
+
+    non_style_xss_md = "\n".join(m.value for m in at_xss.markdown if "<style>" not in m.value)
+    assert "<img src=x" not in non_style_xss_md, "Unescaped <img> tag leaked into rendered HTML markdown!"
+    assert "<Test & Protein>" not in non_style_xss_md, "Unescaped <Test & Protein> leaked into rendered HTML markdown!"
+
+    # Also test SEC partner name escaping in create_modern_sec_plot + render_elution_strip
+    partner_mode_sbs = [sb for sb in at_xss.selectbox if sb.label == "Add a Binding Partner:"]
+    assert len(partner_mode_sbs) == 1
+    partner_mode_sbs[0].set_value("🤝 Another Protein (Protein–Protein Complex)").run(timeout=30)
+    partner_inputs = [ti for ti in at_xss.text_input if ti.label == "Partner Name:"]
+    assert len(partner_inputs) == 1
+    partner_inputs[0].set_value("<img src=x onerror=alert(1)> & Partner").run(timeout=30)
+    assert len(at_xss.exception) == 0
+
+    elution_md = "\n".join(m.value for m in at_xss.markdown if "elution-strip" in m.value)
+    assert "<img src=x" not in elution_md
+    sec_charts = [json.loads(ch.proto.spec) for ch in at_xss.get("plotly_chart")]
+    sec_spec_str = json.dumps(sec_charts[0])
+    assert "<img src=x" not in sec_spec_str
+    assert "&lt;img src=x" in sec_spec_str
+
+    # Direct Plotly 3D & SS title escaping checks
+    ss_xss = predict_secondary_structure("MKQLEDKVEELASKNYHLENEVARLKKLVGER")
+    m_xss = analyze_all_parameters("MKQLEDKVEELASKNYHLENEVARLKKLVGER")
+    fig_3d_xss = build_3d_biophysical_backbone_figure("MKQLEDKVEELASKNYHLENEVARLKKLVGER", ss_xss, m_xss, protein_name="<Test & Protein>")
+    fig_ss_xss = generate_secondary_structure_figure(ss_xss, "<Test & Protein>")
+    assert "&lt;Test &amp; Protein&gt;" in str(fig_3d_xss.layout.title.text)
+    assert "<Test & Protein>" not in str(fig_3d_xss.layout.title.text)
+    assert "&lt;Test &amp; Protein&gt;" in str(fig_ss_xss.layout.title.text)
+    assert "<Test & Protein>" not in str(fig_ss_xss.layout.title.text)
+
+    # Markdown escaping on 3D viewer title_str
+    class _MockPdbTitleResp:
+        def __init__(self, code: int, text: str = "", json_obj=None):
+            self.status_code = code
+            self.text = text
+            self.content = text.encode("utf-8")
+            self._json = json_obj
+            self.headers = {}
+
+        def json(self):
+            return self._json
+
+    def _mock_pdb_md_inject(url: str, **kwargs):
+        if "data.rcsb.org/rest/v1/core/entry/1QYS" in url:
+            return _MockPdbTitleResp(200, json_obj={"struct": {"title": "Top7"}, "struct_keywords": {"text": "DE NOVO PROTEIN"}})
+        if "data.rcsb.org/rest/v1/core/polymer_entity/1QYS/1" in url:
+            return _MockPdbTitleResp(200, json_obj={
+                "entity_poly": {"type": "polypeptide(L)", "pdbx_seq_one_letter_code_can": "MKQLEDKVEELASKNYHLENEVARLKKLVGER", "pdbx_strand_id": "A"},
+                "rcsb_polymer_entity": {"pdbx_description": "TOP7"},
+                "rcsb_entity_source_organism": [None],
+                "rcsb_polymer_entity_container_identifiers": {"uniprot_ids": None},
+            })
+        if "files.rcsb.org/download/1QYS.pdb" in url:
+            return _MockPdbTitleResp(200, text=(
+                "TITLE     [ClickEvil](https://evil.example) *injected*\n"
+                "ATOM      1  CA  ALA A   1       1.000   2.000   3.000  1.00 90.00           C\nEND\n"
+            ))
+        return _MockPdbTitleResp(404)
+
+    with patch("modules.sequence_parser.requests.get", side_effect=_mock_pdb_md_inject), \
+         patch("modules.protein_3d.requests.get", side_effect=_mock_pdb_md_inject):
+        at_md_esc = AppTest.from_file(app_path).run(timeout=30)
+        at_md_esc.sidebar.radio[0].set_value("🧊 RCSB PDB ID (De Novo / 3D)").run(timeout=30)
+        at_md_esc.sidebar.text_input[0].set_value("1QYS").run(timeout=30)
+        at_md_esc.sidebar.button[0].click().run(timeout=30)
+        [r for r in at_md_esc.radio if r.key == "viewer_3d_mode_radio"][0].set_value("🌐 Live AlphaFold / PDB 3D").run(timeout=30)
+        [b for b in at_md_esc.button if b.key == "btn_fetch_3d_structure_pdb"][0].click().run(timeout=30)
+    assert len(at_md_esc.exception) == 0
+    cap_joined = "\n".join(c.value for c in at_md_esc.caption)
+    assert r"\[ClickEvil\]" in cap_joined, f"Expected escaped markdown brackets in caption: {cap_joined}"
+
+    # ------------------------------------------------------------------
+    # 4. #112.4: Ultra-short peptides ("A") & homopolymers ("A"*50, "C"*30) must NOT trigger membrane warnings
+    # ------------------------------------------------------------------
+    for non_mem_seq in ("A", "A" * 50, "C" * 30):
+        m_nm = analyze_all_parameters(non_mem_seq)
+        p_nm = infer_protein_biochemical_profile(sequence=non_mem_seq, protein_name="Short Test", metrics=m_nm)
+        assert p_nm["requires_detergent_micelles"] is False, f"False detergent micelle flag on {non_mem_seq!r}"
+        assert "membrane_integral" not in p_nm["categories"], f"False membrane_integral on {non_mem_seq!r}"
+
+    at_a = AppTest.from_file(app_path).run(timeout=30)
+    at_a.sidebar.radio[0].set_value("🔤 Paste Amino Acid / FASTA").run(timeout=30)
+    at_a.sidebar.text_area[0].set_value(">SingleAlanine\nA\n").run(timeout=30)
+    at_a.sidebar.button[0].click().run(timeout=30)
+    assert len(at_a.exception) == 0
+    all_a_ui = "\n".join([m.value for m in at_a.markdown if "<style>" not in m.value] + [w.value for w in at_a.warning])
+    assert "Detergent Micelles Req." not in all_a_ui
+    assert "Missing Detergent Micelle" not in all_a_ui
+
+    # ------------------------------------------------------------------
+    # 5. #114.1: Quick Search status lives inside fixed st.empty() slot so st.tabs delta index never shifts
+    # ------------------------------------------------------------------
+    def _tab_container_idx(app_inst) -> int:
+        for ch_key, ch_el in app_inst.main.children.items():
+            if getattr(ch_el, "type", "") == "tab_container":
+                return int(ch_key)
+        raise AssertionError("tab_container not found in at.main.children!")
+
+    def _radio_delta_path(app_inst, rkey: str):
+        for r_el in app_inst.radio:
+            if r_el.key == rkey:
+                return tuple(r_el.proto.id.split("-")) if hasattr(r_el.proto, "id") else r_el.index
+        raise AssertionError(f"Radio {rkey} not found!")
+
+    with patch("modules.sequence_parser.requests.get", side_effect=_mock_pdb_md_inject):
+        at_tab = AppTest.from_file(app_path).run(timeout=30)
+        idx_run1 = _tab_container_idx(at_tab)
+        r_id_run1 = _radio_delta_path(at_tab, "viewer_3d_mode_radio")
+
+        [ti for ti in at_tab.text_input if ti.key == "main_quick_search_input"][0].set_value("1QYS")
+        [b for b in at_tab.button if b.label == "Analyze Protein"][0].click().run(timeout=30)
+        assert len(at_tab.exception) == 0
+        idx_run2 = _tab_container_idx(at_tab)
+        r_id_run2 = _radio_delta_path(at_tab, "viewer_3d_mode_radio")
+
+        [r for r in at_tab.radio if r.key == "viewer_3d_mode_radio"][0].set_value("🌐 Live AlphaFold / PDB 3D").run(timeout=30)
+        assert len(at_tab.exception) == 0
+        idx_run3 = _tab_container_idx(at_tab)
+        r_id_run3 = _radio_delta_path(at_tab, "viewer_3d_mode_radio")
+
+        # Error alert via Quick Search -> next Tab 4 interaction also preserves exact st.tabs delta index
+        [ti for ti in at_tab.text_input if ti.key == "main_quick_search_input"][0].set_value("!@#$%")
+        [b for b in at_tab.button if b.label == "Analyze Protein"][0].click().run(timeout=30)
+        idx_run4 = _tab_container_idx(at_tab)
+        [r for r in at_tab.radio if r.key == "viewer_3d_mode_radio"][0].set_value("🧬 Instant 3D Fold Schematic (Offline)").run(timeout=30)
+        idx_run5 = _tab_container_idx(at_tab)
+
+    assert idx_run1 == idx_run2 == idx_run3 == idx_run4 == idx_run5, (
+        f"st.tabs delta index shifted across Quick Search / Tab 4 clicks: {(idx_run1, idx_run2, idx_run3, idx_run4, idx_run5)}"
+    )
+    assert r_id_run1 == r_id_run2 == r_id_run3
+
+    # ------------------------------------------------------------------
+    # 6. #114.6, #114.7, #114.8, #114.9: Zero Classroom UI strings, 1.66 tab CSS, Greek alpha/beta, no double stars
+    # ------------------------------------------------------------------
+    with open(app_path, "r", encoding="utf-8") as fh_a:
+        app_src = fh_a.read()
+    with open(os.path.join(root_dir, "modules", "buffer_advisor.py"), "r", encoding="utf-8") as fh_ba:
+        ba_src = fh_ba.read()
+
+    # Zero non-docstring/non-comment 'classroom' string literals in app.py and buffer_advisor.py
+    for fname_chk, src_chk in (("app.py", app_src), ("modules/buffer_advisor.py", ba_src)):
+        tree_chk = ast.parse(src_chk)
+        doc_ids = set()
+        for node in ast.walk(tree_chk):
+            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.body and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant) and isinstance(node.body[0].value.value, str):
+                    doc_ids.add(id(node.body[0].value))
+        for node in ast.walk(tree_chk):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in doc_ids:
+                if "classroom" in node.value.lower() and node.value != "classroom_preset_select":
+                    raise AssertionError(f"Found leftover 'classroom' UI string literal in {fname_chk}: {node.value!r}")
+
+    # Check rendered UI on default load has zero 'classroom', intact 1.66 tab selectors, Greek fix, and no double-stars
+    at_ui = AppTest.from_file(app_path).run(timeout=30)
+    rendered_strings = (
+        [m.value for m in at_ui.markdown if "<style>" not in m.value]
+        + [i.value for i in at_ui.info]
+        + [w.value for w in at_ui.warning]
+        + [e.value for e in at_ui.error]
+        + [s.value for s in at_ui.success]
+        + [c.value for c in at_ui.caption]
+        + [b.label for b in at_ui.button]
+        + [t.label for t in at_ui.tabs]
+    )
+    for txt_item in rendered_strings:
+        assert "classroom" not in txt_item.lower(), f"Rendered UI still contains 'classroom': {txt_item!r}"
+
+    style_css_blk = re.search(r"<style>(.*?)</style>", app_src, flags=re.S | re.I).group(1)
+    assert '[role="tablist"]' in style_css_blk and '[data-testid="stTab"]' in style_css_blk
+    assert ".ss-summary-grid .roadmap-step-tag" in style_css_blk and "text-transform: none" in style_css_blk
+
+    # Tab 5 Plotly figures have no duplicate star legend names ("★ ★")
+    for ch in at_ui.get("plotly_chart"):
+        spec_ch = json.loads(ch.proto.spec)
+        for tr in spec_ch.get("data", []):
+            tr_name = str(tr.get("name", ""))
+            assert not tr_name.startswith("★ "), f"Duplicate star prefix in Plotly legend name: {tr_name!r}"
+
+    # Urease badge cleans nested parens while preserving 'Ni²⁺ (Dinuclear Active Site)'
+    with patch("modules.sequence_parser.requests.get", side_effect=_requests.ConnectionError("Offline")):
+        at_ure_b = AppTest.from_file(app_path).run(timeout=30)
+        [ti for ti in at_ure_b.text_input if ti.key == "main_quick_search_input"][0].set_value("Urease with 6x His tag")
+        [b for b in at_ure_b.button if b.label == "Analyze Protein"][0].click().run(timeout=30)
+    ure_md_chk = "\n".join(m.value for m in at_ure_b.markdown if "<style>" not in m.value)
+    assert "Ni²⁺ (Dinuclear Active Site)" in ure_md_chk
+    assert "Metalloprotein (Ni²⁺ (Dinuclear Active Site))" not in ure_md_chk
+
+
 def test_pipeline() -> None:
     root_dir = os.path.dirname(os.path.abspath(__file__))
     test_protparam_golden_reference_and_sequences(root_dir)
@@ -3166,7 +3433,8 @@ def test_pipeline() -> None:
     test_biochemical_protein_intelligence_and_metalloprotein_safety(root_dir)
     test_all_5_input_methods_hardening_and_minimal_chrome(root_dir)
     test_gel_recipes_3d_viewer_feedback_and_ai_proteins(root_dir)
-    print("\n=== ALL 14 GOLDEN PROTPARAM, STOICHIOMETRY, 7-METHOD, SEC, SDS-PAGE, NL PARSER, SECONDARY STRUCTURE, GIANT TITIN, INTERACTIVE SEC COLUMN, BIOCHEMICAL INTELLIGENCE, ALL-5-INPUT-METHOD, GEL RECIPES, 3D VIEWER, FEEDBACK & AI-PROTEIN TESTS PASSED! ===")
+    test_audit_regressions_and_ui_invariants(root_dir)
+    print("\n=== ALL 15 GOLDEN PROTPARAM, STOICHIOMETRY, 7-METHOD, SEC, SDS-PAGE, NL PARSER, SECONDARY STRUCTURE, GIANT TITIN, INTERACTIVE SEC COLUMN, BIOCHEMICAL INTELLIGENCE, ALL-5-INPUT-METHOD, GEL RECIPES, 3D VIEWER, FEEDBACK, AI-PROTEIN & AUDIT REGRESSION TESTS PASSED! ===")
 
 
 if __name__ == "__main__":

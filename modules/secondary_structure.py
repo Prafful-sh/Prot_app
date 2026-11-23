@@ -48,6 +48,7 @@ References:
 from concurrent.futures import ThreadPoolExecutor
 import ctypes
 import glob
+import html
 import math
 import os
 import threading
@@ -2287,7 +2288,7 @@ def generate_secondary_structure_figure(
     )
 
     # Title & Clean Botanical-Editorial Layout
-    clean_title_name = protein_name.strip() if protein_name else "Query Protein"
+    clean_title_name = html.escape(protein_name.strip()) if isinstance(protein_name, str) and protein_name.strip() else "Query Protein"
     if is_subwindow:
         loc_prefix = f"Window {r_start:,}–{r_end:,} ({span_L:,} aa of {L:,} aa)  •  "
     elif is_macro_span:

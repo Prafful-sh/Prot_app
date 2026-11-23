@@ -15,6 +15,7 @@ Recommends & Calculates:
   solubility/pH bench warnings, and weights in BOTH grams (g) and milligrams (mg).
 """
 
+import math
 import re
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -327,6 +328,16 @@ PRESET_RECIPE_TEMPLATES: Dict[str, Dict[str, Any]] = {
             {"Reagent": "Glycerol (Liquid, ρ = 1.261 g/mL)", "MW (g/mol)": 92.09, "Value": 5.0, "Unit": "% (v/v)"}
         ]
     },
+    "disulfide_safe": {
+        "label": "🔗 Disulfide-Safe — Reductant-Free Buffer (No DTT / TCEP / β-ME)",
+        "target_ph": 7.4,
+        "notes": "Reductant-free physiological buffer (HEPES + 150 mM NaCl + 5% Glycerol) — ZERO DTT, ZERO TCEP, ZERO β-ME so native structural disulfide (S–S) bridges remain intact!",
+        "rows": [
+            {"Reagent": "HEPES (Free Acid)", "MW (g/mol)": 238.30, "Value": 25.0, "Unit": "mM"},
+            {"Reagent": "NaCl (Sodium Chloride)", "MW (g/mol)": 58.44, "Value": 150.0, "Unit": "mM"},
+            {"Reagent": "Glycerol (Liquid, ρ = 1.261 g/mL)", "MW (g/mol)": 92.09, "Value": 5.0, "Unit": "% (v/v)"}
+        ]
+    },
     "strep_elution": {
         "label": "🧲 Strep-Tactin — Elution Buffer E (2.5 mM Desthiobiotin)",
         "target_ph": 8.0,
@@ -563,7 +574,13 @@ def infer_protein_biochemical_profile(
         aromatic_pct = (float(metrics["counts"]["aromatic_residues"]) / core_len) * 100.0
     else:
         aromatic_pct = 0.0
-    gravy = float((metrics or {}).get("gravy", 0.0))
+    raw_gravy = (metrics or {}).get("gravy")
+    if raw_gravy is not None and math.isfinite(float(raw_gravy)):
+        gravy = float(raw_gravy)
+    elif core_seq:
+        gravy = sum(KYTE_DOOLITTLE.get(aa, 0.0) for aa in core_seq) / len(core_seq)
+    else:
+        gravy = 0.0
     aliphatic_idx = float((metrics or {}).get("aliphatic_index", 75.0))
 
     categories: List[str] = []
@@ -823,8 +840,20 @@ def infer_protein_biochemical_profile(
         r"porin|(?!ompr\b)omp[a-z]|omp85|vdac|bama|tolc)\b",
         search_text,
     ))
+    # Gate sequence-only hydrophobic membrane inference against ultra-short peptides (< 25 aa)
+    # and artificial low-complexity homopolymers ("A"*50, "C"*30) while covering real TM proteins.
+    unique_core_aa = set(core_seq) if core_seq else set()
+    is_non_homopolymer = (
+        (not core_seq)
+        or (
+            len(unique_core_aa) >= 5
+            and (max(core_seq.count(aa) for aa in unique_core_aa) / len(core_seq)) <= 0.45
+        )
+    )
     has_membrane_seq = (
         not has_uniprot_annot
+        and core_len >= 25
+        and is_non_homopolymer
         and ((tm_seq_cnt >= 2 and (tm_seq_cnt * 19.0 / core_len) >= 0.10 and gravy >= -0.10) or gravy >= 0.45)
     )
     if has_membrane_annot or has_membrane_name or has_membrane_seq:
@@ -1526,7 +1555,7 @@ def recommend_full_purification_workflow(
             "When to Use It": (
                 "Avoid on integral membrane proteins—kosmotropic salt causes detergent micelle phase separation & irreversible aggregation!"
                 if prof["requires_detergent_micelles"]
-                else "Inexpensive classroom & native extract concentration step; redissolved pellet feeds DIRECTLY into HIC without dialysis!"
+                else "Inexpensive bulk & native extract concentration step; redissolved pellet feeds DIRECTLY into HIC without dialysis!"
             ),
         },
         {
@@ -1741,9 +1770,10 @@ def recommend_safe_buffer_preset_key(
         or prof.get("is_chelator_sensitive")
         or prof.get("avoid_tris_buffer")
         or prof.get("avoid_phosphate_buffer")
-        or prof.get("avoid_reducing_agents")
     ):
         return "metalloprotein_safe"
+    if prof.get("avoid_reducing_agents"):
+        return "disulfide_safe"
     tag_low = str(prof.get("effective_tag") or "").lower()
     if "his" in tag_low and not prof.get("avoid_imidazole_imac"):
         return "his_lysis"
@@ -2132,6 +2162,19 @@ def build_student_lab_challenge(
     }
 
 
+def _to_nonneg_finite_float(value: Any, default: float = 0.0) -> float:
+    """Coerces a cell value to a finite non-negative float, returning default for NaN/Inf/invalid inputs."""
+    if value is None or isinstance(value, bool):
+        return default
+    try:
+        fval = float(value)
+    except (TypeError, ValueError):
+        return default
+    if not math.isfinite(fval) or fval < 0.0:
+        return default
+    return fval
+
+
 def audit_buffer_compatibility_for_protein(
     rows: List[Dict[str, Any]],
     target_ph: float,
@@ -2149,10 +2192,10 @@ def audit_buffer_compatibility_for_protein(
     if not rows:
         return warnings
 
-    reagent_names_low = [str(r.get("Reagent") or "").lower().strip() for r in rows if float(r.get("Value") or 0.0) > 0]
+    reagent_names_low = [str(r.get("Reagent") or "").lower().strip() for r in rows if _to_nonneg_finite_float(r.get("Value")) > 0]
     has_imidazole = any("imidazole" in n for n in reagent_names_low)
-    chelators_found = [r["Reagent"] for r in rows if float(r.get("Value") or 0.0) > 0 and any(k in str(r.get("Reagent") or "").lower() for k in ("edta", "egta", "citrate", "citric acid", "phenanthroline"))]
-    reductants_found = [r["Reagent"] for r in rows if float(r.get("Value") or 0.0) > 0 and any(k in str(r.get("Reagent") or "").lower() for k in ("dtt", "dithiothreitol", "tcep", "mercaptoethanol", "β-me", "b-me", "glutathione", "gsh"))]
+    chelators_found = [r["Reagent"] for r in rows if _to_nonneg_finite_float(r.get("Value")) > 0 and any(k in str(r.get("Reagent") or "").lower() for k in ("edta", "egta", "citrate", "citric acid", "phenanthroline"))]
+    reductants_found = [r["Reagent"] for r in rows if _to_nonneg_finite_float(r.get("Value")) > 0 and any(k in str(r.get("Reagent") or "").lower() for k in ("dtt", "dithiothreitol", "tcep", "mercaptoethanol", "β-me", "b-me", "glutathione", "gsh"))]
     has_dtt = any("dtt" in n or "dithiothreitol" in n for n in reagent_names_low)
     has_tris = any("tris" in n and "citrate" not in n for n in reagent_names_low)
     has_phosphate = any(k in n for n in reagent_names_low for k in ("hpo4", "h2po4", "phosphate"))
@@ -2356,7 +2399,13 @@ def compute_custom_buffer_recipe(rows: List[Dict[str, Any]], volume_ml: float) -
       for liquid reagents [mM, M, µM, % (w/v), % (v/v), mg/mL]
     - Direct Weight in grams (g) or milligrams (mg) -> Resulting Molarity (mM / M), % (w/v), and liquid volume!
     """
-    vol_ml = max(0.1, float(volume_ml))
+    try:
+        vol_raw = float(volume_ml)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"volume_ml must be a finite numeric value, got {volume_ml!r}.") from exc
+    if not math.isfinite(vol_raw):
+        raise ValueError(f"volume_ml must be finite, got {volume_ml!r}.")
+    vol_ml = max(0.1, vol_raw)
     vol_l = vol_ml / 1000.0
     computed = []
 
@@ -2365,13 +2414,13 @@ def compute_custom_buffer_recipe(rows: List[Dict[str, Any]], volume_ml: float) -
         if not name:
             continue
         reg_info = _resolve_reagent_info(name)
-        raw_mw = float(r.get("MW (g/mol)") or 0.0)
-        mw = raw_mw if raw_mw > 0 else float(reg_info.get("mw", 0.0))
-        val = float(r.get("Value") or 0.0)
+        raw_mw = _to_nonneg_finite_float(r.get("MW (g/mol)"), 0.0)
+        mw = raw_mw if raw_mw > 0.0 else _to_nonneg_finite_float(reg_info.get("mw"), 0.0)
+        val = _to_nonneg_finite_float(r.get("Value"), 0.0)
         unit = str(r.get("Unit") or "mM").strip()
 
-        density = float(reg_info.get("density_g_ml", 1.0))
-        is_liquid = (reg_info.get("state") == "liquid") and (density > 0)
+        density = _to_nonneg_finite_float(reg_info.get("density_g_ml"), 1.0)
+        is_liquid = (reg_info.get("state") == "liquid") and (density > 0.0)
 
         mass_g = 0.0
         mass_mg = 0.0

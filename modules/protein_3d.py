@@ -116,8 +116,8 @@ HIS_COLOR = "#6B4C9A"
 NEUTRAL_COLOR = "#94A3B8"
 
 SCHEMATIC_3D_DISCLAIMER = (
-    "Schematic 3D Secondary-Structure & Property Trajectory "
-    "(Sequence-Derived — NOT an experimental atomic fold; load AlphaFold/PDB or upload a .pdb/.cif for true 3D coordinates)"
+    "Schematic 3D trajectory (sequence-derived, NOT an atomic fold; "
+    "use AlphaFold/PDB or .pdb/.cif for true 3D coordinates)"
 )
 
 THREE_TO_ONE: Dict[str, str] = {
@@ -329,6 +329,15 @@ def _tokenize_cif_line(line: str) -> List[str]:
     return tokens
 
 
+def _parse_finite_float(raw_val: Any) -> Optional[float]:
+    """Parses a numeric string/value into a finite float, returning None for NaN/Inf/invalid tokens."""
+    try:
+        val = float(raw_val)
+    except (TypeError, ValueError):
+        return None
+    return val if math.isfinite(val) else None
+
+
 def _detect_plddt_profile(
     b_values: List[float],
     header_ai_hint: bool,
@@ -340,6 +349,9 @@ def _detect_plddt_profile(
     Classifies whether structure B-factors represent AlphaFold / ESMFold / Boltz-1 pLDDT
     confidence scores (on either 0-100 or 0-1 scale) vs crystallographic temperature factors.
     """
+    b_values = [float(v) for v in b_values if v is not None and math.isfinite(float(v))]
+    if global_qa_metric is not None and not math.isfinite(float(global_qa_metric)):
+        global_qa_metric = None
     has_exptl = bool(experimental_method and _EXPTL_METHOD_RE.search(experimental_method))
     fname_ai_hint = bool(filename_hint and _FILENAME_AI_HINT_RE.search(filename_hint))
 
@@ -480,10 +492,9 @@ def _parse_pdb_structure(text: str, filename_hint: str = "") -> Dict[str, Any]:
             if rec == "REMARK" and resolution_angstrom is None and line[6:10].strip() == "2":
                 m_res = re.search(r"RESOLUTION\.\s+(\d+(?:\.\d+)?)\s+ANGSTROM", line, flags=re.IGNORECASE)
                 if m_res:
-                    try:
-                        resolution_angstrom = round(float(m_res.group(1)), 2)
-                    except ValueError:
-                        pass
+                    res_val = _parse_finite_float(m_res.group(1))
+                    if res_val is not None:
+                        resolution_angstrom = round(res_val, 2)
             continue
 
         if rec == "EXPDTA":
@@ -525,22 +536,19 @@ def _parse_pdb_structure(text: str, filename_hint: str = "") -> Dict[str, Any]:
             res_seq_str = line[22:26].strip()
             ins_code = line[26:27].strip()
 
-            try:
-                x = float(line[30:38])
-                y = float(line[38:46])
-                z = float(line[46:54])
-            except ValueError:
+            x = _parse_finite_float(line[30:38])
+            y = _parse_finite_float(line[38:46])
+            z = _parse_finite_float(line[46:54])
+            if x is None or y is None or z is None:
                 continue
 
             bfactor: Optional[float] = None
             if len(line) >= 66:
                 b_str = line[60:66].strip()
                 if b_str:
-                    try:
-                        bfactor = float(b_str)
+                    bfactor = _parse_finite_float(b_str)
+                    if bfactor is not None:
                         all_atom_bfactors.append(bfactor)
-                    except ValueError:
-                        bfactor = None
 
             atom_count += 1
             if chain_id not in chains_seen:
@@ -689,10 +697,9 @@ def _parse_cif_structure(text: str, filename_hint: str = "") -> Dict[str, Any]:
         if stripped.startswith("_refine.ls_d_res_high") or stripped.startswith("_em_3d_reconstruction.resolution"):
             toks = _tokenize_cif_line(stripped)
             if len(toks) >= 2 and resolution_angstrom is None:
-                try:
-                    resolution_angstrom = round(float(toks[1]), 2)
-                except ValueError:
-                    pass
+                res_val = _parse_finite_float(toks[1])
+                if res_val is not None:
+                    resolution_angstrom = round(res_val, 2)
             i += 1
             continue
 
@@ -700,10 +707,9 @@ def _parse_cif_structure(text: str, filename_hint: str = "") -> Dict[str, Any]:
             header_ai_hint = True
             toks = _tokenize_cif_line(stripped)
             if len(toks) >= 2:
-                try:
-                    global_qa_metric = float(toks[1])
-                except ValueError:
-                    pass
+                qa_val = _parse_finite_float(toks[1])
+                if qa_val is not None:
+                    global_qa_metric = qa_val
             i += 1
             continue
 
@@ -790,20 +796,17 @@ def _parse_cif_structure(text: str, filename_hint: str = "") -> Dict[str, Any]:
                         if group_pdb == "ATOM":
                             if idx_x is None or idx_y is None or idx_z is None:
                                 continue
-                            try:
-                                x = float(row[idx_x])
-                                y = float(row[idx_y])
-                                z = float(row[idx_z])
-                            except ValueError:
+                            x = _parse_finite_float(row[idx_x])
+                            y = _parse_finite_float(row[idx_y])
+                            z = _parse_finite_float(row[idx_z])
+                            if x is None or y is None or z is None:
                                 continue
 
                             bfactor: Optional[float] = None
                             if idx_b is not None and row[idx_b] not in (".", "?"):
-                                try:
-                                    bfactor = float(row[idx_b])
+                                bfactor = _parse_finite_float(row[idx_b])
+                                if bfactor is not None:
                                     all_atom_bfactors.append(bfactor)
-                                except ValueError:
-                                    bfactor = None
 
                             atom_count += 1
                             if chain_id not in chains_seen:
@@ -872,10 +875,9 @@ def _parse_cif_structure(text: str, filename_hint: str = "") -> Dict[str, Any]:
                         break
                     toks = _tokenize_cif_line(row_line)
                     if idx_mv is not None and idx_mv < len(toks) and global_qa_metric is None:
-                        try:
-                            global_qa_metric = float(toks[idx_mv])
-                        except ValueError:
-                            pass
+                        qa_val = _parse_finite_float(toks[idx_mv])
+                        if qa_val is not None:
+                            global_qa_metric = qa_val
                     i += 1
                 continue
 
@@ -2727,6 +2729,7 @@ def build_3d_biophysical_backbone_figure(
 
     # Assemble informative header + honest schematic disclaimer
     clean_pname = protein_name.strip() if isinstance(protein_name, str) and protein_name.strip() else "Query Protein"
+    safe_pname = html.escape(clean_pname)
     mode_titles = {
         "ss": "Secondary Structure (H / E / C)",
         "hydrophobicity": "Kyte–Doolittle Hydrophobicity",
@@ -2758,10 +2761,10 @@ def build_3d_biophysical_backbone_figure(
     layout = dict(
         font=dict(family=PLOTLY_FONT_FAMILY, color="#1E352F", size=12),
         title=dict(
-            text=f"<b>Offline 3D Biophysical Explorer — {clean_pname}</b>",
+            text=f"<b>Offline 3D Biophysical Explorer — {safe_pname}</b>",
             subtitle=dict(
                 text=SCHEMATIC_3D_DISCLAIMER,
-                font=dict(family=PLOTLY_FONT_FAMILY, size=11, color="#47625B"),
+                font=dict(family=PLOTLY_FONT_FAMILY, size=10.5, color="#47625B"),
             ),
             font=dict(family=PLOTLY_FONT_FAMILY, size=14, color="#0B221C"),
             x=0.0,
@@ -2804,7 +2807,7 @@ def build_3d_biophysical_backbone_figure(
                 font=dict(family=PLOTLY_FONT_FAMILY, size=10.5, color="#47625B"),
             )
         ],
-        margin=dict(l=12, r=12, t=72, b=58),
+        margin=dict(l=12, r=24, t=72, b=58),
         height=safe_height,
         hoverlabel=dict(
             bgcolor="#0B221C",

@@ -158,7 +158,7 @@ def generate_sds_page_figure(
     # 1. Outer Transilluminator Frame / Border
     fig.add_shape(
         type="rect",
-        x0=-0.02, y0=-0.08, x1=1.04, y1=1.03,
+        x0=-0.02, y0=-0.038, x1=1.04, y1=1.02,
         fillcolor=gel_slab_bg,
         line=dict(color=gel_border, width=2),
         layer="below"
@@ -172,11 +172,12 @@ def generate_sds_page_figure(
         layer="below"
     )
     fig.add_annotation(
-        x=0.02, y=0.065,
+        x=0.015, y=0.070,
         text="Stacking (4%, pH 6.8) / Resolving (pH 8.8) Interface",
         showarrow=False,
         font=dict(size=9, color="#57534E" if is_silver else "#52606D", family="IBM Plex Sans, Helvetica Neue, Arial, sans-serif"),
-        xanchor="left"
+        xanchor="left",
+        yanchor="bottom"
     )
 
     # 3. Dye Front Line (Bromophenol Blue) at bottom (y = 0.940)
@@ -195,30 +196,32 @@ def generate_sds_page_figure(
         font=dict(size=9.5, color="#57534E" if is_silver else "#5C6B78", family="IBM Plex Mono, monospace")
     )
 
-    # 4. Well Comb Indentations at top
+    # 4. Well Comb Indentations at top (lane names sit above gel edge; W1..Wn sit inside wells)
     for i, lane in enumerate(lanes):
         x_center = (i + 0.75) * lane_width
         well_fill = "#F5F3EF" if is_silver else "#F1F5F9"
         well_border = "#D6D3D1" if is_silver else "#CBD5E1"
         fig.add_shape(
             type="rect",
-            x0=x_center - 0.046, y0=-0.03,
-            x1=x_center + 0.046, y1=0.025,
+            x0=x_center - 0.046, y0=-0.038,
+            x1=x_center + 0.046, y1=0.022,
             fillcolor=well_fill,
             line=dict(color=well_border, width=1.2),
             layer="below"
         )
         fig.add_annotation(
-            x=x_center, y=-0.05,
+            x=x_center, y=-0.008,
             text=f"<b>W{i+1}</b>",
             showarrow=False,
+            yanchor="middle",
             font=dict(size=10, color="#44403C" if is_silver else "#475569", family="IBM Plex Mono, monospace")
         )
         fig.add_annotation(
-            x=x_center, y=0.045,
+            x=x_center, y=-0.075,
             text=f"<b>{lane['name']}</b>",
             showarrow=False,
-            font=dict(size=11, color="#1C1917" if is_silver else "#111827", family="IBM Plex Sans, Helvetica Neue, Arial, sans-serif")
+            yanchor="middle",
+            font=dict(size=10.5, color="#1C1917" if is_silver else "#111827", family="IBM Plex Sans, Helvetica Neue, Arial, sans-serif")
         )
 
     # Function to draw diffused, realistic bands (multi-pass Gaussian feathering)
@@ -522,30 +525,33 @@ def generate_sds_page_figure(
 
     # Invert Y so electrophoretic migration flows top (-) -> bottom (+)
     fig.update_yaxes(
-        range=[1.02, -0.09],
+        range=[1.03, -0.115],
         showgrid=False,
         zeroline=False,
         showticklabels=False
     )
 
     stain_sub = (
-        "Silver Stain (~0.2–1.0 ng sensitivity)"
+        "Silver Stain (~0.2–1.0 ng)"
         if is_silver
-        else "Coomassie R-250 (~50–100 ng sensitivity)"
+        else "Coomassie R-250 (~50–100 ng)"
     )
+    plot_font_family = "IBM Plex Sans, Helvetica Neue, Arial, sans-serif"
     fig.update_layout(
-        font=dict(family="IBM Plex Sans, Helvetica Neue, Arial, sans-serif", color="#2C3A47", size=12),
+        font=dict(family=plot_font_family, color="#2C3A47", size=12),
         title=dict(
-            text=(
-                f"<b>Simulated Destained SDS-PAGE Gel ({gel_pct:.1f}% Polyacrylamide)</b><br>"
-                f"<span style='font-size:12px; color:#52606D;'>Target MW: {target_mw_kda:.1f} kDa | "
-                f"Bio-Rad Precision Plus Dual Color in Last Well (Lane {num_lanes}) | {stain_sub}</span>"
+            text=f"<b>Simulated Destained SDS-PAGE Gel ({gel_pct:.1f}% Polyacrylamide)</b>",
+            subtitle=dict(
+                text=f"Target MW: {target_mw_kda:.1f} kDa | Bio-Rad Precision Plus Ladder (Lane {num_lanes}) | {stain_sub}",
+                font=dict(size=10.5, color="#52606D", family=plot_font_family),
             ),
-            font=dict(size=14, color="#111827", family="IBM Plex Sans, Helvetica Neue, Arial, sans-serif")
+            font=dict(size=14, color="#111827", family=plot_font_family),
+            x=0.0,
+            xanchor="left",
         ),
         template="plotly_white",
         height=550,
-        margin=dict(l=20, r=32, t=68, b=25),
+        margin=dict(l=20, r=28, t=72, b=24),
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="#FFFFFF"
     )
