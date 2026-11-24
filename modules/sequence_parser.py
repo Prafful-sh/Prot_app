@@ -68,21 +68,6 @@ LYSOZYME_MATURE_SEQ = (
 
 # Classroom & Teaching-Lab Protein Presets (Offline-ready verified mature chains)
 CLASSROOM_PRESET_PROTEINS: Dict[str, Dict[str, Any]] = {
-    "lysozyme_native": {
-        "label": "🥚 Egg-White Lysozyme (Chicken • 14.3 kDa • Basic Enzyme)",
-        "name": "Hen Egg-White Lysozyme C (Gallus gallus • Mature Chain)",
-        "uniprot_id": "P00698",
-        "organism": "Gallus gallus (Chicken)",
-        "sequence": LYSOZYME_MATURE_SEQ,
-        "tag": "None",
-        "construct_parts": None,
-        "student_story": (
-            "Found abundantly in chicken egg whites (with a closely related homolog in human tears), Lysozyme C "
-            "hydrolyzes bacterial peptidoglycan cell walls and is stabilized by 4 disulfide bridges. Because it is "
-            "strongly positively charged (pI 9.32) and compact (14.31 kDa), it is the #1 classic enzyme used in school "
-            "and college labs to teach Cation-Exchange (CEX), Hydrophobic Interaction (HIC), and Gel Filtration (SEC)!"
-        )
-    },
     "lysozyme_his_tev": {
         "label": "🏷️ 6xHis-TEV-Lysozyme (Recombinant • 16.1 kDa • Tagged)",
         "name": "6xHis-TEV-Lysozyme (Recombinant Construct)",
@@ -99,6 +84,21 @@ CLASSROOM_PRESET_PROTEINS: Dict[str, Dict[str, Any]] = {
             "Engineered Lysozyme (16.12 kDa, pI 9.16) carrying an N-terminal 6xHis affinity tag and a TEV protease "
             "cut site (ENLYFQ|G). Capture it in one step on a Ni-NTA column, clip off the His-tag with TEV protease "
             "(leaving 14.37 kDa Gly-Lysozyme), and polish on SEC!"
+        )
+    },
+    "lysozyme_native": {
+        "label": "🥚 Egg-White Lysozyme (Chicken • 14.3 kDa • Basic Enzyme)",
+        "name": "Hen Egg-White Lysozyme C (Gallus gallus • Mature Chain)",
+        "uniprot_id": "P00698",
+        "organism": "Gallus gallus (Chicken)",
+        "sequence": LYSOZYME_MATURE_SEQ,
+        "tag": "None",
+        "construct_parts": None,
+        "student_story": (
+            "Found abundantly in chicken egg whites (with a closely related homolog in human tears), Lysozyme C "
+            "hydrolyzes bacterial peptidoglycan cell walls and is stabilized by 4 disulfide bridges. Because it is "
+            "strongly positively charged (pI 9.32) and compact (14.31 kDa), it is the #1 classic enzyme used in school "
+            "and college labs to teach Cation-Exchange (CEX), Hydrophobic Interaction (HIC), and Gel Filtration (SEC)!"
         )
     },
     "gfp": {

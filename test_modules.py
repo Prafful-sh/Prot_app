@@ -1235,8 +1235,8 @@ def test_soluble_aggregate_void_peak_and_ui(root_dir: str) -> None:
     assert len(df_only_agg_prep) == 1 and df_only_agg_prep.iloc[0]["Peak"] == "Aggregate (Vo)"
     assert len(df_only_agg_anal) == 1 and df_only_agg_anal.iloc[0]["Peak"] == "Aggregate (Vo)"
     md_joined = "\n".join(m.value for m in at.markdown)
-    assert "🎯 Aggregate (Vo, > 1.3 MDa)" in md_joined
-    assert "🎯 Aggregate (Vo, > 40 MDa)" in md_joined
+    assert "🎯 Aggregate (Vo, &gt; 1.3 MDa)" in md_joined
+    assert "🎯 Aggregate (Vo, &gt; 40 MDa)" in md_joined
 
 
 def test_secondary_structure_engine_benchmarks_and_ui(root_dir: str) -> None:
@@ -1418,7 +1418,8 @@ def test_secondary_structure_engine_benchmarks_and_ui(root_dir: str) -> None:
         df.value for df in at.dataframe
         if list(df.value.columns) == ["Segment", "Type", "Start–End", "Length (aa)", "Mean Confidence", "Sequence"]
     ]
-    assert len(seg_dfs) == 1 and len(seg_dfs[0]) == len(lyso_res["segments"])
+    default_his_tev_ss = predict_secondary_structure(CLASSROOM_PRESET_PROTEINS["lysozyme_his_tev"]["sequence"])
+    assert len(seg_dfs) == 1 and len(seg_dfs[0]) == len(default_his_tev_ss["segments"])
     assert any("Legend:  H = α-Helix" in c.value for c in at.code)
 
     # Switch classroom preset -> Myoglobin (All-α) and GFP (All-β) in Sidebar and verify live Tab 4 updates
@@ -2306,15 +2307,15 @@ def test_all_5_input_methods_hardening_and_minimal_chrome(root_dir: str) -> None
     )
     assert any("IMAC Resin Stripping Hazard" in w for w in imac_edta_warns)
 
-    # Default Lysozyme page shows oxidized S-S pI estimate & removes undefined '~99% volume accuracy' claim
+    # Default 6xHis-TEV-Lysozyme page shows oxidized S-S pI estimate & removes undefined '~99% volume accuracy' claim
     assert "~99% volume accuracy" not in app_txt
     assert "Benchmark Methodology, Data Splits & Practical Scope" in app_txt
     at_def = AppTest.from_file(app_path).run(timeout=30)
     assert len(at_def.exception) == 0
     md_def = "\n".join(m.value for m in at_def.markdown if "<style>" not in m.value)
     cap_def = "\n".join(c.value for c in at_def.caption)
-    assert "S–S oxidized: ~10.46" in md_def
-    assert "Bjellqvist" in cap_def and "10.46" in cap_def
+    assert "S–S oxidized: ~10.15" in md_def
+    assert "Bjellqvist" in cap_def and "10.15" in cap_def
     assert "500 mL (500 mL" not in md_def and "Exact Weigh-Out Sheet for **500 mL** (Target pH" in md_def
     assert 'initial_sidebar_state="auto"' in app_txt
     assert len(re.findall(r"font-size\s*:", md_def, flags=re.IGNORECASE)) == 0
@@ -2650,13 +2651,25 @@ def test_gel_recipes_3d_viewer_feedback_and_ai_proteins(root_dir: str) -> None:
         "TITLE     HOSTILE </script><script>alert('xss')</script> <!-- comment --> \"dbl\" 'sgl' `bt`\u2028\u2029\n"
         + af2_pdb.decode("utf-8")
     )
-    html_esc = build_3dmol_viewer_html(hostile_pdb, fmt="pdb", style="cartoon", color_scheme="plddt", bg_color="javascript:alert(1)")
+    html_esc = build_3dmol_viewer_html(
+        hostile_pdb,
+        fmt="pdb",
+        style="cartoon",
+        color_scheme="plddt",
+        bg_color="javascript:alert(1)",
+        is_alphafold=True,
+    )
     assert len(re.findall(r"</script>", html_esc, flags=re.I)) == 1
     assert "<!-- comment -->" not in html_esc and "javascript:alert" not in html_esc
+    assert "setHoverDuration(50)" in html_esc
+    assert "AA_FULL_NAMES" in html_esc and 'ARG: ["Arginine", "R"]' in html_esc and "MSE:" in html_esc
+    assert "addLabel" in html_esc and "removeLabel" in html_esc
+    assert "setHoverable" in html_esc and "setClickable" in html_esc
     m_cfg = re.search(r"var CFG = (\{.*?\});\n", html_esc, flags=re.S)
     assert m_cfg is not None
     parsed_cfg = json.loads(m_cfg.group(1).replace("<\\/", "</").replace("<\\!--", "<!--"))
     assert "</script>" in parsed_cfg["structure"] and parsed_cfg["bgColor"] == "#F8FBF9"
+    assert parsed_cfg.get("isAlphaFold") is True
     for st_name in SUPPORTED_3DMOL_STYLES:
         for cs_name in SUPPORTED_3DMOL_COLOR_SCHEMES:
             h_combo = build_3dmol_viewer_html(af2_pdb.decode("utf-8"), style=st_name, color_scheme=cs_name)
@@ -2784,9 +2797,9 @@ def test_gel_recipes_3d_viewer_feedback_and_ai_proteins(root_dir: str) -> None:
     assert not any("De Novo / ProteinMPNN Caveat" in a for a in wf_bsa["alerts"])
 
     # ------------------------------------------------------------------
-    # 5. Headless AppTest Audit of app.py (#91, #99)
+    # 5. Headless AppTest Audit of app.py (#91, #99, #122 Wave 2)
     # ------------------------------------------------------------------
-    # 5a. Default load: 0 exceptions, 0 outbound HTTP calls, instant offline 3D Plotly scatter3d present
+    # 5a. Default load: 0 exceptions, 0 outbound HTTP calls, 6xHis-TEV-Lysozyme default, 2-mode 3D viewer
     def _forbid_http(*args, **kwargs):
         raise AssertionError(f"Unexpected outbound HTTP call on default load: args={args}")
 
@@ -2797,21 +2810,23 @@ def test_gel_recipes_3d_viewer_feedback_and_ai_proteins(root_dir: str) -> None:
 
     assert len(at.exception) == 0, f"Default load exceptions: {at.exception}"
     mode_radios = [r for r in at.radio if r.key == "viewer_3d_mode_radio"]
-    assert len(mode_radios) == 1 and "Offline" in mode_radios[0].value
-    found_offline_3d = False
+    assert len(mode_radios) == 1
+    assert mode_radios[0].options == ["🌐 Live AlphaFold / PDB 3D", "📂 Upload AI / Custom .pdb / .cif"]
+    assert mode_radios[0].value == "🌐 Live AlphaFold / PDB 3D"
     for ch in at.get("plotly_chart"):
         spec = json.loads(ch.proto.spec)
-        if any(tr.get("type") == "scatter3d" for tr in spec.get("data", [])):
-            assert SCHEMATIC_3D_DISCLAIMER in str(spec.get("layout", {}).get("title", {}).get("subtitle", {}).get("text", ""))
-            found_offline_3d = True
-            break
-    assert found_offline_3d, "Offline 3D scatter3d Plotly figure not found on default load!"
+        assert not any(tr.get("type") == "scatter3d" for tr in spec.get("data", [])), "Removed offline scatter3d still rendered!"
+
     rendered_md = "\n".join(m.value for m in at.markdown if "<style>" not in m.value)
-    assert "Schematic 3D Note:" in rendered_md
+    assert "6xHis-TEV-Lysozyme" in rendered_md and "143 aa" in rendered_md and "16.12" in rendered_md
+    assert "P00698" in rendered_md and "6xHis" in rendered_md and "TEV" in rendered_md
+    assert "construct-arch-svg" in rendered_md
+    assert at.session_state["active_sequence"] == CLASSROOM_PRESET_PROTEINS["lysozyme_his_tev"]["sequence"]
+    assert "Offline 3D" not in rendered_md and "Instant 3D Fold Schematic" not in rendered_md and "Schematic 3D" not in rendered_md
     assert len(re.findall(r"font-size\s*:", rendered_md, flags=re.I)) == 0
     assert not any("UV-280 Blind" in w.value for w in at.warning)
 
-    # 5b. Gel Recipe Pop-Out on Lysozyme (Laemmli + switch to Tricine)
+    # 5b. Gel Recipe Pop-Out on 6xHis-TEV-Lysozyme (Laemmli + switch to Tricine)
     gel_btn = [b for b in at.button if b.key == "btn_open_gel_recipe_dialog"][0]
     gel_btn.click().run(timeout=30)
     assert len(at.exception) == 0
@@ -2850,11 +2865,11 @@ def test_gel_recipes_3d_viewer_feedback_and_ai_proteins(root_dir: str) -> None:
     assert len(at_pep.exception) == 0
     assert not any("UV-280 Blind" in w.value for w in at_pep.warning)
 
-    # 5d. Live 3D Viewer: 0 HTTP before Fetch click, mocked AlphaFold fetch + cache after click
+    # 5d. Live 3D Viewer: 0 HTTP before Fetch click, mocked AlphaFold fetch + cache + tag note after click
     with patch("requests.get", side_effect=_forbid_http), \
          patch("requests.Session.request", side_effect=_forbid_http):
         at_live = AppTest.from_file(app_path).run(timeout=30)
-        [r for r in at_live.radio if r.key == "viewer_3d_mode_radio"][0].set_value("🌐 Live AlphaFold / PDB 3D").run(timeout=30)
+        assert [r for r in at_live.radio if r.key == "viewer_3d_mode_radio"][0].value == "🌐 Live AlphaFold / PDB 3D"
     assert len(at_live.exception) == 0
 
     def _mock_live_af(url: str, **kwargs):
@@ -2875,45 +2890,97 @@ def test_gel_recipes_3d_viewer_feedback_and_ai_proteins(root_dir: str) -> None:
     assert len(at_live.exception) == 0
     assert ("P00698", "alphafold") in at_live.session_state["structure_3d_cache"]
     assert at_live.session_state["structure_3d_cache"][("P00698", "alphafold")]["mean_plddt"] == 93.8
+    assert any("Engineered tag construct active" in c.value and "P00698" in c.value for c in at_live.caption)
 
-    # 5e. Feedback Modal: open & submit cleanly with guaranteed cleanup of data/user_feedback_reports.jsonl
+    # 5e. Feedback Modal: open, attach valid PNG screenshot, submit cleanly with guaranteed disk cleanup
+    import struct as _struct
+    import zlib as _zlib
+
+    def _make_tiny_png() -> bytes:
+        def _png_chunk(tag: bytes, data: bytes) -> bytes:
+            return _struct.pack(">I", len(data)) + tag + data + _struct.pack(">I", _zlib.crc32(tag + data) & 0xFFFFFFFF)
+        ihdr = _struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
+        idat = _zlib.compress(b"\x00\x0f\x4c\x5c")
+        return b"\x89PNG\r\n\x1a\n" + _png_chunk(b"IHDR", ihdr) + _png_chunk(b"IDAT", idat) + _png_chunk(b"IEND", b"")
+
     fb_log_path = os.path.join(root_dir, "data", "user_feedback_reports.jsonl")
+    fb_attach_dir = os.path.join(root_dir, "data", "feedback_attachments")
     fb_existed_before = os.path.exists(fb_log_path)
     fb_prior_bytes = None
     if fb_existed_before:
         with open(fb_log_path, "rb") as fh_prior:
             fb_prior_bytes = fh_prior.read()
+    attach_dir_existed = os.path.exists(fb_attach_dir)
+    attach_prior_files = set(os.listdir(fb_attach_dir)) if attach_dir_existed else set()
 
     try:
+        tiny_png = _make_tiny_png()
         at_fb = AppTest.from_file(app_path).run(timeout=30)
         [b for b in at_fb.sidebar.button if b.key == "btn_open_feedback_dialog"][0].click().run(timeout=30)
         assert len(at_fb.exception) == 0
-        [ta for ta in at_fb.text_area if ta.key == "fb_description_input"][0].set_value(
-            "Suite 14 verification feedback report (automatically cleaned up)."
-        )
-        [ti for ti in at_fb.text_input if ti.key == "fb_reference_input"][0].set_value("UniProt P00698")
-        [b for b in at_fb.button if b.key == "fb_submit_btn"][0].click()
+
+        # Invalid spoofed PNG should trigger validation error banner inside feedback dialog
+        fb_up_bad = [fu for fu in at_fb.get("file_uploader") if fu.key == "fb_screenshot_uploader"]
+        assert len(fb_up_bad) == 1
+        fb_up_bad[0].upload("spoof.png", b"NOT_A_PNG_STREAM", "image/png")
         [b for b in at_fb.sidebar.button if b.key == "btn_open_feedback_dialog"][0].click()
         at_fb.run(timeout=30)
-        assert len(at_fb.exception) == 0
-        assert "last_feedback_report" in at_fb.session_state
-        assert at_fb.session_state["last_feedback_report"]["diagnostic_context"]["uniprot_or_accession_id"] == "P00698"
-        assert any("Anonymous report captured" in s.value for s in at_fb.success)
+        assert any("Unsupported or invalid image format" in e.value for e in at_fb.error)
+
+        # Valid 1x1 PNG preview + submit persists screenshot relative path & payload safely
+        at_fb2 = AppTest.from_file(app_path).run(timeout=30)
+        [b for b in at_fb2.sidebar.button if b.key == "btn_open_feedback_dialog"][0].click().run(timeout=30)
+        fb_up = [fu for fu in at_fb2.get("file_uploader") if fu.key == "fb_screenshot_uploader"][0]
+        fb_up.upload("ui_bug_shot.png", tiny_png, "image/png")
+        [ta for ta in at_fb2.text_area if ta.key == "fb_description_input"][0].set_value(
+            "Suite 14 verification feedback report with screenshot (automatically cleaned up)."
+        )
+        [ti for ti in at_fb2.text_input if ti.key == "fb_reference_input"][0].set_value("UniProt P00698")
+        [b for b in at_fb2.sidebar.button if b.key == "btn_open_feedback_dialog"][0].click()
+        at_fb2.run(timeout=30)
+        assert len(at_fb2.exception) == 0
+
+        [b for b in at_fb2.button if b.key == "fb_submit_btn"][0].click()
+        [b for b in at_fb2.sidebar.button if b.key == "btn_open_feedback_dialog"][0].click()
+        at_fb2.run(timeout=30)
+        assert len(at_fb2.exception) == 0
+        assert "last_feedback_report" in at_fb2.session_state
+        rep_fb = at_fb2.session_state["last_feedback_report"]
+        assert rep_fb["diagnostic_context"]["uniprot_or_accession_id"] == "P00698"
+        assert "screenshot" in rep_fb and rep_fb["screenshot"]["filename"] == "ui_bug_shot.png"
+        rel_shot = rep_fb["screenshot"]["saved_rel_path"]
+        assert rel_shot.startswith("data/feedback_attachments/") and rel_shot.endswith("_ui_bug_shot.png")
+        assert rep_fb["screenshot"]["data_uri"].startswith("data:image/png;base64,")
+        assert os.path.exists(os.path.join(root_dir, *rel_shot.split("/")))
+        assert any("Anonymous report captured" in s.value for s in at_fb2.success)
     finally:
         if fb_existed_before and fb_prior_bytes is not None:
             with open(fb_log_path, "wb") as fh_restore:
                 fh_restore.write(fb_prior_bytes)
         elif os.path.exists(fb_log_path):
             os.remove(fb_log_path)
+        if os.path.exists(fb_attach_dir):
+            for fname_att in os.listdir(fb_attach_dir):
+                if fname_att not in attach_prior_files:
+                    try:
+                        os.remove(os.path.join(fb_attach_dir, fname_att))
+                    except OSError:
+                        pass
+            if not attach_dir_existed and not os.listdir(fb_attach_dir):
+                try:
+                    os.rmdir(fb_attach_dir)
+                except OSError:
+                    pass
     assert os.path.exists(fb_log_path) == fb_existed_before
+    assert os.path.exists(fb_attach_dir) == attach_dir_existed
 
     # 5f. Hot-reload recovery for modules.gel_recipe & modules.protein_3d
     delattr(_sys.modules["modules.gel_recipe"], "calculate_sds_gel_recipe")
-    delattr(_sys.modules["modules.protein_3d"], "build_3d_biophysical_backbone_figure")
+    delattr(_sys.modules["modules.protein_3d"], "build_3dmol_viewer_html")
     at_hr = AppTest.from_file(app_path).run(timeout=30)
     assert len(at_hr.exception) == 0, f"Hot-reload recovery failed for new modules: {at_hr.exception}"
     assert hasattr(_sys.modules["modules.gel_recipe"], "calculate_sds_gel_recipe")
-    assert hasattr(_sys.modules["modules.protein_3d"], "build_3d_biophysical_backbone_figure")
+    assert hasattr(_sys.modules["modules.protein_3d"], "build_3dmol_viewer_html")
 
     # 5g. De novo / AI-designed direct sequence in Plain English + RCSB PDB ID fetcher + Live 3D PDB button
     from modules.sequence_parser import (
@@ -3343,7 +3410,7 @@ def test_audit_regressions_and_ui_invariants(root_dir: str) -> None:
         idx_run2 = _tab_container_idx(at_tab)
         r_id_run2 = _radio_delta_path(at_tab, "viewer_3d_mode_radio")
 
-        [r for r in at_tab.radio if r.key == "viewer_3d_mode_radio"][0].set_value("🌐 Live AlphaFold / PDB 3D").run(timeout=30)
+        [r for r in at_tab.radio if r.key == "viewer_3d_mode_radio"][0].set_value("📂 Upload AI / Custom .pdb / .cif").run(timeout=30)
         assert len(at_tab.exception) == 0
         idx_run3 = _tab_container_idx(at_tab)
         r_id_run3 = _radio_delta_path(at_tab, "viewer_3d_mode_radio")
@@ -3352,7 +3419,7 @@ def test_audit_regressions_and_ui_invariants(root_dir: str) -> None:
         [ti for ti in at_tab.text_input if ti.key == "main_quick_search_input"][0].set_value("!@#$%")
         [b for b in at_tab.button if b.label == "Analyze Protein"][0].click().run(timeout=30)
         idx_run4 = _tab_container_idx(at_tab)
-        [r for r in at_tab.radio if r.key == "viewer_3d_mode_radio"][0].set_value("🧬 Instant 3D Fold Schematic (Offline)").run(timeout=30)
+        [r for r in at_tab.radio if r.key == "viewer_3d_mode_radio"][0].set_value("🌐 Live AlphaFold / PDB 3D").run(timeout=30)
         idx_run5 = _tab_container_idx(at_tab)
 
     assert idx_run1 == idx_run2 == idx_run3 == idx_run4 == idx_run5, (
@@ -3361,14 +3428,16 @@ def test_audit_regressions_and_ui_invariants(root_dir: str) -> None:
     assert r_id_run1 == r_id_run2 == r_id_run3
 
     # ------------------------------------------------------------------
-    # 6. #114.6, #114.7, #114.8, #114.9: Zero Classroom UI strings, 1.66 tab CSS, Greek alpha/beta, no double stars
+    # 6. #114.6-#114.9 & #122 Wave 2: Zero Classroom/Offline-3D UI strings, 1.66 tab CSS, SVGs, Q3 bar chart, Greek alpha/beta
     # ------------------------------------------------------------------
+    import xml.etree.ElementTree as _ET
+
     with open(app_path, "r", encoding="utf-8") as fh_a:
         app_src = fh_a.read()
     with open(os.path.join(root_dir, "modules", "buffer_advisor.py"), "r", encoding="utf-8") as fh_ba:
         ba_src = fh_ba.read()
 
-    # Zero non-docstring/non-comment 'classroom' string literals in app.py and buffer_advisor.py
+    # Zero non-docstring/non-comment 'classroom' or removed offline-3D UI string literals in app.py / buffer_advisor.py
     for fname_chk, src_chk in (("app.py", app_src), ("modules/buffer_advisor.py", ba_src)):
         tree_chk = ast.parse(src_chk)
         doc_ids = set()
@@ -3378,10 +3447,15 @@ def test_audit_regressions_and_ui_invariants(root_dir: str) -> None:
                     doc_ids.add(id(node.body[0].value))
         for node in ast.walk(tree_chk):
             if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in doc_ids:
-                if "classroom" in node.value.lower() and node.value != "classroom_preset_select":
+                val_low = node.value.lower()
+                if "classroom" in val_low and node.value != "classroom_preset_select":
                     raise AssertionError(f"Found leftover 'classroom' UI string literal in {fname_chk}: {node.value!r}")
+                if fname_chk == "app.py":
+                    for bad_3d in ("offline 3d", "instant 3d fold schematic", "schematic 3d"):
+                        if bad_3d in val_low:
+                            raise AssertionError(f"Found removed 3D string literal {bad_3d!r} in app.py: {node.value!r}")
 
-    # Check rendered UI on default load has zero 'classroom', intact 1.66 tab selectors, Greek fix, and no double-stars
+    # Check rendered UI on default load has zero 'classroom'/offline-3D, valid XML SVGs, Q3 chart, 1.66 tab CSS, zero inline font-size:
     at_ui = AppTest.from_file(app_path).run(timeout=30)
     rendered_strings = (
         [m.value for m in at_ui.markdown if "<style>" not in m.value]
@@ -3394,18 +3468,45 @@ def test_audit_regressions_and_ui_invariants(root_dir: str) -> None:
         + [t.label for t in at_ui.tabs]
     )
     for txt_item in rendered_strings:
-        assert "classroom" not in txt_item.lower(), f"Rendered UI still contains 'classroom': {txt_item!r}"
+        txt_low = txt_item.lower()
+        assert "classroom" not in txt_low, f"Rendered UI still contains 'classroom': {txt_item!r}"
+        assert "offline 3d" not in txt_low and "instant 3d fold schematic" not in txt_low, (
+            f"Rendered UI still references removed Offline 3D schematic: {txt_item!r}"
+        )
+        assert not re.search(r"font-size\s*:", txt_item, flags=re.IGNORECASE), f"Inline font-size: leaked in UI: {txt_item!r}"
+
+    # Verify all inline vector diagrams (Construct, SEC rule, SEC studio, SDS strip, Strategy flowchart, IEX vs HIC) are valid SVG XML
+    ui_md_blob = "\n".join(m.value for m in at_ui.markdown if "<style>" not in m.value)
+    for req_svg_cls in ("construct-arch-svg", "sec-rule-svg", "sec-studio-svg", "sds-principle-svg", "strategy-flow-svg", "iex-hic-svg"):
+        assert req_svg_cls in ui_md_blob, f"Expected vector diagram class {req_svg_cls!r} missing from rendered UI!"
+    svg_blocks = re.findall(r"<svg\b[^>]*>.*?</svg>", ui_md_blob, flags=re.S)
+    assert len(svg_blocks) >= 6, f"Expected >= 6 rendered inline SVGs, found {len(svg_blocks)}"
+    for sb in svg_blocks:
+        _ET.fromstring(sb)
+
+    # #133.2: Tab 2 italic rendering & word-wrapped flowchart SVG without mid-word ellipsis
+    flow_svgs = [sb for sb in svg_blocks if "strategy-flow-svg" in sb]
+    assert len(flow_svgs) == 1
+    assert "…" not in flow_svgs[0] and "..." not in flow_svgs[0], f"Flowchart SVG still truncated: {flow_svgs[0]}"
+    assert "<i>(Omit DTT/TCEP/β-ME to preserve native disulfide bridges!)</i>" in ui_md_blob
+    assert "*(" not in ui_md_blob, "Raw unparsed *italic* markdown leaked into rendered HTML!"
 
     style_css_blk = re.search(r"<style>(.*?)</style>", app_src, flags=re.S | re.I).group(1)
     assert '[role="tablist"]' in style_css_blk and '[data-testid="stTab"]' in style_css_blk
     assert ".ss-summary-grid .roadmap-step-tag" in style_css_blk and "text-transform: none" in style_css_blk
+    assert "padding-top: 3.85rem !important;" in style_css_blk
+    assert 'displayModeBar": False' in app_src or "displayModeBar': False" in app_src
 
-    # Tab 5 Plotly figures have no duplicate star legend names ("★ ★")
+    # Tab 5 Plotly figures have no duplicate star legend names ("★ ★") & include Single-Sequence Mean Q3 comparison bar chart
+    found_q3_h2h_chart = False
     for ch in at_ui.get("plotly_chart"):
         spec_ch = json.loads(ch.proto.spec)
+        if "Single-Sequence Mean Q3 Comparison (%)" in str(spec_ch.get("layout", {}).get("title", {}).get("text", "")):
+            found_q3_h2h_chart = True
         for tr in spec_ch.get("data", []):
             tr_name = str(tr.get("name", ""))
             assert not tr_name.startswith("★ "), f"Duplicate star prefix in Plotly legend name: {tr_name!r}"
+    assert found_q3_h2h_chart, "Expected Tab 5 Single-Sequence Mean Q3 Comparison (%) bar chart!"
 
     # Urease badge cleans nested parens while preserving 'Ni²⁺ (Dinuclear Active Site)'
     with patch("modules.sequence_parser.requests.get", side_effect=_requests.ConnectionError("Offline")):

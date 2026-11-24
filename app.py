@@ -14,9 +14,11 @@ Designed for high-school & college classrooms as well as structural biology & bi
 - Simplified Real-World Literature & 1,254-Protein Accuracy Showcase
 """
 
+import base64
 from datetime import datetime, timezone
 import html
 import importlib
+import inspect
 import json
 import math
 import os
@@ -49,6 +51,7 @@ try:
     from modules.sequence_parser import (
         LYSOZYME_MATURE_SEQ,
         CLASSROOM_PRESET_PROTEINS,
+        STANDARD_CLEAVAGE_SITES,
         clean_amino_acid_sequence,
         extract_fasta_header_metadata,
         detect_sequence_terminal_tag,
@@ -105,13 +108,11 @@ try:
         recommend_gel_recipe_params,
     )
     from modules.protein_3d import (
-        SCHEMATIC_3D_DISCLAIMER,
         normalize_uniprot_accession,
         fetch_3d_structure_for_uniprot,
         fetch_structure_by_pdb_id,
         parse_uploaded_structure_file,
         build_3dmol_viewer_html,
-        build_3d_biophysical_backbone_figure,
     )
 except ImportError:
     # Handle Streamlit Cloud hot-reloading when container has stale in-memory cached modules in sys.modules
@@ -125,6 +126,7 @@ except ImportError:
     from modules.sequence_parser import (
         LYSOZYME_MATURE_SEQ,
         CLASSROOM_PRESET_PROTEINS,
+        STANDARD_CLEAVAGE_SITES,
         clean_amino_acid_sequence,
         extract_fasta_header_metadata,
         detect_sequence_terminal_tag,
@@ -181,13 +183,11 @@ except ImportError:
         recommend_gel_recipe_params,
     )
     from modules.protein_3d import (
-        SCHEMATIC_3D_DISCLAIMER,
         normalize_uniprot_accession,
         fetch_3d_structure_for_uniprot,
         fetch_structure_by_pdb_id,
         parse_uploaded_structure_file,
         build_3dmol_viewer_html,
-        build_3d_biophysical_backbone_figure,
     )
 
 # Page configuration
@@ -347,7 +347,7 @@ st.markdown("""
         background-color: var(--bg-canvas);
     }
     [data-testid="stMainBlockContainer"] {
-        padding-top: 2.35rem;
+        padding-top: 2.85rem;
         padding-left: 2.25rem;
         padding-right: 2.25rem;
     }
@@ -971,6 +971,23 @@ st.markdown("""
         background: #FAFBF9;
         border: 1px solid var(--border-soft);
     }
+    .construct-arch-svg,
+    .sec-rule-svg,
+    .sds-principle-svg,
+    .strategy-flow-svg,
+    .iex-hic-svg {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 6px;
+        background: #FAFBF9;
+        border: 1px solid var(--border-soft);
+    }
+    .construct-arch-svg { margin-top: 8px; }
+    .sec-rule-svg { margin: 4px 0 7px 0; }
+    .sds-principle-svg { margin: 4px 0 10px 0; }
+    .strategy-flow-svg { margin: 4px 0 12px 0; }
+    .iex-hic-svg { margin-top: 4px; }
     .sec-svg-h {
         font-family: var(--font-sans);
         font-size: 13.5px;
@@ -1538,7 +1555,7 @@ st.markdown("""
     /* Scientific Journal Underline Tab Bar (Streamlit 1.66+ React Aria DOM + legacy BaseWeb fallback) */
     .stTabs [role="tablist"],
     .stTabs [data-baseweb="tab-list"] {
-        gap: 3px !important;
+        gap: 1px !important;
         background-color: transparent;
         padding: 0 0 2px 0;
         border-radius: 0;
@@ -1554,11 +1571,11 @@ st.markdown("""
     .stTabs [data-testid="stTab"],
     .stTabs [data-baseweb="tab"] {
         border-radius: 5px 5px 0 0;
-        padding: 7px 9px !important;
+        padding: 6px 6px !important;
         height: auto !important;
         min-height: 36px;
         font-weight: 600;
-        font-size: 0.785rem !important;
+        font-size: 0.745rem !important;
         color: var(--ink-caption);
         border: none;
         border-bottom: 2.5px solid transparent;
@@ -1576,7 +1593,7 @@ st.markdown("""
     .stTabs [data-testid="stTab"] p,
     .stTabs [data-baseweb="tab"] p {
         font-weight: 600 !important;
-        font-size: 0.785rem !important;
+        font-size: 0.745rem !important;
         color: var(--ink-caption);
         margin: 0 !important;
     }
@@ -1677,8 +1694,10 @@ st.markdown("""
         margin-bottom: 4px;
     }
 
-    @media (max-width: 768px) {
-        [data-testid="stMainBlockContainer"] {
+    @media (max-width: 900px) {
+        [data-testid="stMainBlockContainer"],
+        .block-container {
+            padding-top: 3.85rem !important;
             padding-left: 0.9rem !important;
             padding-right: 0.9rem !important;
         }
@@ -1761,15 +1780,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# --- INITIALIZE SESSION STATE (Default = Egg-White Lysozyme P00698!) ---
+# --- INITIALIZE SESSION STATE (Default = 6xHis-TEV-Lysozyme P00698!) ---
 if "active_sequence" not in st.session_state:
-    default_preset = CLASSROOM_PRESET_PROTEINS["lysozyme_native"]
+    default_preset = CLASSROOM_PRESET_PROTEINS["lysozyme_his_tev"]
     st.session_state.active_sequence = default_preset["sequence"]
     st.session_state.sequence_name = default_preset["name"]
     st.session_state.sequence_metadata = {
         "source": "",
         "uniprot_id": default_preset["uniprot_id"],
         "tag": default_preset["tag"],
+        "cleavage": "TEV Protease",
+        "canonical_len": len(LYSOZYME_MATURE_SEQ),
     }
     st.session_state.construct_parts = default_preset["construct_parts"]
 
@@ -1785,9 +1806,10 @@ if "structure_3d_cache" not in st.session_state:
 
 
 def _md_inline_to_html(text: str) -> str:
-    """Safely converts simple **bold** and `code` spans to HTML for custom ribbon cards."""
+    """Safely converts simple **bold**, *italic*, and `code` spans to HTML for custom ribbon cards."""
     esc = html.escape(str(text or ""))
     esc = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", esc)
+    esc = re.sub(r"(?<!\*)\*(?!\*|\s)([^\*\n]+?)(?<!\*|\s)\*(?!\*)", r"<i>\1</i>", esc)
     esc = re.sub(r"`([^`]+)`", r"<code>\1</code>", esc)
     return esc
 
@@ -2268,6 +2290,27 @@ def _open_gel_recipe_dialog(default_gel_pct: float, target_mw_kda: float, protei
     )
 
 
+def _validate_feedback_image(raw_bytes: bytes, raw_name: str) -> tuple[bool, str, str, str]:
+    """Validates an uploaded feedback screenshot (<= 4 MB; PNG/JPEG/WEBP magic bytes) and returns (ok, ext_or_err, mime, safe_name)."""
+    if not raw_bytes:
+        return False, "Uploaded screenshot file is empty.", "", ""
+    if len(raw_bytes) > 4 * 1024 * 1024:
+        return False, "Screenshot exceeds the 4 MB limit. Please upload a smaller PNG, JPG, or WEBP image.", "", ""
+    if raw_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        ext, mime = "png", "image/png"
+    elif raw_bytes.startswith(b"\xff\xd8\xff"):
+        ext, mime = "jpg", "image/jpeg"
+    elif len(raw_bytes) >= 12 and raw_bytes[:4] == b"RIFF" and raw_bytes[8:12] == b"WEBP":
+        ext, mime = "webp", "image/webp"
+    else:
+        return False, "Unsupported or invalid image format. Please attach a genuine PNG, JPG, or WEBP screenshot.", "", ""
+
+    base_clean = re.sub(r"[^A-Za-z0-9._-]+", "_", os.path.basename(str(raw_name or "screenshot"))).strip("._")
+    stem = os.path.splitext(base_clean)[0][:48] or "screenshot"
+    safe_name = f"{stem}.{ext}"
+    return True, ext, mime, safe_name
+
+
 @st.dialog("💬 Report an Error or Suggestion", width="large")
 def _open_feedback_dialog(
     protein_name: str,
@@ -2322,14 +2365,39 @@ def _open_feedback_dialog(
         placeholder="e.g., UniProt P07374, PDB 2VB1, DOI 10.1038/...",
         key="fb_reference_input",
     )
+    fb_screenshot = st.file_uploader(
+        "Attach Screenshot / Picture (optional):",
+        type=["png", "jpg", "jpeg", "webp"],
+        key="fb_screenshot_uploader",
+        help="Attach a screenshot showing the issue (PNG, JPG, or WEBP, up to 4 MB).",
+    )
+
+    shot_valid = False
+    shot_bytes = b""
+    shot_mime = ""
+    shot_safe_name = ""
+    shot_err = ""
+    if fb_screenshot is not None:
+        shot_bytes = fb_screenshot.getvalue()
+        shot_ok, shot_res, shot_mime, shot_safe_name = _validate_feedback_image(shot_bytes, fb_screenshot.name)
+        if shot_ok:
+            shot_valid = True
+            st.image(shot_bytes, caption=f"Preview: {shot_safe_name} ({len(shot_bytes) / 1024:.1f} KB)", width=380)
+        else:
+            shot_err = shot_res
+            st.error(shot_err)
 
     if st.button("📨 Submit Anonymous Report", type="primary", width="stretch", key="fb_submit_btn"):
         if not fb_description.strip():
             st.warning("Please enter a brief description of what happened and what you expected before submitting.")
+        elif fb_screenshot is not None and not shot_valid:
+            st.error(shot_err or "Please remove or replace the invalid screenshot attachment before submitting.")
         else:
-            submitted_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            now_utc = datetime.now(timezone.utc)
+            submitted_utc = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+            utc_slug = now_utc.strftime("%Y%m%dT%H%M%SZ")
             report_payload = {
-                "schema_version": "1.0",
+                "schema_version": "1.1",
                 "submitted_utc": submitted_utc,
                 "category": fb_category,
                 "description": fb_description.strip(),
@@ -2345,16 +2413,51 @@ def _open_feedback_dialog(
             }
 
             delivery_notes = []
+            if shot_valid:
+                shot_meta = {
+                    "filename": shot_safe_name,
+                    "mime_type": shot_mime,
+                    "size_bytes": len(shot_bytes),
+                }
+                if len(shot_bytes) <= 350 * 1024:
+                    shot_meta["data_uri"] = f"data:{shot_mime};base64,{base64.b64encode(shot_bytes).decode('ascii')}"
+                stored_fname = f"{utc_slug}_{shot_safe_name}"
+                shot_disk_path = os.path.join(_APP_ROOT, "data", "feedback_attachments", stored_fname)
+                try:
+                    os.makedirs(os.path.dirname(shot_disk_path), exist_ok=True)
+                    with open(shot_disk_path, "wb") as sf:
+                        sf.write(shot_bytes)
+                    shot_meta["saved_rel_path"] = f"data/feedback_attachments/{stored_fname}"
+                    delivery_notes.append(f"screenshot saved ({shot_safe_name})")
+                except OSError:
+                    delivery_notes.append("screenshot storage read-only (included in JSON if <= 350 KB)")
+                report_payload["screenshot"] = shot_meta
+
             webhook_url = _get_feedback_webhook_url()
             if webhook_url:
-                try:
-                    resp = requests.post(webhook_url, json=report_payload, timeout=6)
-                    if 200 <= resp.status_code < 300:
-                        delivery_notes.append("forwarded via configured webhook")
-                    else:
-                        delivery_notes.append("webhook returned non-2xx (saved locally / downloadable below)")
-                except Exception:
-                    delivery_notes.append("webhook unreachable (saved locally / downloadable below)")
+                sent_ok = False
+                if shot_valid:
+                    try:
+                        resp = requests.post(
+                            webhook_url,
+                            data={"payload": json.dumps(report_payload, ensure_ascii=False)},
+                            files={"screenshot": (shot_safe_name, shot_bytes, shot_mime)},
+                            timeout=8,
+                        )
+                        if 200 <= resp.status_code < 300:
+                            delivery_notes.append("forwarded via webhook (multipart)")
+                            sent_ok = True
+                    except Exception:
+                        sent_ok = False
+                if not sent_ok:
+                    try:
+                        resp = requests.post(webhook_url, json=report_payload, timeout=6)
+                        if 200 <= resp.status_code < 300:
+                            delivery_notes.append("forwarded via configured webhook")
+                        else:
+                            delivery_notes.append("webhook returned non-2xx (saved locally / downloadable below)")
+                    except Exception:
+                        delivery_notes.append("webhook unreachable (saved locally / downloadable below)")
 
             fb_log_path = os.path.join(_APP_ROOT, "data", "user_feedback_reports.jsonl")
             try:
@@ -2371,7 +2474,12 @@ def _open_feedback_dialog(
     last_rep = st.session_state.get("last_feedback_report")
     last_ctx = last_rep.get("diagnostic_context") if isinstance(last_rep, dict) else None
     if isinstance(last_rep, dict) and isinstance(last_ctx, dict) and last_ctx.get("active_protein_name") == str(protein_name):
-        st.success("✅ Anonymous report captured! Thank you for helping verify and improve the lab.")
+        shot_rep = last_rep.get("screenshot") if isinstance(last_rep.get("screenshot"), dict) else None
+        shot_confirm = (
+            f" Attached screenshot: **{shot_rep['filename']}** ({shot_rep['size_bytes'] / 1024:.1f} KB)."
+            if shot_rep else ""
+        )
+        st.success(f"✅ Anonymous report captured!{shot_confirm} Thank you for helping verify and improve the lab.")
         deliv_str = st.session_state.get("last_feedback_delivery", "")
         if deliv_str:
             st.caption(f"Delivery status: {deliv_str}.")
@@ -2385,6 +2493,10 @@ def _open_feedback_dialog(
             key="fb_download_json_btn",
         )
         ctx = last_rep.get("diagnostic_context") or {}
+        shot_summary_line = (
+            f"Screenshot: {shot_rep['filename']} ({shot_rep['size_bytes'] / 1024:.1f} KB)\n"
+            if shot_rep else ""
+        )
         copy_summary = (
             f"Category: {last_rep.get('category', '')}\n"
             f"UTC Time: {last_rep.get('submitted_utc', '')}\n"
@@ -2392,6 +2504,7 @@ def _open_feedback_dialog(
             f"Metrics: {ctx.get('sequence_length_aa', 0)} aa | {ctx.get('mw_kda', 0)} kDa | pI {ctx.get('pi', 0)} | Input: {ctx.get('active_input_method', '')}\n"
             f"Details: {last_rep.get('description', '')}\n"
             + (f"Reference: {last_rep.get('reference', '')}\n" if last_rep.get("reference") else "")
+            + shot_summary_line
         )
         with st.expander("📋 Copyable Diagnostic Summary", expanded=True):
             st.code(copy_summary, language="text")
@@ -2495,15 +2608,21 @@ def _render_3dmol_metadata_and_viewer(struct_dict: dict, key_prefix: str) -> Non
         if cap_parts:
             st.caption("  •  ".join(cap_parts))
 
-    viewer_html = build_3dmol_viewer_html(
-        structure_text=struct_dict["data"],
-        fmt=str(struct_dict.get("format") or "pdb"),
-        style=v3d_style,
-        color_scheme=v3d_color,
-        spin=bool(v3d_spin),
-        show_hetatms=bool(v3d_hetatms),
-        height_px=440,
-    )
+    viewer_kwargs = {
+        "structure_text": struct_dict["data"],
+        "fmt": str(struct_dict.get("format") or "pdb"),
+        "style": v3d_style,
+        "color_scheme": v3d_color,
+        "spin": bool(v3d_spin),
+        "show_hetatms": bool(v3d_hetatms),
+        "height_px": 440,
+    }
+    viewer_params = inspect.signature(build_3dmol_viewer_html).parameters
+    if "is_alphafold" in viewer_params:
+        viewer_kwargs["is_alphafold"] = bool(struct_dict.get("is_alphafold") or struct_dict.get("looks_like_plddt"))
+    elif "has_plddt" in viewer_params:
+        viewer_kwargs["has_plddt"] = bool(struct_dict.get("is_alphafold") or struct_dict.get("looks_like_plddt"))
+    viewer_html = build_3dmol_viewer_html(**viewer_kwargs)
     if hasattr(st, "iframe"):
         st.iframe(viewer_html, width="stretch", height=470)
     else:
@@ -2516,8 +2635,7 @@ st.markdown("""
     <div class="hero-eyebrow">Biochemical Characterization &amp; Protein Purification Workbench</div>
     <div class="hero-title">ProPurify Studio</div>
     <div class="hero-subtitle">
-        Sequence-to-bench planning across <b>UniProt</b>, <b>NCBI</b>, <b>RCSB PDB</b>, and <b>de novo constructs</b> —
-        instant SEC retention modeling, SDS-PAGE gel calibration, cofactor-safe chromatography selection, and exact buffer stoichiometry.
+        Sequence-to-bench purification planning across <b>UniProt</b>, <b>NCBI</b>, <b>RCSB PDB</b>, and engineered constructs.
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -2837,6 +2955,107 @@ if conflict_info:
         f'</div>'
     )
 
+def _render_construct_architecture_svg(parts: list, total_mw_kda: float) -> str:
+    """Render a compact linear N-to-C domain block SVG for engineered multi-part constructs."""
+    if not parts:
+        return ""
+    segs = []
+    cleave_idx = None
+    cleave_cut_offset = None
+    for idx_p, (raw_lbl, raw_seq) in enumerate(parts):
+        lbl_s = str(raw_lbl or "Part").strip()
+        seq_s = re.sub(r"[^A-Z]", "", str(raw_seq or "").upper())
+        aa_len = max(1, len(seq_s) if seq_s else len(str(raw_seq or "")))
+        lbl_low = lbl_s.lower()
+        if "tag" in lbl_low:
+            kind = "tag"
+        elif "cleavage" in lbl_low or "protease" in lbl_low:
+            kind = "cleavage"
+        else:
+            kind = "target"
+        m_paren = re.search(r"\(([^()]+)\)", lbl_s)
+        short_nm = m_paren.group(1).strip() if m_paren else re.sub(r"^(?:Tag|Cleavage Site|Target Protein)\s*:\s*", "", lbl_s, flags=re.I).strip()
+        if len(short_nm) > 28:
+            short_nm = short_nm[:26].rstrip() + "…"
+        if kind == "cleavage" and cleave_idx is None:
+            for site_info in STANDARD_CLEAVAGE_SITES.values():
+                if site_info["seq"] == seq_s:
+                    cleave_idx = idx_p
+                    cleave_cut_offset = int(site_info["cut_offset"])
+                    break
+        segs.append({"kind": kind, "short": short_nm, "aa": aa_len, "seq": seq_s})
+
+    tot_aa_all = sum(s["aa"] for s in segs)
+    cleaved_summary = ""
+    if cleave_idx is not None and cleave_cut_offset is not None and len(segs) >= 2:
+        has_pre_tag = any(s["kind"] == "tag" for s in segs[:cleave_idx])
+        has_post_tag = any(s["kind"] == "tag" for s in segs[cleave_idx + 1:])
+        c_seq = segs[cleave_idx]["seq"]
+        if has_pre_tag and not has_post_tag:
+            post_seq = c_seq[cleave_cut_offset:] + "".join(s["seq"] for s in segs[cleave_idx + 1:])
+        elif has_post_tag and not has_pre_tag:
+            post_seq = "".join(s["seq"] for s in segs[:cleave_idx]) + c_seq[:cleave_cut_offset]
+        else:
+            post_seq = ""
+        if post_seq and len(post_seq) < tot_aa_all:
+            post_mw = float(analyze_all_parameters(post_seq)["mw_kda"])
+            cleaved_summary = f"  ➜  Post-cleavage target: {len(post_seq)} aa ({post_mw:.2f} kDa)"
+
+    n_seg = len(segs)
+    gap = 6.0
+    x_cursor = 34.0
+    avail_w = 792.0 - gap * max(0, n_seg - 1)
+    min_ws = [110.0 if s["kind"] in ("tag", "cleavage") else 140.0 for s in segs]
+    if sum(min_ws) > avail_w:
+        scale = avail_w / max(1.0, sum(min_ws))
+        widths = [mw_v * scale for mw_v in min_ws]
+    else:
+        rem = avail_w - sum(min_ws)
+        widths = [mw_v + rem * (s["aa"] / max(1, tot_aa_all)) for mw_v, s in zip(min_ws, segs)]
+
+    palette = {
+        "tag": ("#EEF2FF", "#818CF8", "#3730A3"),
+        "cleavage": ("#FEF3C7", "#D97706", "#92400E"),
+        "target": ("#E6F3F6", "#0F4C5C", "#0A3540"),
+    }
+    svg_lines = [
+        '<svg viewBox="0 0 860 72" class="construct-arch-svg" role="img" aria-label="Construct domain architecture">',
+        '<rect x="0" y="0" width="860" height="72" rx="6" fill="#FAFBF9"/>',
+        '<text x="17" y="33" text-anchor="middle" class="sec-svg-bold" fill="#52606D">N</text>',
+        '<line x1="25" y1="29" x2="835" y2="29" stroke="#CBD5E1" stroke-width="2"/>',
+        '<text x="843" y="33" text-anchor="middle" class="sec-svg-bold" fill="#52606D">C</text>',
+    ]
+    for s, bw in zip(segs, widths):
+        fill_c, stroke_c, text_c = palette[s["kind"]]
+        cx = x_cursor + bw / 2.0
+        lbl_txt = f"{s['short']} · {s['aa']} aa"
+        if s["kind"] == "cleavage":
+            lbl_txt = f"✂ {s['short']} · {s['aa']} aa"
+            cut_ratio = (cleave_cut_offset / max(1, s["aa"])) if cleave_cut_offset else 0.78
+            cut_x = x_cursor + bw * min(0.86, max(0.18, cut_ratio))
+            svg_lines.append(
+                f'<rect x="{x_cursor:.1f}" y="11" width="{bw:.1f}" height="34" rx="5" fill="{fill_c}" stroke="{stroke_c}" stroke-width="1.4"/>'
+            )
+            svg_lines.append(
+                f'<line x1="{cut_x:.1f}" y1="8" x2="{cut_x:.1f}" y2="48" stroke="#B45309" stroke-width="1.3" stroke-dasharray="3,2"/>'
+            )
+        else:
+            svg_lines.append(
+                f'<rect x="{x_cursor:.1f}" y="11" width="{bw:.1f}" height="34" rx="5" fill="{fill_c}" stroke="{stroke_c}" stroke-width="1.4"/>'
+            )
+        svg_lines.append(
+            f'<text x="{cx:.1f}" y="32" text-anchor="middle" class="sec-svg-bold" fill="{text_c}">{html.escape(lbl_txt)}</text>'
+        )
+        x_cursor += bw + gap
+
+    footer_txt = f"Intact construct: {tot_aa_all} aa ({float(total_mw_kda):.2f} kDa){cleaved_summary}"
+    svg_lines.append(
+        f'<text x="430" y="62" text-anchor="middle" class="sec-svg-micro" fill="#475569">{html.escape(footer_txt)}</text>'
+    )
+    svg_lines.append('</svg>')
+    return "\n".join(svg_lines)
+
+
 has_multipart_construct = bool(
     st.session_state.construct_parts
     and (
@@ -2861,10 +3080,12 @@ if has_multipart_construct:
         + f'"><b>{html.escape(str(p[0]))}:</b> {len(p[1])} aa</span>'
         for p in st.session_state.construct_parts
     )
+    arch_svg = _render_construct_architecture_svg(st.session_state.construct_parts, metrics["mw_kda"])
     ribbon_html = (
         f'<div class="protein-ribbon">'
         f'<div class="ribbon-top-row"><div class="ribbon-title">🧬 Active Construct: {seq_name_safe}</div>{pill_group_html}</div>'
         f'<div class="construct-parts-row">{parts_html}</div>'
+        f'{arch_svg}'
         f'{conflict_html}'
         f'</div>'
     )
@@ -3930,21 +4151,50 @@ tab_sec, tab_strategy, tab_buffers, tab_details, tab_examples = st.tabs([
 with tab_sec:
     st.markdown("### 📊 Size-Exclusion Chromatography (SEC) Simulator")
 
-    # Scientific SEC Separation Principle Callout
-    st.markdown("""
-    <div class="sec-rule-card">
-        <div class="sec-rule-header">
-            <span>Larger Hydrodynamic Radius (Rh) → Elutes First (Near Vo)</span>
-            <span class="sec-rule-pill">SEC Separation Principle</span>
-            <span>Smaller Hydrodynamic Radius (Rh) → Elutes Late (Toward Vt)</span>
-        </div>
-        <div class="ui-body">
-            Gel filtration partitions macromolecules strictly by effective solution volume (hydrodynamic radius <b>Rh</b>, not molecular weight alone).
-            <b>Large complexes &amp; HMW aggregates</b> exceed matrix pore diameters and elute rapidly through the interstitial void volume (<code>Vo</code>);
-            <b>compact monomers</b> diffuse deeply into internal stationary-phase pores, traversing a longer tortuous path and eluting later near <code>Vt</code>.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Scientific SEC Separation Principle Callout (Diagram + 1-line Summary)
+    _sec_rule_svg = "\n".join([
+        '<svg viewBox="0 0 860 90" class="sec-rule-svg" role="img" aria-label="SEC pore partitioning schematic">',
+        '<rect x="10" y="6" width="266" height="78" rx="6" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="1.2"/>',
+        '<circle cx="44" cy="45" r="15" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1.1"/>',
+        '<circle cx="80" cy="45" r="15" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1.1"/>',
+        '<path d="M 22 25 L 106 25" fill="none" stroke="#DC2626" stroke-width="2.4" stroke-dasharray="4,2"/>',
+        '<polygon points="103,21 112,25 103,29" fill="#DC2626"/>',
+        '<circle cx="62" cy="25" r="8.5" fill="#DC2626" stroke="#FFFFFF" stroke-width="1.2"/>',
+        '<text x="122" y="29" class="sec-svg-bold" fill="#991B1B">Large Complex / HMW</text>',
+        '<text x="122" y="45" class="sec-svg-micro" fill="#B91C1C">Rh &gt; Pore (0% pore entry)</text>',
+        '<text x="122" y="63" class="sec-svg-mono" fill="#DC2626">Bypasses beads ➜ Vo</text>',
+        '<rect x="297" y="6" width="266" height="78" rx="6" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.2"/>',
+        '<circle cx="331" cy="46" r="15" fill="#FEF3C7" stroke="#D97706" stroke-width="1"/>',
+        '<circle cx="367" cy="46" r="15" fill="#FEF3C7" stroke="#D97706" stroke-width="1"/>',
+        '<path d="M 309 30 Q 332 42 350 28 Q 370 42 393 30" fill="none" stroke="#D97706" stroke-width="2.2"/>',
+        '<polygon points="390,26 399,29 392,34" fill="#D97706"/>',
+        '<circle cx="350" cy="34" r="6" fill="#D97706" stroke="#FFFFFF" stroke-width="1.1"/>',
+        '<text x="409" y="29" class="sec-svg-bold" fill="#92400E">Medium Oligomer</text>',
+        '<text x="409" y="45" class="sec-svg-micro" fill="#B45309">Rh ~ Pore (partial pockets)</text>',
+        '<text x="409" y="63" class="sec-svg-mono" fill="#D97706">Short detour ➜ Middle Ve</text>',
+        '<rect x="584" y="6" width="266" height="78" rx="6" fill="#F0FDFA" stroke="#5EEAD4" stroke-width="1.2"/>',
+        '<circle cx="618" cy="46" r="15" fill="#CCFBF1" stroke="#0F766E" stroke-width="1"/>',
+        '<circle cx="654" cy="46" r="15" fill="#CCFBF1" stroke="#0F766E" stroke-width="1"/>',
+        '<path d="M 596 42 Q 618 58 636 38 Q 654 58 680 44" fill="none" stroke="#0F766E" stroke-width="2.1"/>',
+        '<polygon points="677,40 686,44 677,48" fill="#0F766E"/>',
+        '<circle cx="636" cy="42" r="4.5" fill="#0F766E" stroke="#FFFFFF" stroke-width="1"/>',
+        '<text x="696" y="29" class="sec-svg-bold" fill="#065F46">Compact Monomer</text>',
+        '<text x="696" y="45" class="sec-svg-micro" fill="#0F766E">Rh &lt; Pore (deep pore maze)</text>',
+        '<text x="696" y="63" class="sec-svg-mono" fill="#0F4C5C">Slow path ➜ Toward Vt</text>',
+        '</svg>',
+    ])
+    _sec_rule_html = "\n".join([
+        '<div class="sec-rule-card">',
+        '<div class="sec-rule-header">',
+        '<span>Larger Hydrodynamic Radius (Rh) → Elutes First (Near Vo)</span>',
+        '<span class="sec-rule-pill">SEC Separation Principle</span>',
+        '<span>Smaller Hydrodynamic Radius (Rh) → Elutes Late (Toward Vt)</span>',
+        '</div>',
+        _sec_rule_svg,
+        '<div class="ui-body">Gel filtration separates by effective solution radius (<b>Rh</b>): excluded complexes bypass beads through void volume (<code>Vo</code>), while compact monomers explore deep bead pores toward total volume (<code>Vt</code>).</div>',
+        '</div>',
+    ])
+    st.markdown(_sec_rule_html, unsafe_allow_html=True)
 
     # Reserved visual slot directly beneath the Easy Rule of SEC banner (populated once simulation runs below)
     inside_sec_column_slot = st.container()
@@ -4274,10 +4524,30 @@ with tab_sec:
     # --- DESTAINED SDS-PAGE GEL SECTION ---
     st.markdown("---")
     st.markdown("### 🧫 Virtual Destained SDS-PAGE Gel")
-    st.caption(
-        "SDS detergent + reducing agent (DTT/β-ME to cleave S–S disulfide bridges) + heat (95°C) unfold proteins into single linear chains "
-        "coated uniformly with negative charge (~1.4 g SDS per g protein), migrating toward the positive anode (+) purely by chain mass!"
-    )
+    st.caption("Heat (95°C) + DTT + SDS unfold chains into uniform negative rods (~1.4 g SDS/g protein), separating strictly by molecular weight.")
+    _sds_strip_svg = "\n".join([
+        '<svg viewBox="0 0 860 66" class="sds-principle-svg" role="img" aria-label="SDS-PAGE separation principle">',
+        '<rect x="8" y="8" width="178" height="50" rx="6" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.2"/>',
+        '<text x="97" y="28" text-anchor="middle" class="sec-svg-bold" fill="#92400E">1. Denature &amp; Reduce</text>',
+        '<text x="97" y="45" text-anchor="middle" class="sec-svg-micro" fill="#B45309">95°C + DTT cleaves S–S</text>',
+        '<path d="M 192 33 L 214 33" stroke="#64748B" stroke-width="2"/>',
+        '<polygon points="212,29 220,33 212,37" fill="#64748B"/>',
+        '<rect x="224" y="8" width="204" height="50" rx="6" fill="#E6F3F6" stroke="#0F4C5C" stroke-width="1.2"/>',
+        '<text x="326" y="28" text-anchor="middle" class="sec-svg-bold" fill="#0A3540">2. Uniform (−) SDS Coat</text>',
+        '<text x="326" y="45" text-anchor="middle" class="sec-svg-micro" fill="#0F4C5C">− Cathode repels linear chains</text>',
+        '<path d="M 434 33 L 456 33" stroke="#64748B" stroke-width="2"/>',
+        '<polygon points="454,29 462,33 454,37" fill="#64748B"/>',
+        '<rect x="466" y="8" width="152" height="50" rx="6" fill="#EEF2FF" stroke="#818CF8" stroke-width="1.2"/>',
+        '<text x="542" y="28" text-anchor="middle" class="sec-svg-bold" fill="#3730A3">3. 4% Stacking Gel</text>',
+        '<text x="542" y="45" text-anchor="middle" class="sec-svg-micro" fill="#4338CA">Packs sharp band at pH 6.8</text>',
+        '<path d="M 624 33 L 646 33" stroke="#64748B" stroke-width="2"/>',
+        '<polygon points="644,29 652,33 644,37" fill="#64748B"/>',
+        '<rect x="656" y="8" width="196" height="50" rx="6" fill="#ECFDF5" stroke="#10B981" stroke-width="1.2"/>',
+        '<text x="754" y="28" text-anchor="middle" class="sec-svg-bold" fill="#065F46">4. Resolving Gel ➜ + Anode</text>',
+        '<text x="754" y="45" text-anchor="middle" class="sec-svg-micro" fill="#047857">Heavy slow (top) · Light fast (bottom)</text>',
+        '</svg>',
+    ])
+    st.markdown(_sds_strip_svg, unsafe_allow_html=True)
 
     sds_c1, sds_c2 = st.columns([1.3, 2.35])
     with sds_c1:
@@ -4451,6 +4721,96 @@ with tab_strategy:
     # --- 3-STEP VISUAL PURIFICATION ROADMAP ---
     rm = workflow["roadmap"]
     step1_border = "#DC2626" if rm[0]["title"].startswith("🛑") else ("#D97706" if rm[0]["title"].startswith("⚠️") else "#0D9488")
+    step1_tint = "#FEF2F2" if step1_border == "#DC2626" else ("#FFFBEB" if step1_border == "#D97706" else "#F0FDFA")
+
+    def _wrap_svg_lines(raw_s: str, max_chars: int = 32, max_lines: int = 2) -> list:
+        clean_s = re.sub(r"[`*]+", "", str(raw_s or ""))
+        clean_s = re.sub(r"\s+", " ", clean_s).strip()
+        if not clean_s:
+            return []
+        lines_out = []
+        cur = ""
+        for w in clean_s.split(" "):
+            cand = f"{cur} {w}".strip() if cur else w
+            if len(cand) <= max_chars:
+                cur = cand
+            else:
+                if cur:
+                    lines_out.append(cur)
+                if len(lines_out) >= max_lines:
+                    cur = ""
+                    break
+                cur = w if len(w) <= max_chars else w[:max_chars]
+        if cur and len(lines_out) < max_lines:
+            lines_out.append(cur)
+        return lines_out[:max_lines]
+
+    def _format_flow_spec_lines(detail_raw: str) -> list:
+        codes = [re.sub(r"\s+", " ", c).strip() for c in re.findall(r"`([^`]+)`", str(detail_raw or ""))]
+        if len(codes) >= 3:
+            # Summarize key buffer specs concisely across 2 clean lines with zero ellipsis truncation
+            line1 = " · ".join(codes[:2])
+            if len(line1) > 38:
+                line1 = codes[0]
+            rest = [c for c in codes[2:] if len(c) <= 22]
+            line2 = " · ".join(rest[:2]) if rest else ""
+            out = [ln for ln in (line1[:39], line2[:39]) if ln]
+            if out:
+                return out[:2]
+        first_clause = re.split(r"(?<=[.!])\s+|\s+—\s+", str(detail_raw or "").strip())[0]
+        first_clause = re.sub(r"^Optimal for your\s+", "", first_clause, flags=re.I)
+        return _wrap_svg_lines(first_clause, max_chars=36, max_lines=2)
+
+    _flow_nodes = [
+        (6, rm[0], step1_border, step1_tint, "Step 1 · Capture"),
+        (298, rm[1], "#D97706", "#FFFBEB", "Step 2 · Orthogonal"),
+        (590, rm[2], "#059669", "#ECFDF5", "Step 3 · Final Polish"),
+    ]
+    _flow_svg_lines = ['<svg viewBox="0 0 860 98" class="strategy-flow-svg" role="img" aria-label="Three-step purification flowchart">']
+    for idx_fn, (fx, r_item, b_hex, bg_hex, fallback_kicker) in enumerate(_flow_nodes):
+        kicker_raw = re.sub(r"\s*\([^)]*\)", "", str(r_item.get("step") or fallback_kicker)).strip()
+        kicker_s = kicker_raw if len(kicker_raw) <= 30 else fallback_kicker
+        title_raw = re.sub(
+            r"^(?:Primary\s+|Affinity\s+)?(?:Capture|Intermediate\s+Cleanup|Final\s+Polish(?:ing)?):\s*",
+            "",
+            str(r_item.get("title") or ""),
+            flags=re.I,
+        )
+        title_raw = re.sub(r"^Size-Exclusion\s*\(SEC\)\s+on\s+", "SEC: ", title_raw, flags=re.I)
+        title_raw = re.sub(r"\s+Increase\s+", " ", title_raw).replace(" GL", "")
+        title_lines = _wrap_svg_lines(title_raw, max_chars=32, max_lines=2) or ["Purification Step"]
+        spec_lines = _format_flow_spec_lines(str(r_item.get("detail") or ""))
+        cx_box = fx + 132
+        _flow_svg_lines.extend([
+            f'<rect x="{fx}" y="6" width="264" height="86" rx="7" fill="{bg_hex}" stroke="{b_hex}" stroke-width="1.5"/>',
+            f'<text x="{cx_box}" y="22" text-anchor="middle" class="sec-svg-micro" fill="{b_hex}">{html.escape(kicker_s)}</text>',
+        ])
+        if len(title_lines) == 1:
+            _flow_svg_lines.append(
+                f'<text x="{cx_box}" y="42" text-anchor="middle" class="sec-svg-bold" fill="#111827">{html.escape(title_lines[0])}</text>'
+            )
+            sub_y0 = 62
+        else:
+            _flow_svg_lines.append(
+                f'<text x="{cx_box}" y="38" text-anchor="middle" class="sec-svg-bold" fill="#111827">{html.escape(title_lines[0])}</text>'
+            )
+            _flow_svg_lines.append(
+                f'<text x="{cx_box}" y="53" text-anchor="middle" class="sec-svg-bold" fill="#111827">{html.escape(title_lines[1])}</text>'
+            )
+            sub_y0 = 69
+        for idx_sl, sl_txt in enumerate(spec_lines[:2]):
+            _flow_svg_lines.append(
+                f'<text x="{cx_box}" y="{sub_y0 + idx_sl * 14}" text-anchor="middle" class="sec-svg-micro" fill="#475569">{html.escape(sl_txt)}</text>'
+            )
+        if idx_fn < 2:
+            ax0 = fx + 268
+            _flow_svg_lines.extend([
+                f'<line x1="{ax0}" y1="49" x2="{ax0 + 16}" y2="49" stroke="#64748B" stroke-width="2"/>',
+                f'<polygon points="{ax0 + 14},44 {ax0 + 23},49 {ax0 + 14},54" fill="#64748B"/>',
+            ])
+    _flow_svg_lines.append('</svg>')
+    st.markdown("\n".join(_flow_svg_lines), unsafe_allow_html=True)
+
     st.markdown(f"""
     <div class="roadmap-grid">
         <div class="roadmap-card" style="border-top: 4px solid {step1_border};">
@@ -4640,12 +5000,34 @@ with tab_strategy:
         </div>
         """, unsafe_allow_html=True)
 
-        st.markdown(f"""
-        <div class="student-callout">
-            <div class="student-callout-title">🎓 Quick Intuition — HIC Is the Opposite of Ion-Exchange</div>
-            <div>{html.escape(hic['student_analogy'])}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        _iex_hic_svg = "\n".join([
+            '<svg viewBox="0 0 540 128" class="iex-hic-svg" role="img" aria-label="Ion-Exchange versus HIC salt gradient contrast">',
+            '<rect x="6" y="6" width="256" height="92" rx="6" fill="#F0FDFA" stroke="#5EEAD4" stroke-width="1.2"/>',
+            '<text x="134" y="24" text-anchor="middle" class="sec-svg-bold" fill="#0F4C5C">⚡ IEX (Charge Binding)</text>',
+            '<rect x="18" y="34" width="96" height="30" rx="5" fill="#FFFFFF" stroke="#0D9488" stroke-width="1.1"/>',
+            '<text x="66" y="47" text-anchor="middle" class="sec-svg-bold" fill="#065F46">Low Salt Bind</text>',
+            '<text x="66" y="59" text-anchor="middle" class="sec-svg-micro" fill="#0F766E">0–50 mM NaCl</text>',
+            '<path d="M 118 49 L 142 49" stroke="#0F766E" stroke-width="2"/>',
+            '<polygon points="140,45 148,49 140,53" fill="#0F766E"/>',
+            '<rect x="152" y="34" width="98" height="30" rx="5" fill="#CCFBF1" stroke="#0D9488" stroke-width="1.1"/>',
+            '<text x="201" y="47" text-anchor="middle" class="sec-svg-bold" fill="#0A3540">High Salt Elute</text>',
+            '<text x="201" y="59" text-anchor="middle" class="sec-svg-micro" fill="#0F4C5C">0.2–1.0 M NaCl</text>',
+            '<text x="134" y="85" text-anchor="middle" class="sec-svg-micro" fill="#475569">Salt ions displace charged protein</text>',
+            '<rect x="278" y="6" width="256" height="92" rx="6" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.2"/>',
+            '<text x="406" y="24" text-anchor="middle" class="sec-svg-bold" fill="#92400E">💧 HIC (Hydrophobic)</text>',
+            '<rect x="290" y="34" width="102" height="30" rx="5" fill="#FEF3C7" stroke="#D97706" stroke-width="1.1"/>',
+            '<text x="341" y="47" text-anchor="middle" class="sec-svg-bold" fill="#92400E">High Salt Bind</text>',
+            '<text x="341" y="59" text-anchor="middle" class="sec-svg-micro" fill="#B45309">1–1.5 M (NH4)2SO4</text>',
+            '<path d="M 396 49 L 418 49" stroke="#B45309" stroke-width="2"/>',
+            '<polygon points="416,45 424,49 416,53" fill="#B45309"/>',
+            '<rect x="428" y="34" width="94" height="30" rx="5" fill="#FFFFFF" stroke="#D97706" stroke-width="1.1"/>',
+            '<text x="475" y="47" text-anchor="middle" class="sec-svg-bold" fill="#92400E">Low Salt Elute</text>',
+            '<text x="475" y="59" text-anchor="middle" class="sec-svg-micro" fill="#B45309">0 M salt / H2O</text>',
+            '<text x="406" y="85" text-anchor="middle" class="sec-svg-micro" fill="#475569">Decreasing salt releases surface patches</text>',
+            '<text x="270" y="116" text-anchor="middle" class="sec-svg-micro" fill="#0F4C5C">Opposite salt gradients — high-salt IEX elution can load straight onto HIC!</text>',
+            '</svg>',
+        ])
+        st.markdown(_iex_hic_svg, unsafe_allow_html=True)
 
     # --- ALL 7 PURIFICATION METHODS COMPARISON TABLE ---
     st.markdown("---")
@@ -4894,39 +5276,44 @@ with tab_buffers:
         st.dataframe(display_recipe_df, hide_index=True, width="stretch")
 
         start_water_ml = round(total_volume_ml * 0.80, 1)
-        st.markdown(f"""
-        <div class="protocol-section-header">🧑‍🔬 Lab Preparation & Safety Protocol</div>
-        <div class="protocol-grid">
-            <div class="protocol-step-card">
-                <div class="protocol-step-badge step-badge-1">Step 1 • 80% Water</div>
-                <div class="protocol-step-body">
-                    Start with <b>~{start_water_ml:g} mL (~80%)</b> of ultrapure (18.2 MΩ·cm) water in a beaker so dissolved solids &amp; titrant never overshoot final volume
-                    <i>(use ~65–70% for ≥1 M <code>(NH4)2SO4</code>, or ~45–55% for <code>8 M Urea</code> / <code>6 M Guanidine-HCl</code>)</i>.
-                </div>
-            </div>
-            <div class="protocol-step-card">
-                <div class="protocol-step-badge step-badge-2">Step 2 • pH Titration</div>
-                <div class="protocol-step-body">
-                    Stir until dissolved, then titrate slowly to <b>pH {custom_ph:.1f}</b> with HCl or NaOH
-                    (<b>⚠️ Safety: Always add acid to water, NEVER pour water into concentrated acid!</b> Wear goggles/gloves; dispense <code>2-Mercaptoethanol</code> in a fume hood).
-                </div>
-            </div>
-            <div class="protocol-step-card">
-                <div class="protocol-step-badge step-badge-3">Step 3 • Temp Check</div>
-                <div class="protocol-step-body">
-                    Equilibrate to working temperature before final pH check—<code>Tris</code> pKa shifts <b>~ −0.028 pH units per +1°C</b>
-                    (~ −0.03/°C; pH 8.0 at 25°C rises to ~pH 8.6 at 4°C!).
-                </div>
-            </div>
-            <div class="protocol-step-card">
-                <div class="protocol-step-badge step-badge-4">Step 4 • Q.S. &amp; Filter</div>
-                <div class="protocol-step-body">
-                    Transfer to a volumetric flask or graduated cylinder, top up (<code>q.s.</code>) with water to <b>{total_volume_ml:g} mL</b>,
-                    filter (<code>0.22 µm</code>) &amp; degas for FPLC. Add labile <code>DTT</code>/<code>TCEP</code>/<code>PMSF</code> fresh before use.
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        _proto_svg = "\n".join([
+            '<svg viewBox="0 0 860 50" class="sec-rule-svg" role="img" aria-label="Four-step buffer preparation workflow">',
+            f'<rect x="8" y="6" width="194" height="38" rx="6" fill="#F0FDFA" stroke="#0F766E" stroke-width="1.2"/>',
+            f'<text x="105" y="29" text-anchor="middle" class="sec-svg-bold" fill="#065F46">1. ~{start_water_ml:g} mL H2O (80%)</text>',
+            '<path d="M 206 25 L 222 25" stroke="#64748B" stroke-width="1.8"/><polygon points="220,21 227,25 220,29" fill="#64748B"/>',
+            f'<rect x="228" y="6" width="194" height="38" rx="6" fill="#FEF2F2" stroke="#DC2626" stroke-width="1.2"/>',
+            f'<text x="325" y="29" text-anchor="middle" class="sec-svg-bold" fill="#991B1B">2. Titrate pH {custom_ph:.1f}</text>',
+            '<path d="M 426 25 L 442 25" stroke="#64748B" stroke-width="1.8"/><polygon points="440,21 447,25 440,29" fill="#64748B"/>',
+            '<rect x="448" y="6" width="194" height="38" rx="6" fill="#EEF2FF" stroke="#6366F1" stroke-width="1.2"/>',
+            '<text x="545" y="29" text-anchor="middle" class="sec-svg-bold" fill="#3730A3">3. Check Working °C</text>',
+            '<path d="M 646 25 L 662 25" stroke="#64748B" stroke-width="1.8"/><polygon points="660,21 667,25 660,29" fill="#64748B"/>',
+            f'<rect x="668" y="6" width="184" height="38" rx="6" fill="#FFFBEB" stroke="#D97706" stroke-width="1.2"/>',
+            f'<text x="760" y="29" text-anchor="middle" class="sec-svg-bold" fill="#92400E">4. q.s. {total_volume_ml:g} mL · 0.22 µm</text>',
+            '</svg>',
+        ])
+        _proto_html = "\n".join([
+            '<div class="protocol-section-header">🧑‍🔬 Lab Preparation &amp; Safety Protocol</div>',
+            _proto_svg,
+            '<div class="protocol-grid">',
+            '<div class="protocol-step-card">',
+            '<div class="protocol-step-badge step-badge-1">Step 1 • 80% Water</div>',
+            f'<div class="protocol-step-body">Dissolve solids in <b>~{start_water_ml:g} mL (80%)</b> ultrapure H₂O <i>(~50–70% for high salt/urea)</i>.</div>',
+            '</div>',
+            '<div class="protocol-step-card">',
+            '<div class="protocol-step-badge step-badge-2">Step 2 • pH Titration</div>',
+            f'<div class="protocol-step-body">Adjust to <b>pH {custom_ph:.1f}</b> (HCl/NaOH). <b>Always add acid to water, NEVER pour water into concentrated acid</b>; use hood for BME.</div>',
+            '</div>',
+            '<div class="protocol-step-card">',
+            '<div class="protocol-step-badge step-badge-3">Step 3 • Temp Check</div>',
+            '<div class="protocol-step-body">Equilibrate to working temp before final pH read (<code>Tris</code> ΔpKa ≈ −0.03/°C).</div>',
+            '</div>',
+            '<div class="protocol-step-card">',
+            '<div class="protocol-step-badge step-badge-4">Step 4 • Q.S. &amp; Filter</div>',
+            f'<div class="protocol-step-body">Top up (<code>q.s.</code>) to <b>{total_volume_ml:g} mL</b>, <code>0.22 µm</code> filter &amp; degas; add DTT/PMSF fresh.</div>',
+            '</div>',
+            '</div>',
+        ])
+        st.markdown(_proto_html, unsafe_allow_html=True)
 
     # 5. Instant Pocket Weight (g / mg) <-> Molarity (mM / M) Two-Way Calculator
     st.markdown("---")
@@ -4964,17 +5351,16 @@ with tab_buffers:
 with tab_details:
     ss_res = get_cached_secondary_structure(current_seq)
 
-    # --- INTERACTIVE 3D PROTEIN STRUCTURE & BIOPHYSICAL VIEWER ---
+    # --- INTERACTIVE 3D PROTEIN STRUCTURE VIEWER (WEBGL 3DMOL.JS) ---
     st.markdown("### 🧊 Interactive 3D Protein Viewer")
     st.caption(
-        "Inspect an instant 100% offline 3D fold schematic, fetch atomic coordinates on demand from **AlphaFold DB / RCSB PDB**, "
-        "or upload your own experimental / AI-designed **`.pdb` / `.cif`** model (AlphaFold3, Boltz, RFdiffusion, ProteinMPNN, ESMFold)."
+        "Fetch atomic coordinates on demand from **AlphaFold DB / RCSB PDB** or upload any **`.pdb` / `.cif`** model "
+        "(AlphaFold3, Boltz, RFdiffusion, ESMFold) — hover or click residues to inspect amino acid & number."
     )
 
     viewer_3d_mode = st.radio(
         "3D Structure Source:",
         [
-            "🧬 Instant 3D Fold Schematic (Offline)",
             "🌐 Live AlphaFold / PDB 3D",
             "📂 Upload AI / Custom .pdb / .cif",
         ],
@@ -4983,41 +5369,21 @@ with tab_details:
         key="viewer_3d_mode_radio",
     )
 
-    if viewer_3d_mode == "🧬 Instant 3D Fold Schematic (Offline)":
-        offline_color_labels = {
-            "ss": "Secondary Structure (α-Helix / β-Strand / Coil)",
-            "hydrophobicity": "Hydrophobicity (Kyte–Doolittle)",
-            "charge": "Side-Chain Charge (+K/R, +H, −D/E)",
-        }
-        offline_3d_color = st.radio(
-            "Color 3D Backbone By:",
-            options=["ss", "hydrophobicity", "charge"],
-            format_func=lambda k: offline_color_labels[k],
-            index=0,
-            horizontal=True,
-            key="viewer_3d_offline_color",
-        )
-        fig_3d_offline = build_3d_biophysical_backbone_figure(
-            sequence=current_seq,
-            ss_res=ss_res,
-            metrics=metrics,
-            color_by=offline_3d_color,
-            protein_name=st.session_state.sequence_name,
-            height_px=480,
-        )
-        st.plotly_chart(fig_3d_offline, width="stretch")
-        st.markdown(
-            f'<div class="viewer3d-disclaimer"><b>ℹ️ Schematic 3D Note:</b> {html.escape(SCHEMATIC_3D_DISCLAIMER)}</div>',
-            unsafe_allow_html=True,
-        )
-
-    elif viewer_3d_mode == "🌐 Live AlphaFold / PDB 3D":
+    if viewer_3d_mode == "🌐 Live AlphaFold / PDB 3D":
         raw_uid_3d = str(seq_meta.get("uniprot_id") or "").strip()
         norm_uid_3d = normalize_uniprot_accession(raw_uid_3d) if raw_uid_3d else ""
         raw_pdb_3d = str(seq_meta.get("pdb_id") or "").strip().upper()
         if not norm_uid_3d and not raw_pdb_3d:
             raw_acc_3d = str(seq_meta.get("accession") or "").strip()
             norm_uid_3d = normalize_uniprot_accession(raw_acc_3d) if raw_acc_3d else ""
+
+        if norm_uid_3d and (
+            (protein_profile.get("effective_tag") or seq_meta.get("tag", "None")) != "None"
+            or (st.session_state.construct_parts and len(st.session_state.construct_parts) > 1)
+        ):
+            st.caption(
+                f"ℹ️ Engineered tag construct active — AlphaFold / RCSB PDB coordinates show the native `UniProt {norm_uid_3d}` chain without recombinant terminal tags."
+            )
 
         if not norm_uid_3d and raw_pdb_3d:
             fetch_pdb_3d_clicked = st.button(
@@ -5038,8 +5404,8 @@ with tab_details:
                 if fetched_pdb_3d is None:
                     st.warning(
                         f"Could not retrieve a 3D structure (≤ 4 MB) for RCSB PDB **{raw_pdb_3d}** right now "
-                        "(entry may exceed the 4 MB WebGL cap or network access may be offline). "
-                        "Try uploading a local `.pdb` / `.cif` file or exploring the **Instant 3D Fold Schematic (Offline)**."
+                        "(entry may exceed the 4 MB WebGL cap or network access may be unavailable). "
+                        "Retry shortly or switch to **📂 Upload AI / Custom .pdb / .cif** above."
                     )
 
             cached_pdb_3d = st.session_state.structure_3d_cache.get(cache_key_pdb_3d)
@@ -5055,11 +5421,8 @@ with tab_details:
                 )
         elif not norm_uid_3d:
             st.info(
-                "🧬 **No UniProt or RCSB PDB Accession Linked to This Sequence:** Custom pasted sequences, translated ORFs, "
-                "or unpublished de novo AI-designed proteins do not have a deposited entry.\n\n"
-                "- Switch to **📂 Upload AI / Custom .pdb / .cif** above to inspect your AlphaFold3, Boltz, RFdiffusion, "
-                "or ESMFold model interactively in WebGL.\n"
-                "- Or switch to **🧬 Instant 3D Fold Schematic (Offline)** for an immediate sequence-derived 3D view!"
+                "🧬 **No UniProt or RCSB PDB Accession Linked:** Custom sequences, translated ORFs, "
+                "and unpublished de novo designs have no deposited entry — switch to **📂 Upload AI / Custom .pdb / .cif** above to inspect your `.pdb` / `.cif` model in WebGL."
             )
         else:
             src_pref_labels = {
@@ -5096,8 +5459,8 @@ with tab_details:
                 if fetched_3d is None:
                     st.warning(
                         f"Could not retrieve a 3D structure (≤ 4 MB) for UniProt **{norm_uid_3d}** right now "
-                        "(entry may lack a deposited structure, exceed the 4 MB WebGL cap, or network access may be offline). "
-                        "Try uploading a local `.pdb` / `.cif` file or exploring the **Instant 3D Fold Schematic (Offline)**."
+                        "(entry may lack a deposited structure, exceed the 4 MB WebGL cap, or network access may be unavailable). "
+                        "Retry shortly or switch to **📂 Upload AI / Custom .pdb / .cif** above."
                     )
 
             cached_3d = st.session_state.structure_3d_cache.get(cache_key_3d)
@@ -5461,10 +5824,7 @@ with tab_details:
 with tab_examples:
     bench_data = load_sec_benchmark_bundle()
     st.markdown("### 📚 Real-World Lab Examples: Does This Simulator Match Published Experiments?")
-    st.caption(
-        "A good scientific tool should match real laboratory measurements! Below you can compare ProPurify Studio's predicted SEC curves "
-        "directly against real chromatograms published by scientists in open-access research papers."
-    )
+    st.caption("Compare simulated SEC elution profiles directly against experimental chromatograms from published studies.")
 
     if bench_data is None:
         st.warning("Reference benchmark file `data/sec_benchmark_1200.json` was not found.")
@@ -5681,9 +6041,7 @@ with tab_examples:
 
     st.markdown("### 🧭 Secondary Structure Accuracy: All-Domains-of-Life PDB/DSSP Benchmark & Web-Server Cross-Reference")
     st.caption(
-        "How reliable are the α-helix (`H`), β-strand (`E`), and coil (`C`) predictions in Tab 4? "
-        "Below are the zero-leakage benchmark results across over 10,500 experimentally solved 3D structures spanning the entire Tree of Life, "
-        "alongside live head-to-head cross-referencing against established external bioinformatics web servers."
+        "Zero-leakage Q3/SOV accuracy for Tab 4 α-helix (`H`), β-strand (`E`), and coil (`C`) predictions across >10,500 experimental structures and external web servers."
     )
 
     if ss_bench_tab5 is not None:
@@ -5801,37 +6159,74 @@ with tab_examples:
             st.dataframe(pd.DataFrame(web_rows), hide_index=True, width="stretch")
 
         models_dict = ss_bench_tab5.get("models", {})
-        ss_h2h_col, ss_take_col = st.columns([1.25, 1.0])
+        ss_h2h_col, ss_take_col = st.columns([1.45, 0.95])
         with ss_h2h_col:
             if models_dict:
                 st.markdown("#### 📈 Head-to-Head vs. Classic Single-Sequence Baselines")
                 base_rows = []
-                for m_key, m_label in [
-                    ("propurify_ss", "🎯 ProPurify Cascaded SS (2-Stage Neural + Viterbi)"),
-                    ("gor4_baseline", "📐 GOR IV (Garnier–Gibrat–Robson, 1996)"),
-                    ("chou_fasman_baseline", "📏 Chou–Fasman (Empirical Rules, 1978)"),
+                chart_bars = []
+                for m_key, m_label, short_nm, bar_hex in [
+                    ("propurify_ss", "🎯 ProPurify SS (Neural + Viterbi)", "ProPurify SS", "#0F4C5C"),
+                    ("gor4_baseline", "📐 GOR IV (1996)", "GOR IV (1996)", "#D97706"),
+                    ("chou_fasman_baseline", "📏 Chou–Fasman (1978)", "Chou–Fasman", "#64748B"),
                 ]:
                     if m_key in models_dict:
                         md = models_dict[m_key]
+                        q3_val = float(md["mean_protein_q3_pct"])
                         base_rows.append({
                             "Method": m_label,
-                            "Mean Q3": f"{float(md['mean_protein_q3_pct']):.2f}%",
+                            "Mean Q3": f"{q3_val:.2f}%",
                             "Pooled Q3": f"{float(md['overall_q3_pct']):.2f}%",
                             "SOV_99": f"{float(md['mean_protein_sov99_pct']):.2f}%",
                             "Mean MCC": f"{float(md['mean_mcc']):.3f}",
                         })
+                        chart_bars.append((short_nm, q3_val, bar_hex))
                 if base_rows:
-                    st.dataframe(pd.DataFrame(base_rows), hide_index=True, width="stretch")
+                    st.dataframe(
+                        pd.DataFrame(base_rows),
+                        hide_index=True,
+                        width="stretch",
+                        column_config={
+                            "Method": st.column_config.TextColumn("Method", width="medium"),
+                            "Mean Q3": st.column_config.TextColumn("Mean Q3", width="small"),
+                            "Pooled Q3": st.column_config.TextColumn("Pooled Q3", width="small"),
+                            "SOV_99": st.column_config.TextColumn("SOV_99", width="small"),
+                            "Mean MCC": st.column_config.TextColumn("Mean MCC", width="small"),
+                        },
+                    )
         with ss_take_col:
-            if ss_xref_tab5 is not None and "summary" in ss_xref_tab5:
-                st.info(
-                    "💡 **Practical Takeaway — Single-Sequence Speed vs. 3D / MSA Web Servers:** "
-                    "**ProPurify SS** predicts secondary structure from a *single sequence* in **< 20 milliseconds** offline, "
-                    "outperforming classic single-sequence methods (**GOR IV** & **Chou–Fasman**) by **+14% to +24% Q3** across the 77-protein multi-domain panel "
-                    "and showing **70.0%–70.7% residue concordance** with **EMBL-EBI AlphaFold DB / PDBe 3D** (plus verified live connectivity with **NPS@ SOPMA / GOR IV** and **Dundee JPred4 REST API**)."
+            if models_dict and base_rows:
+                ordered_bars = list(reversed(chart_bars))
+                fig_q3_h2h = go.Figure(go.Bar(
+                    x=[b[1] for b in ordered_bars],
+                    y=[b[0] for b in ordered_bars],
+                    orientation="h",
+                    marker=dict(color=[b[2] for b in ordered_bars], line=dict(width=0)),
+                    text=[f"{b[1]:.1f}%" for b in ordered_bars],
+                    textposition="outside",
+                    cliponaxis=False,
+                    hovertemplate="%{y}: <b>%{x:.2f}%</b> Mean Q3<extra></extra>",
+                ))
+                fig_q3_h2h.update_layout(
+                    font=dict(family=PLOTLY_FONT_FAMILY, color="#1E352F", size=12),
+                    title=dict(text="<b>Single-Sequence Mean Q3 Comparison (%)</b>", x=0.0, font=PLOTLY_TITLE_FONT),
+                    xaxis=dict(range=[0, 88], title=dict(text="Mean Q3 (%)", font=PLOTLY_AXIS_TITLE_FONT), tickfont=PLOTLY_TICK_FONT, showgrid=True, gridcolor=PLOTLY_GRID_COLOR),
+                    yaxis=dict(tickfont=PLOTLY_TICK_FONT, showgrid=False),
+                    plot_bgcolor="#FFFFFF",
+                    paper_bgcolor="#FFFFFF",
+                    template="plotly_white",
+                    height=205,
+                    margin=dict(l=12, r=32, t=42, b=34),
                 )
-            else:
-                st.info("Reference file `data/ss_webserver_crossref.json` is not currently loaded.")
+                st.plotly_chart(fig_q3_h2h, width="stretch", config={"displayModeBar": False})
+        if ss_xref_tab5 is not None and "summary" in ss_xref_tab5:
+            st.info(
+                "💡 **Practical Takeaway — Single-Sequence Speed vs. 3D / MSA Web Servers:** "
+                "**ProPurify SS** runs in **< 20 ms** offline, outperforming **GOR IV** & **Chou–Fasman** by **+14% to +24% Q3** across the 77-protein panel "
+                "with **70.0%–70.7% concordance** vs. **EMBL-EBI AlphaFold DB / PDBe 3D**."
+            )
+        else:
+            st.info("Reference file `data/ss_webserver_crossref.json` is not currently loaded.")
 
         if ss_xref_tab5 is not None and ss_xref_tab5.get("proteins"):
             xref_proteins = ss_xref_tab5["proteins"]

@@ -17,7 +17,7 @@
   4. **Paste Amino Acid / FASTA:** Supports natural, synthetic, and AI-designed constructs (RFdiffusion, ProteinMPNN, ESMFold) with automatic N-/C-terminal affinity tag detection (`6xHis`, `Strep`, `FLAG`, etc.).
   5. **Translate DNA / RNA:** Performs 6-frame ORF detection (`+1..+3` forward and `-1..-3` reverse complement) or direct Frame 1 translation while preserving IUPAC `N` ambiguity codes.
   6. **Describe in Plain English:** Deterministic construct builder supporting organism/protein disambiguation across the Tree of Life, engineered affinity tags (`6xHis`, `Strep-tag II`, `Twin-Strep`, `GST`, `MBP`, `FLAG`), and protease cleavage sites (`TEV`, `HRV 3C`, `Thrombin`, `Factor Xa`, `SUMO`).
-* **8 Ready-to-Load Starter Proteins:** Hen Egg-White Lysozyme C (default), 6xHis-TEV-Lysozyme, GFP, Human Carbonic Anhydrase 2, Sperm Whale Myoglobin, *B. subtilis* Lipase A, BSA, and Jack Bean Urease.
+* **Default Startup Construct & 8 Ready-to-Load Starter Proteins:** Launches ready to explore on **`6xHis-TEV-Lysozyme`** (`143 aa`, `16.12 kDa`, reduced `pI 9.16` / disulfide-oxidized `~10.15`; **Ni-NTA IMAC ➜ TEV cleavage ➜ Superdex 75 SEC polish**), featuring an interactive **Construct N-to-C Architecture Map** showing the `6xHis` tag, `TEV` cleavage cut site (`16.12 kDa` intact → `14.37 kDa` cleaved Gly-Lysozyme), and target domain. Switch anytime via the sidebar across 8 starter proteins: `6xHis-TEV-Lysozyme`, Hen Egg-White Lysozyme C, GFP, Human Carbonic Anhydrase 2, Sperm Whale Myoglobin, *B. subtilis* Lipase A, BSA, and Jack Bean Urease.
 
 ---
 
@@ -34,34 +34,35 @@
 ---
 
 ### 3. Size-Exclusion Chromatography (SEC), Inside-the-Column Studio & SDS-PAGE (Tab 1)
+* **SEC Pore-Partitioning Schematic:** Visual bead-pore diagram showing how large HMW complexes bypass resin beads via the void volume ($V_0$), intermediate oligomers enter partial pockets for mid-range $V_e$, and compact monomers explore deep bead pores toward total volume ($V_t$).
 * **8 Calibrated SEC Columns:**
   * *Preparative (120–320 mL):* `HiLoad 16/600 Superdex 75 pg`, `HiLoad 16/600 Superdex 200 pg`, `HiLoad 16/600 Superose 6 pg`, and `HiLoad 26/600 Superdex 200 pg`.
   * *Analytical (2.4–24 mL):* `Superdex 75 Increase 10/300 GL`, `Superdex 200 Increase 10/300 GL`, `Superose 6 Increase 10/300 GL`, and `Superose 6 Increase 3.2/300`.
 * **Inside-the-SEC-Column Studio:** Interactive column cutaway, porous bead cross-section, fraction collector rack, live chromatogram cursor, buffer-pump slider, and 4 quick-jump run stages (*Inject*, *Void $V_0$*, *Target $V_e$*, *End $V_t$*).
 * **Oligomers, Aggregates & Binding Complexes:** Simulate monomer, dimer, trimer, tetramer, soluble HMW void-volume ($V_0$) aggregates with Rayleigh light scattering, 5 conformational shapes (globular to disordered IDP), protein–protein / dsDNA / ssRNA stoichiometric complexes, dual-wavelength $A_{280}$ / $A_{260}$ traces, and calibration standards overlay.
-* **Virtual Destained SDS-PAGE Gel:** Sigmoidal Ferguson migration across 4%–22% polyacrylamide, monomer-only denaturing physics, Coomassie Blue R-250 and Silver Stain modes, purification-stage lanes, and a calibrated Bio-Rad Precision Plus Dual Color ladder.
+* **Virtual Destained SDS-PAGE Gel & Migration Strip:** Includes a **4-step SDS-PAGE migration strip** (95 °C + DTT denaturation/disulfide cleavage ➜ uniform negative SDS coat ➜ 4% stacking gel packing at pH 6.8 ➜ MW-dependent resolving gel migration toward the anode), sigmoidal Ferguson migration across 4%–22% polyacrylamide, monomer-only denaturing physics, Coomassie Blue R-250 and Silver Stain modes, purification-stage lanes, and a calibrated Bio-Rad Precision Plus Dual Color ladder.
 * **SDS-PAGE Gel Preparation Recipe Pop-Out:** Modal handcast recipe calculator supporting **Tris-Glycine (Laemmli 1970, 4%–22% T)** and **Tricine-SDS-PAGE (Schägger 2006, 10%–20% T, auto-selected for <10 kDa peptides)**, 30% / 40% / 49.5% acrylamide stocks, 4% / 5% stacking gels, mini/midi/custom cassette volumes (1–4 gels), glycerol toggle, running buffer formulas, EHS neurotoxin/polymerization reminders, and downloadable `.txt` recipe sheets.
 
 ---
 
 ### 4. 3-Step Purification Roadmap, 7-Method Advisor & Biochemical Guards (Tab 2)
-* **Charge vs. pH Titration Curve:** Interactive working pH slider (pH 3.5–10.5) with a $\pm 0.5$ pH isoelectric clumping zone warning.
+* **Dynamic 3-Step Purification Pipeline Flowchart & Charge vs. pH Titration:** Renders a live **3-step purification pipeline flowchart** (Capture ➜ Intermediate ➜ Final Polish) that adapts automatically to active tags, pI, and cofactor/metalloprotein alerts, alongside an interactive working pH slider (pH 3.5–10.5) with a $\pm 0.5$ pH isoelectric clumping zone warning.
 * **Biochemical & Cofactor Safety Guards:** Detects metalloproteins ($\text{Ni}^{2+}$, $\text{Zn}^{2+}$, $\text{Cu}^{2+}$, $\text{Mn}^{2+}$, $\text{Co}^{2+}$, $\text{Mo}$), $[\text{Fe–S}]$ clusters, heme cofactors, $\text{Ca}^{2+}/\text{Mg}^{2+}$ dependencies, structural disulfides, and integral membrane / transmembrane $\beta$-barrel detergent-micelle requirements—flagging conflicts such as Ni-NTA / imidazole on metalloproteins, high imidazole on hemoproteins, or DTT/GSH on disulfide-stabilized proteins.
-* **7-Method Comparison Matrix & Compatibility Board:** Evaluates (1) Tag Affinity (Strep / MBP / FLAG / IMAC), (2) Heparin / Blue Pseudo-Affinity, (3) Ammonium Sulfate Salting-Out, (4) Ion-Exchange (AEX / CEX) with counterion-matched buffers, (5) Hydrophobic Interaction (HIC — Butyl / Phenyl / Octyl), (6) Hydroxyapatite / Multimodal (CHT / Capto MMC), and (7) SEC Polishing, alongside a 6-tile Compatibility Board and a 1-minute bench decision quiz.
+* **7-Method Comparison Matrix, IEX vs. HIC Contrast Schematic & Compatibility Board:** Evaluates (1) Tag Affinity (Strep / MBP / FLAG / IMAC), (2) Heparin / Blue Pseudo-Affinity, (3) Ammonium Sulfate Salting-Out, (4) Ion-Exchange (AEX / CEX) with counterion-matched buffers, (5) Hydrophobic Interaction (HIC — Butyl / Phenyl / Octyl), (6) Hydroxyapatite / Multimodal (CHT / Capto MMC), and (7) SEC Polishing—paired with an **IEX vs. HIC salt-gradient contrast schematic** (low-salt bind / high-salt NaCl elute vs. high-salt $(\text{NH}_4)_2\text{SO}_4$ bind / low-salt elute), a 6-tile Compatibility Board, and a 1-minute bench decision quiz.
 
 ---
 
 ### 5. Customizable Laboratory Buffer & Recipe Calculator (Tab 3)
-* **47-Reagent Biochemical Shelf & 13 Starter Templates:** Covers IMAC, IEX, HIC, SEC, Metalloprotein-Safe (EDTA-free & imidazole-free), Strep-Tactin, Strep-Tactin XT (`50 mM` D-Biotin), GST, and MBP workflows plus a custom blank recipe.
-* **Interactive Formulation & Safety Checks:** Editable component table for arbitrary volumes (`mL` / `L`) and target pH (`2.0`–`12.0`), dual solid mass output (**`g` and `mg`**), neat liquid dispensing (**`µL` / `mL`**), live active-protein buffer auditing with 1-click safe-buffer switching, two-way `g`/`mg` ↔ `mM`/`M` converter, temperature/safety protocol cards, and **CSV export**.
+* **47-Reagent Biochemical Shelf & 14 Starter Templates:** Covers IMAC, IEX, HIC, SEC, Metalloprotein-Safe (EDTA-free & imidazole-free), Disulfide-Safe (reductant-free), Strep-Tactin, Strep-Tactin XT (`50 mM` D-Biotin), GST, and MBP workflows plus a custom blank recipe.
+* **Interactive Formulation, 4-Step Prep Strip & Safety Checks:** Editable component table for arbitrary volumes (`mL` / `L`) and target pH (`2.0`–`12.0`), dual solid mass output (**`g` and `mg`**), neat liquid dispensing (**`µL` / `mL`**), live active-protein buffer auditing with 1-click safe-buffer switching, two-way `g`/`mg` ↔ `mM`/`M` converter, 4-step buffer prep visual workflow strip & temperature/safety protocol cards, and **CSV export**.
 
 ---
 
 ### 6. Interactive 3D Viewer, Secondary Structure Engine & Solubility (Tab 4)
-* **3-Mode Interactive 3D Structure Viewer:**
-  * **Instant 3D Fold Schematic (Offline):** Sequence-derived Plotly `scatter3d` trace colored by Secondary Structure, Hydrophobicity, or Side-Chain Charge (zero external HTTP requests on default load; explicitly labeled as a sequence-derived schematic).
-  * **Live AlphaFold DB / RCSB PDB 3D:** On-demand WebGL **3Dmol.js** rendering (`cartoon`, `surface`, `stick`, `sphere`) colored by secondary structure, pLDDT confidence, N→C spectrum, hydrophobicity, or charge, with optional ligand, metal, and disulfide visualization.
-  * **Upload Custom / AI-Designed `.pdb` / `.cif`:** Supports `.pdb`, `.cif`, `.mmcif`, `.ent`, and `.gz` models (up to 10 MB upload; 4 MB WebGL display cap) from AlphaFold3, ColabFold, Boltz, RFdiffusion, ProteinMPNN, and ESMFold.
+* **2-Mode Interactive WebGL 3D Structure Viewer (3Dmol.js):**
+  * **Live AlphaFold DB / RCSB PDB 3D (Default):** On-demand WebGL **3Dmol.js** fetching and rendering (`cartoon`, `surface`, `stick`, `sphere`) from AlphaFold DB or RCSB PDB, colored by secondary structure, pLDDT confidence, N→C spectrum, hydrophobicity, or side-chain charge, with optional ligand, metal, and disulfide visualization (zero outbound HTTP requests until you click Fetch; notes when engineered terminal tags are absent from native UniProt coordinates).
+  * **Upload AI / Custom `.pdb` / `.cif`:** Supports `.pdb`, `.cif`, `.mmcif`, `.ent`, and `.gz` models (up to 10 MB upload; 4 MB WebGL display cap) from AlphaFold3, ColabFold, Boltz, RFdiffusion, ProteinMPNN, and ESMFold.
+  * **Instant Residue Hover & Click/Tap Labels:** Hovering (`50 ms` trigger) or clicking/tapping any residue or bound cofactor/metal displays an interactive 3D callout label and live detail pill showing the **amino acid full name, 3-letter & 1-letter code, residue number, chain, secondary structure, and pLDDT confidence (or B-factor)**.
 * **Cascaded Neural + GOR-IV Secondary Structure Engine:** Pure-NumPy 2-stage neural predictor with 5-fold out-of-fold GOR-IV features and Viterbi smoothing (`~18.5 ms` mean inference, `4.04 MB` model weights). Supports cosine-blended domain-tile windowing for mega-proteins (such as 34,350-aa human Titin) with a 600-aa Domain Window Explorer, 2-track Plotly topology & probability plot, segment coordinate table, residue alignment, and `.fasta` export.
 * **Amino Acid Composition & Solubility:** 20-residue frequency chart, functional side-chain table, reduced/oxidized extinction card, and Wilkinson–Harrison (1991) / Davis (1999) *E. coli* cytoplasmic solubility heuristic.
 
@@ -74,14 +75,14 @@
 * **All-Domains-of-Life Secondary Structure Benchmark (`11,118` Held-Out PDB/DSSP Proteins):**
   * Trained strictly on `3,751` PDB/DSSP chains (`1,449,487` residues) and evaluated on `11,118` homology-filtered proteins (`4,066,153` residues; `<30%` 5-mer similarity, `0` accession/sequence overlap, `0` preset overlap): **`69.50%` mean protein $Q_3$** (`69.31%` pooled $Q_3$), **`59.78%` $\text{SOV}_{99}$**, and **`81.48%` fold-class accuracy** (`+7.74%` $Q_3$ over GOR IV, `+20.16%` over Chou–Fasman).
   * Evaluated independently on **32 experimental AI-designed / de novo PDB structures** (`3,908` residues across Rosetta, Foldit, trRosetta hallucination, ProteinMPNN, RFdiffusion+ProteinMPNN, and transmembrane de novo folds): **`80.91%` pooled $Q_3$** (`81.19%` mean $Q_3$), **`80.92%` $\text{SOV}_{99}$**, and **`93.75%` fold-class accuracy**.
-* **77-Protein Stratified Cross-Reference Panel:** Compares ProPurify SS (`68.75%` mean $Q_3$ vs. experimental DSSP) against AlphaFold DB / PDBe 3D (`86.06%` mean $Q_3$ overall; `87.68%` on 67 AlphaFold DB monomers; `70.0%–70.7%` pairwise concordance with ProPurify SS) and single-sequence baselines (`GOR IV` `54.28%`, `Chou–Fasman` `44.38%`). *(In the saved cross-reference snapshot, external `NPS@ SOPMA`, `NPS@ GOR IV`, and `JPred4` servers returned `0` live entries; because ProPurify SS is a single-sequence predictor without evolutionary MSAs, consult PDB, AlphaFold DB, or MSA servers for research-grade structural modeling.)*
+* **77-Protein Stratified Cross-Reference Panel & Tab 5 Q3 Comparison Bar Chart:** Compares ProPurify SS (`68.75%` mean $Q_3$ vs. experimental DSSP) against AlphaFold DB / PDBe 3D (`86.06%` mean $Q_3$ overall; `87.68%` on 67 AlphaFold DB monomers; `70.0%–70.7%` pairwise concordance with ProPurify SS) and single-sequence baselines (`GOR IV` `54.28%`, `Chou–Fasman` `44.38%`), accompanied by a horizontal Plotly **`Single-Sequence Mean Q3 Comparison (%)` bar chart**. *(In the saved cross-reference snapshot, external `NPS@ SOPMA`, `NPS@ GOR IV`, and `JPred4` servers returned `0` live entries; because ProPurify SS is a single-sequence predictor without evolutionary MSAs, consult PDB, AlphaFold DB, or MSA servers for research-grade structural modeling.)*
 * **Multi-Domain Plain-Language Search Benchmark (`13,403` Swiss-Prot Proteins):** `100.0%` offline grammar/construct/biological-identity accuracy across `13,403` proteins (`1,798` taxa) and `100.0%` biological-identity match on live UniProt tier-2 validation.
 * **Scope Note:** All chromatographic, electrophoretic, pI, and solubility outputs are computational simulations and starting hypotheses—always confirm critical bench protocols against experimental measurements and resin manufacturer manuals.
 
 ---
 
 ### 8. Anonymous Error Reporting & Feedback
-* Sidebar **`💬 Report Error / Feedback`** modal collects **zero personal identifiers**, attaches read-only active construct diagnostic metadata, optionally forwards payloads to `FEEDBACK_WEBHOOK_URL` (via Streamlit secrets or `PROPURIFY_FEEDBACK_WEBHOOK`), logs locally when writable, and provides a **1-click `.json` report download**.
+* Sidebar **`💬 Report Error / Feedback`** modal collects **zero personal identifiers**, attaches read-only active construct diagnostic metadata, supports an optional **screenshot / picture attachment** (`PNG`, `JPG`, or `WEBP`, up to `4 MB`, magic-byte validated) with **inline preview**, optionally forwards payloads to `FEEDBACK_WEBHOOK_URL` (via Streamlit secrets or `PROPURIFY_FEEDBACK_WEBHOOK`, using multipart upload when an image is attached), logs locally when writable, and provides both a copyable diagnostic summary and a **1-click `.json` report download** (embedding compact screenshots $\le 350\text{ KB}$ as `data_uri`).
 
 ---
 
@@ -127,7 +128,7 @@ ProPurify Studio uses pure-Python/NumPy offline model weights (`4.04 MB`) with n
 
 ## 🧪 Running the Verification Test Suite
 
-ProPurify Studio includes a **14-suite regression and scientific verification script** covering ProtParam constants, buffer stoichiometry, all 7 purification methods, SEC hydrodynamics & 1,254-PDB calibration, SDS-PAGE monotonicity, natural-language disambiguation & Tree-of-Life ranking, void-volume aggregates, secondary structure inference & mega-protein Titin (34,350 aa), Inside-the-SEC-Column studio, metalloprotein/cofactor safety guards, all input methods, Tris-Glycine/Tricine gel casting recipes, interactive 3D structure handling, anonymous feedback, AI-designed protein behavior, and headless `AppTest` UI checks:
+ProPurify Studio includes **15 golden regression and scientific verification suites** covering ProtParam constants, buffer stoichiometry, all 7 purification methods, SEC hydrodynamics & 1,254-PDB calibration, SDS-PAGE monotonicity, natural-language disambiguation & Tree-of-Life ranking, void-volume aggregates, secondary structure inference & mega-protein Titin (34,350 aa), Inside-the-SEC-Column studio, metalloprotein/cofactor safety guards, all input methods, Tris-Glycine/Tricine gel casting recipes, 2-mode WebGL 3Dmol.js residue inspection, screenshot-enabled anonymous feedback, AI-designed protein behavior, XML-valid SVG visual explanations, Tab 5 Q3 comparison chart, and headless `AppTest` UI & audit regression invariants:
 
 ```bash
 python test_modules.py

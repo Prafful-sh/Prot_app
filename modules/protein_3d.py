@@ -1512,6 +1512,7 @@ def build_3dmol_viewer_html(
     spin: bool = False,
     show_hetatms: bool = True,
     height_px: int = 440,
+    is_alphafold: bool = False,
 ) -> str:
     """
     Returns a clean, self-contained HTML+JS WebGL 3Dmol.js molecular viewer component styled
@@ -1535,6 +1536,9 @@ def build_3dmol_viewer_html(
         Highlight bound non-water cofactors (Heme, FAD, NAD, etc.) and glowing metal ions (Zn2+, Fe2+, Ni2+).
     height_px : int
         Viewport height in pixels (clamped to [240, 1200]).
+    is_alphafold : bool
+        Marks coordinates as AlphaFold / AI pLDDT confidence-scored so hover tooltips label scores as `pLDDT`
+        even when viewing under non-pLDDT color schemes.
     """
     safe_height = max(240, min(1200, int(height_px)))
     safe_bg = bg_color.strip() if (isinstance(bg_color, str) and _HEX_COLOR_RE.fullmatch(bg_color.strip())) else "#F8FBF9"
@@ -1551,6 +1555,7 @@ def build_3dmol_viewer_html(
 
     spin_bool = bool(spin)
     het_bool = bool(show_hetatms)
+    alphafold_bool = bool(is_alphafold)
 
     if not isinstance(structure_text, str) or not structure_text.strip():
         return (
@@ -1561,7 +1566,7 @@ def build_3dmol_viewer_html(
             f'.pp3d-empty h4{{margin:0 0 8px 0;color:#111827;font-size:15px;}}'
             f'.pp3d-empty p{{margin:0;color:#52606D;font-size:13px;max-width:420px;line-height:1.5;}}</style></head>'
             f'<body><div class="pp3d-empty"><h4>No 3D Atomic Structure Loaded</h4>'
-            f'<p>Load an AlphaFold DB / RCSB PDB structure, upload a .pdb/.cif file, or explore the 100% Offline 3D Trajectory.</p>'
+            f'<p>Fetch a structure from AlphaFold DB / RCSB PDB, or upload a .pdb / .cif file to inspect interactive 3D atomic coordinates.</p>'
             f'</div></body></html>'
         )
 
@@ -1573,6 +1578,7 @@ def build_3dmol_viewer_html(
         "bgColor": safe_bg,
         "spin": spin_bool,
         "showHetatms": het_bool,
+        "isAlphaFold": alphafold_bool,
         "primaryCdn": THREEDMOL_PRIMARY_CDN,
         "fallbackCdn": THREEDMOL_FALLBACK_CDN,
     }
@@ -1698,14 +1704,24 @@ def build_3dmol_viewer_html(
     font-weight: 500;
     pointer-events: none;
     opacity: 0;
-    transition: opacity 0.12s ease;
+    transition: opacity 0.12s ease, background 0.15s ease, color 0.15s ease;
     max-width: 62%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }}
+  .pp3d-hover-pill.idle {{
+    opacity: 0.92;
+    background: rgba(255, 255, 255, 0.88);
+    color: #334E46;
+    border: 1px solid #C6DDD5;
+    backdrop-filter: blur(4px);
+  }}
   .pp3d-hover-pill.visible {{
     opacity: 1;
+    background: rgba(11, 34, 28, 0.92);
+    color: #F8FAFC;
+    border: 1px solid rgba(13, 148, 136, 0.50);
   }}
   .pp3d-status {{
     position: absolute;
@@ -1778,6 +1794,35 @@ def build_3dmol_viewer_html(
     MET: 1.9, MSE: 1.9, ALA: 1.8, GLY: -0.4, THR: -0.7,
     SER: -0.8, TRP: -0.9, TYR: -1.3, PRO: -1.6, HIS: -3.2,
     GLU: -3.5, GLN: -3.5, ASP: -3.5, ASN: -3.5, LYS: -3.9, ARG: -4.5
+  }};
+
+  var AA_FULL_NAMES = {{
+    ALA: ["Alanine", "A"],
+    ARG: ["Arginine", "R"],
+    ASN: ["Asparagine", "N"],
+    ASP: ["Aspartic Acid", "D"],
+    CYS: ["Cysteine", "C"],
+    GLN: ["Glutamine", "Q"],
+    GLU: ["Glutamic Acid", "E"],
+    GLY: ["Glycine", "G"],
+    HIS: ["Histidine", "H"],
+    ILE: ["Isoleucine", "I"],
+    LEU: ["Leucine", "L"],
+    LYS: ["Lysine", "K"],
+    MET: ["Methionine", "M"],
+    PHE: ["Phenylalanine", "F"],
+    PRO: ["Proline", "P"],
+    SER: ["Serine", "S"],
+    THR: ["Threonine", "T"],
+    TRP: ["Tryptophan", "W"],
+    TYR: ["Tyrosine", "Y"],
+    VAL: ["Valine", "V"],
+    MSE: ["Selenomethionine", "M"],
+    SEP: ["Phosphoserine", "S"],
+    TPO: ["Phosphothreonine", "T"],
+    PTR: ["Phosphotyrosine", "Y"],
+    SEC: ["Selenocysteine", "U"],
+    PYL: ["Pyrrolysine", "O"]
   }};
 
   var WATER_SET = {{ HOH: 1, WAT: 1, DOD: 1, H2O: 1, TIP: 1, TIP3: 1, SOL: 1 }};
@@ -1870,7 +1915,7 @@ def build_3dmol_viewer_html(
     if (typeof window.$3Dmol === "undefined") {{
       showError(
         "3Dmol.js WebGL Library Unavailable (Offline / CDN Blocked)",
-        "Could not load 3Dmol.js from primary or fallback CDN. Use the 100% Offline 3D Trajectory Explorer tab to inspect this protein without internet access."
+        "Could not load 3Dmol.js from primary or fallback CDN. Please check your internet connection and retry, or upload a .pdb / .cif file once connected."
       );
       return;
     }}
@@ -1880,7 +1925,7 @@ def build_3dmol_viewer_html(
       if (!gl) {{
         showError(
           "WebGL Unavailable in Browser",
-          "Your browser or GPU settings disabled WebGL acceleration. Switch to the Offline 3D Trajectory view to explore the structure interactively."
+          "Your browser or GPU settings disabled WebGL acceleration. Enable WebGL and retry, or upload a .pdb / .cif file in a WebGL-enabled browser."
         );
         return;
       }}
@@ -1890,6 +1935,9 @@ def build_3dmol_viewer_html(
         backgroundColor: CFG.bgColor,
         antialias: true
       }});
+      if (typeof viewer.setHoverDuration === "function") {{
+        viewer.setHoverDuration(50);
+      }}
 
       var model = viewer.addModel(CFG.structure, CFG.format);
       var atoms = model.selectedAtoms({{ hetflag: false }});
@@ -2001,40 +2049,94 @@ def build_3dmol_viewer_html(
         }}
       }}
 
-      viewer.setHoverable(
-        {{}},
-        true,
-        function(atom) {{
-          if (!atom) return;
-          var rn = (atom.resn || "").toUpperCase();
-          if (atom.hetflag) {{
-            if (WATER_SET[rn]) return;
-            hoverEl.textContent = "Ligand / Cofactor: " + rn + " (" + (atom.elem || atom.atom) + ") • Chain " + (atom.chain || "A") + " #" + atom.resi;
-          }} else {{
-            var ssMap = {{ h: "α-Helix", s: "β-Sheet", c: "Coil/Loop" }};
-            var ssLabel = ssMap[(atom.ss || "c").toLowerCase()] || "Coil/Loop";
-            var bStr = "";
-            if (typeof atom.b === "number") {{
-              var bVal = meta.bIsUnit ? (atom.b * 100.0) : atom.b;
-              bStr = (CFG.colorScheme === "plddt" ? " • pLDDT " : " • B ") + bVal.toFixed(1);
-            }}
-            hoverEl.textContent = rn + " " + atom.resi + " (Chain " + (atom.chain || "A") + ") • " + ssLabel + bStr;
-          }}
-          hoverEl.classList.add("visible");
-        }},
-        function() {{
-          hoverEl.classList.remove("visible");
+      var IDLE_HINT = "Hover or click any residue to view amino acid & number";
+      var activeHoverLabel = null;
+
+      function clearHoverInspection(skipRender) {{
+        if (activeHoverLabel) {{
+          try {{ viewer.removeLabel(activeHoverLabel); }} catch (e) {{}}
+          activeHoverLabel = null;
+          if (!skipRender) viewer.render();
         }}
-      );
+        hoverEl.textContent = IDLE_HINT;
+        hoverEl.classList.remove("visible");
+        hoverEl.classList.add("idle");
+      }}
+
+      function onInspect(atom) {{
+        if (!atom) return;
+        var rn = (atom.resn || "").toUpperCase().trim();
+        if (atom.hetflag && WATER_SET[rn]) return;
+
+        var resNum = (atom.resi !== undefined && atom.resi !== null) ? String(atom.resi) : "";
+        var chainId = atom.chain || "A";
+        var shortLbl = rn + (resNum ? " " + resNum : "");
+        var infoText = "";
+
+        var bStr = "";
+        if (typeof atom.b === "number" && isFinite(atom.b)) {{
+          var bVal = meta.bIsUnit ? (atom.b * 100.0) : atom.b;
+          var bKind = (CFG.colorScheme === "plddt" || CFG.isAlphaFold) ? "pLDDT" : "B";
+          bStr = " • " + bKind + " " + bVal.toFixed(1);
+        }}
+
+        if (atom.hetflag) {{
+          infoText = "Ligand / Cofactor: " + rn + " (" + (atom.elem || atom.atom || "") + ") • Chain " + chainId + (resNum ? " #" + resNum : "") + bStr;
+        }} else {{
+          var aaInfo = AA_FULL_NAMES[rn] || null;
+          var fullName = aaInfo ? aaInfo[0] : (rn || "Residue");
+          var oneLetter = aaInfo ? aaInfo[1] : "";
+          var resTitle = rn ? (rn.charAt(0) + rn.slice(1).toLowerCase()) : "Res";
+          if (aaInfo && oneLetter && resNum) {{
+            shortLbl = resTitle + " " + resNum + " (" + oneLetter + resNum + ")";
+          }}
+          var ssMap = {{ h: "α-Helix", g: "3₁₀-Helix", i: "π-Helix", s: "β-Sheet", e: "β-Sheet", b: "β-Bridge", c: "Coil/Loop" }};
+          var ssLabel = ssMap[(atom.ss || "c").toLowerCase()] || "Coil/Loop";
+          var oneTag = (oneLetter && resNum) ? (" • " + oneLetter + resNum) : "";
+          infoText = fullName + " (" + rn + ")" + (resNum ? " #" + resNum : "") + oneTag + " • Chain " + chainId + " • " + ssLabel + bStr;
+        }}
+
+        if (activeHoverLabel) {{
+          try {{ viewer.removeLabel(activeHoverLabel); }} catch (e) {{}}
+          activeHoverLabel = null;
+        }}
+        if (typeof atom.x === "number" && typeof atom.y === "number" && typeof atom.z === "number" && isFinite(atom.x) && isFinite(atom.y) && isFinite(atom.z)) {{
+          activeHoverLabel = viewer.addLabel(shortLbl, {{
+            position: {{ x: atom.x, y: atom.y, z: atom.z }},
+            backgroundColor: "#0F4C5C",
+            backgroundOpacity: 0.92,
+            fontColor: "#FFFFFF",
+            fontSize: 12,
+            font: "IBM Plex Sans, Arial, sans-serif",
+            inFront: true
+          }});
+          viewer.render();
+        }}
+
+        hoverEl.textContent = infoText;
+        hoverEl.classList.remove("idle");
+        hoverEl.classList.add("visible");
+      }}
+
+      function onLeave() {{
+        clearHoverInspection(false);
+      }}
+
+      viewer.setHoverable({{}}, true, onInspect, onLeave);
+      if (typeof viewer.setClickable === "function") {{
+        viewer.setClickable({{}}, true, onInspect);
+      }}
 
       var spinning = !!CFG.spin;
       viewer.zoomTo({{ hetflag: false }});
       if (atoms.length === 0) viewer.zoomTo();
+      clearHoverInspection(true);
       viewer.render();
       if (spinning) viewer.spin("y", 0.45);
       hideStatus();
 
       resetBtn.addEventListener("click", function() {{
+        clearHoverInspection(true);
         viewer.zoomTo({{ hetflag: false }});
         viewer.render();
       }});
@@ -2066,7 +2168,7 @@ def build_3dmol_viewer_html(
     }} catch (err) {{
       showError(
         "3D Structure Rendering Error",
-        "Unable to render WebGL structure (" + (err && err.message ? err.message : "unknown error") + "). Switch to the Offline 3D Trajectory view."
+        "Unable to render WebGL structure (" + (err && err.message ? err.message : "unknown error") + "). Please retry or upload a valid .pdb / .cif file."
       );
     }}
   }}
